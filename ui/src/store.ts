@@ -56,30 +56,11 @@ const setAwareStorage = {
 
 /**
  * Custom storage for Selection store - handles multiple Set fields
+ * Sets are serialized as arrays and converted back when loaded
  */
 const selectionStorage = {
   getItem: (name: string): string | null => {
-    const str = localStorage.getItem(name)
-    if (!str) return null
-
-    try {
-      const parsed = JSON.parse(str)
-      // Convert arrays back to Sets for all Set fields
-      if (parsed.state) {
-        if (Array.isArray(parsed.state.selectedHashes)) {
-          parsed.state.selectedHashes = new Set(parsed.state.selectedHashes)
-        }
-        if (Array.isArray(parsed.state.deletedHashes)) {
-          parsed.state.deletedHashes = new Set(parsed.state.deletedHashes)
-        }
-        if (Array.isArray(parsed.state.wrappedHashes)) {
-          parsed.state.wrappedHashes = new Set(parsed.state.wrappedHashes)
-        }
-      }
-      return JSON.stringify(parsed)
-    } catch {
-      return str
-    }
+    return localStorage.getItem(name)
   },
   setItem: (name: string, value: string): void => {
     try {
@@ -104,6 +85,34 @@ const selectionStorage = {
   removeItem: (name: string): void => {
     localStorage.removeItem(name)
   },
+}
+
+/**
+ * Merge function for Selection store - converts arrays back to Sets when loading from storage
+ */
+const mergeSelectionState = (
+  persistedState: unknown,
+  currentState: SelectionState
+): SelectionState => {
+  const persisted = persistedState as Partial<{
+    selectedHashes: string[] | Set<string>
+    deletedHashes: string[] | Set<string>
+    wrappedHashes: string[] | Set<string>
+  }>
+
+  return {
+    ...currentState,
+    deletedHashes: Array.isArray(persisted?.deletedHashes)
+      ? new Set(persisted.deletedHashes)
+      : persisted?.deletedHashes instanceof Set
+      ? persisted.deletedHashes
+      : currentState.deletedHashes,
+    wrappedHashes: Array.isArray(persisted?.wrappedHashes)
+      ? new Set(persisted.wrappedHashes)
+      : persisted?.wrappedHashes instanceof Set
+      ? persisted.wrappedHashes
+      : currentState.wrappedHashes,
+  }
 }
 
 // ============================================================================
@@ -342,6 +351,7 @@ export const useSelectionStore = create<SelectionState>()(
         deletedHashes: state.deletedHashes,
         wrappedHashes: state.wrappedHashes,
       }),
+      merge: mergeSelectionState,
     }
   )
 )

@@ -304,7 +304,7 @@
       "Apply line-clamp-3 when not wrapped"
     ],
     "reference": "./spec/ui-components.md#logline",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "ui",

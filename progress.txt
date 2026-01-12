@@ -382,3 +382,44 @@
 - ALL THREE ZUSTAND STORES ARE NOW COMPLETE (useLogViewerStore, useSelectionStore, useFileStore)
 - Next tasks should be UI components: ui-sidebar, ui-toolbar, ui-logline, ui-logviewer
 - Or backend tasks: backend-readfile, backend-json-escape, backend-recent-get, backend-recent-add
+
+## 2026-01-12 - ui-logline COMPLETED
+
+### What was done:
+- Created ui/src/components/LogLine.tsx - the core log entry display component
+- Implemented all required features per spec:
+  - Selection gutter on left (checkbox appears when selected)
+  - Timestamp column (extracts time from parsed timestamp)
+  - Service badge with color coding (matches service names to colors)
+  - Level badge with styling (ERROR=red, WARN=amber, INFO=blue, DEBUG=gray)
+  - Log content with truncation (line-clamp-3 when not wrapped)
+  - Click anywhere to toggle selection
+  - Content click toggles text wrapping
+  - Wrap toggle button on right
+- Added level-based row styling (ERROR lines have red background, etc.)
+- Created components/index.ts for clean exports
+- Updated App.tsx to use LogLine component instead of inline rendering
+- Fixed bug in store.ts: selectionStorage merge function wasn't converting arrays back to Sets on load
+- Verified with Playwright:
+  - Log entries render with service badge, content, wrap button
+  - Clicking on log entry toggles selection (selected count updates)
+  - Clicking on content toggles wrap (wrapped count updates)
+  - Visual indicators work (checkmark in gutter, button states)
+
+### Files created:
+- ui/src/components/LogLine.tsx
+- ui/src/components/index.ts
+
+### Files modified:
+- ui/src/App.tsx (imports and uses LogLine component)
+- ui/src/store.ts (fixed selectionStorage merge function for Set hydration)
+- prd.json (marked ui-logline as complete)
+
+### Notes for next developer:
+- Import LogLine: `import { LogLine } from './components'`
+- Props: `{ log, isSelected, isWrapped, onSelect, onToggleWrap }`
+- Component is memoized for performance
+- Service colors are defined in SERVICE_COLORS constant - add new services there
+- The component expects light theme styling - will need adjustment if app uses dark theme
+- Next tasks should be: ui-sidebar, ui-toolbar, ui-logviewer, or ui-dropzone
+- Consider ui-logviewer next as it will use LogLine and add keyboard shortcuts
