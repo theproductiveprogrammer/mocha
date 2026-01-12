@@ -601,7 +601,7 @@
       "Verify regex filter chip shows /pattern/"
     ],
     "reference": "./spec/testing.md",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "test",

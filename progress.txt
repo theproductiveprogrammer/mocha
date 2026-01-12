@@ -1105,3 +1105,40 @@
   - test-filter-service: Verify service badge filtering
   - test-select-all, test-select-delete, test-copy, test-wrap-toggle
 - Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+
+## 2026-01-12 - test-filter-regex VERIFIED
+
+### What was done:
+- Ran E2E test using Playwright against compiled mocha binary
+- Built frontend with `cd ui && npm run build`
+- Started mocha binary in headless mode on port 55995
+- Uploaded _tmp/logs/core-log-snippet.txt via file input
+- Verified all test-filter-regex requirements:
+  1. Loaded core-log-snippet.txt: 27/54 lines displayed
+  2. Typed `/Controller/` in filter input, pressed Enter
+  3. Verified only lines with 'Controller' visible: Line count reduced to 13/54 lines
+  4. Verified regex filter chip shows /pattern/: Purple `/Controller/` chip displayed with X button
+  5. Removed filter by clicking X: Line count returned to 27/54 lines
+
+### Verified with Playwright:
+- File loads correctly via browser file input (27/54 lines)
+- Regex filter `/Controller/` reduces visible logs from 27 to 13
+- Filter chip displays with purple background showing `/Controller/` and X button
+- All visible log entries contain "Controller" (AsyncJobController, UserController, MCPController, OpenAIProxyController)
+- Removing filter restores all 27 visible logs
+- Screenshot captured: test-filter-regex-success.png
+- No console errors
+
+### Files modified:
+- prd.json (marked test-filter-regex as complete with passes: "2026-01-12")
+
+### Notes for next developer:
+- Regex filtering is verified and working correctly
+- Regex patterns are detected by wrapping in forward slashes: /pattern/
+- Regex filter chips display with purple background to distinguish from plain text filters
+- The regex is applied case-sensitively to the log content
+- Next priority test tasks:
+  - test-filter-exclude: Verify exclude filtering with -prefix syntax
+  - test-filter-service: Verify service badge filtering
+  - test-select-all, test-select-delete, test-copy, test-wrap-toggle
+- Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
