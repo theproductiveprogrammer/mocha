@@ -125,3 +125,36 @@
   - backend-readfile: Already implemented in setup-webui, may just need verification
   - frontend-types: Create TypeScript type definitions
   - frontend-api: Create WebUI API wrapper (basic version exists in App.tsx)
+
+## 2026-01-12 - frontend-types COMPLETED
+
+### What was done:
+- Created ui/src/types.ts with comprehensive TypeScript type definitions
+- Defined all core types from spec/log-parser.md:
+  - LogEntry, ParsedLogLine, ApiCallInfo, ParsedLogFileResult
+  - LogLevel, ApiDirection, ApiPhase (enums/unions)
+- Defined file handling types from spec/webui-bindings.md:
+  - OpenedFile, RecentFile, FileResult
+- Defined filter types:
+  - ParsedFilter, FilterType
+- Defined Zustand store state interfaces:
+  - LogViewerState, SelectionState, FileState
+- Defined component props interfaces:
+  - SidebarProps, ToolbarProps, LogViewerProps, LogLineProps, DropZoneProps
+- Extended Window interface for WebUI global type
+- Updated App.tsx to import types (removed duplicate WebUI declaration)
+- Verified build succeeds with all types
+- Tested with Playwright - WebUI bindings still work correctly
+
+### Files created:
+- ui/src/types.ts
+
+### Files modified:
+- ui/src/App.tsx (import types instead of declaring WebUI inline)
+
+### Notes for next developer:
+- All TypeScript types are now centralized in ui/src/types.ts
+- Import types with: `import { LogEntry, FileResult, etc } from './types'`
+- The WebUI global type is declared in types.ts, so no need to declare it elsewhere
+- Next logical task is frontend-api to create the WebUI API wrapper
+- After that, frontend-parser-patterns to implement log parsing

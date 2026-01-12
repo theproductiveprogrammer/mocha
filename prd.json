@@ -122,7 +122,7 @@
       "Define RecentFile interface"
     ],
     "reference": "./spec/log-parser.md#type-definitions",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "frontend",

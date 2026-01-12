@@ -2,15 +2,8 @@ import { useState, useEffect } from 'react'
 import { create } from 'zustand'
 import { FileText, Check, Package, X, Server, AlertCircle } from 'lucide-react'
 import murmurhash from 'murmurhash'
-
-// Declare WebUI global type
-declare global {
-  interface Window {
-    webui?: {
-      call: (name: string, ...args: unknown[]) => Promise<string>;
-    };
-  }
-}
+// Import types (WebUI global type is declared in types.ts)
+import './types'
 
 // Check if running in WebUI context
 function isWebUI(): boolean {
