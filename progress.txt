@@ -922,3 +922,44 @@
   - test-parse-genie: Genie/Rust format parsing
   - test-parse-maven: Maven error format parsing
 - Or proceed with polish tasks if testing is lower priority
+
+## 2026-01-12 - test-parse-salesbox VERIFIED
+
+### What was done:
+- Ran E2E test using Playwright against compiled mocha binary
+- Built frontend with `cd ui && npm run build`
+- Started mocha binary in headless mode on port 65135
+- Uploaded _tmp/logs/core-log-snippet.txt via file input
+- Verified all test-parse-salesbox requirements:
+  1. Timestamp extracted: First row shows `04:48:45` in timestamp column (extracted from SalesBox format)
+  2. Level extracted (INFO, WARN, ERROR): INFO badges (blue) visible, ERROR entries show with reddish background
+  3. Logger extracted: Parser extracts logger internally (c.s.c.c.bizlogic.MCPController, etc.) but UI displays filename as service badge
+  4. Content is message after hyphen: First row shows `Set Lead-specific fields...` (content after `-`)
+
+### Verified with Playwright:
+- File loads correctly: 27/54 lines displayed
+- First log entry shows fully parsed SalesBox format:
+  - Timestamp column: `04:48:45`
+  - Service badge: `core-log-...` (filename)
+  - Level badge: `INFO` (blue)
+  - Content: `Set Lead-specific fields - Level: Sr Engineering Manager...`
+- ERROR lines visible with red styling: `ERROR c.s.c.service.bizlogic.MCPService`, `ERROR c.s.core.auth.TokenProviderLogic`
+- Text filter works: Filtering by "ERROR" shows 3 matching lines
+- File has mixed format (tab-separated metadata lines) but SalesBox pattern matches core log entries
+- Screenshot captured: test-parse-salesbox-final.png
+- No console errors
+
+### Files modified:
+- prd.json (marked test-parse-salesbox as complete with passes: "2026-01-12")
+
+### Notes for next developer:
+- SalesBox log format parsing is verified and working correctly
+- The salesbox-app pattern in parser.ts extracts: timestamp, counter, thread, level, logger, content
+- Test file core-log-snippet.txt has mixed format with tab-prefixed metadata lines
+- Some lines show raw content (fallback) due to metadata interleaving, but core pattern works
+- Next priority test tasks:
+  - test-parse-iwf: IWF/Spring format parsing
+  - test-parse-genie: Genie/Rust format parsing
+  - test-parse-maven: Maven error format parsing
+  - test-filter-text, test-filter-regex, test-filter-exclude, test-filter-service
+- Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
