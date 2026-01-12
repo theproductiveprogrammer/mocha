@@ -552,3 +552,42 @@
 - Toolbar uses white background (bg-white) to contrast with dark main content
 - Next tasks should be: ui-dropzone, ui-fileinput, or ui-app for full integration
 - Consider backend tasks: backend-readfile, backend-json-escape, backend-recent-get, backend-recent-add
+
+## 2026-01-12 - ui-dropzone COMPLETED
+
+### What was done:
+- Created ui/src/components/DropZone.tsx - drag-and-drop file loading component
+- Implemented all required features per spec:
+  - Invisible in normal state (renders children directly)
+  - Shows blue dashed border overlay when dragging files over the dropzone
+  - Overlay displays "Drop log file here" with "Accepts .log and .txt files" message
+  - Validates file extensions (.log and .txt only)
+  - Reads file content with FileReader
+  - Calls onFileDrop callback with content and filename
+  - Shows error message for invalid file types (auto-dismisses after 3s)
+  - Hides overlay after drop
+- Added DropZone export to components/index.ts
+- Integrated DropZone into App.tsx:
+  - Wraps the main scrollable content area
+  - handleFileDrop function parses file and updates all stores (parse result, current file, recent files)
+- Verified with Playwright:
+  - File upload via Upload button works (43 log entries loaded from genie.log)
+  - Drag overlay appears when simulating dragover event
+  - Overlay shows correct message and styling
+
+### Files created:
+- ui/src/components/DropZone.tsx
+
+### Files modified:
+- ui/src/components/index.ts (added DropZone export)
+- ui/src/App.tsx (integrated DropZone, added handleFileDrop function)
+- prd.json (marked ui-dropzone as complete)
+
+### Notes for next developer:
+- Import DropZone: `import { DropZone } from './components'`
+- Props: `{ onFileDrop: (content: string, fileName: string) => void, children: React.ReactNode }`
+- DropZone wraps content and handles all drag events
+- The overlay is absolute positioned with z-50 for proper stacking
+- Error messages auto-dismiss after 3 seconds
+- Next tasks should be: ui-fileinput (partially done - file input exists), ui-app (main app integration)
+- Or proceed with integration tasks: int-recent-load, int-recent-add, int-recent-reopen

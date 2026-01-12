@@ -10,7 +10,7 @@ import { parseLogFile } from './parser'
 // Import store and helpers
 import { useLogViewerStore, useSelectionStore, useFileStore, parseFilterInput, filterLogs } from './store'
 // Import components
-import { LogViewer, Sidebar, Toolbar } from './components'
+import { LogViewer, Sidebar, Toolbar, DropZone } from './components'
 
 function App() {
   // Log viewer store
@@ -155,6 +155,27 @@ function App() {
     setIsWatching(!isWatching)
   }
 
+  // Handle file drop from DropZone
+  const handleFileDrop = (content: string, fileName: string) => {
+    try {
+      const result = parseLogFile(content, fileName)
+      setParseResult(result)
+      setParseError(null)
+      // Clear filters when new file is loaded
+      clearFilters()
+      // Update file store
+      setCurrentFile({ path: fileName, name: fileName, size: content.length })
+      // Add to recent files
+      setRecentFiles([
+        { path: fileName, name: fileName, lastOpened: Date.now() },
+        ...recentFiles.filter(f => f.path !== fileName).slice(0, 19),
+      ])
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : 'Parse error')
+      setParseResult(null)
+    }
+  }
+
   return (
     <div className="h-screen flex bg-gray-50">
       {/* Sidebar */}
@@ -185,8 +206,9 @@ function App() {
           isWatching={isWatching}
         />
 
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-auto bg-gray-900 text-gray-100 p-8">
+        {/* Scrollable content with DropZone */}
+        <DropZone onFileDrop={handleFileDrop}>
+        <div className="flex-1 overflow-auto bg-gray-900 text-gray-100 p-8 h-full">
         <h1 className="text-3xl font-bold mb-4 flex items-center gap-3">
           <FileText className="w-8 h-8" />
           Mocha Log Viewer
@@ -668,6 +690,7 @@ function App() {
         )}
       </div>
         </div>
+        </DropZone>
       </div>
     </div>
   )

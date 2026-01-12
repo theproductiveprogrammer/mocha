@@ -336,7 +336,7 @@
       "Hide overlay after drop"
     ],
     "reference": "./spec/ui-components.md#dropzone",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "ui",
