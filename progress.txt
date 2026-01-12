@@ -92,3 +92,36 @@
 - Zustand pattern: `const useStore = create<State>((set) => ({ ... }))`
 - Lucide icons: import as React components from 'lucide-react'
 - Murmurhash: use `murmurhash.v3(string)` for consistent hashing
+
+## 2026-01-12 - setup-hello COMPLETED
+
+### What was done:
+- Added webui.js script tag to ui/index.html for WebUI bridge communication
+- Updated App.tsx with WebUI integration test section that:
+  - Detects if running in WebUI context (window.webui exists)
+  - Waits for WebSocket connection using webui.isConnected()
+  - Tests getRecentFiles binding (returns [] for fresh install)
+  - Tests readFile binding (successfully reads prd.json: 22011 bytes)
+- Added --headless flag to main.c for testing (uses webui_start_server instead of webui_show)
+- Verified with Playwright that:
+  - React app loads in WebUI-served browser window
+  - WebUI bridge is detected
+  - getRecentFiles binding works
+  - readFile binding works (read prd.json successfully)
+- Captured screenshot of successful test (setup-hello-success.png)
+
+### Files modified:
+- ui/index.html (added webui.js script, updated title to "Mocha Log Viewer")
+- ui/src/App.tsx (added WebUI Integration Test section)
+- src/main.c (added --headless flag support for testing)
+
+### Notes for next developer:
+- ALL SETUP TASKS ARE NOW COMPLETE!
+- The React frontend now communicates with the C backend via WebUI bindings
+- To run normally: `./mocha` (opens browser window)
+- To run for testing: `./mocha --headless` (starts server only, outputs URL)
+- The App.tsx test UI can be replaced with real log viewer components
+- Next tasks should be backend or frontend feature implementations:
+  - backend-readfile: Already implemented in setup-webui, may just need verification
+  - frontend-types: Create TypeScript type definitions
+  - frontend-api: Create WebUI API wrapper (basic version exists in App.tsx)

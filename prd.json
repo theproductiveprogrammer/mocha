@@ -51,7 +51,7 @@
       "Browser window opens with React app"
     ],
     "reference": "./spec/webui-bindings.md",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "backend",

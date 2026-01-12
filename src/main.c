@@ -265,9 +265,23 @@ void add_recent_file(webui_event_t* e) {
     free(new_json);
 }
 
-int main(void) {
+int main(int argc, char* argv[]) {
+    // Check for --headless flag (for testing)
+    int headless = 0;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--headless") == 0) {
+            headless = 1;
+            break;
+        }
+    }
+
     // Enable multi-client mode for testing
     webui_set_config(multi_client, true);
+
+    // Don't wait for connection in headless mode
+    if (headless) {
+        webui_set_config(show_wait_connection, false);
+    }
 
     // Create new window
     size_t win = webui_new_window();
@@ -280,13 +294,24 @@ int main(void) {
     // Serve frontend from dist folder
     webui_set_root_folder(win, "./dist");
 
-    // Show window with index.html
-    if (!webui_show(win, "index.html")) {
-        fprintf(stderr, "Failed to open browser window\n");
-        return 1;
+    if (headless) {
+        // Start server only (no browser window) for testing
+        const char* url = webui_start_server(win, "index.html");
+        if (!url) {
+            fprintf(stderr, "Failed to start server\n");
+            return 1;
+        }
+        printf("Server started at: %s\n", url);
+        fflush(stdout);
+    } else {
+        // Show window with index.html
+        if (!webui_show(win, "index.html")) {
+            fprintf(stderr, "Failed to open browser window\n");
+            return 1;
+        }
     }
 
-    // Wait for window to close
+    // Wait for window to close (or Ctrl+C in headless mode)
     webui_wait();
 
     return 0;
