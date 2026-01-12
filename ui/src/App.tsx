@@ -10,7 +10,7 @@ import { parseLogFile } from './parser'
 // Import store and helpers
 import { useLogViewerStore, useSelectionStore, useFileStore, parseFilterInput, filterLogs } from './store'
 // Import components
-import { LogViewer } from './components'
+import { LogViewer, Sidebar } from './components'
 
 function App() {
   // Log viewer store
@@ -127,13 +127,43 @@ function App() {
     }
   }
 
+  // Handle file selection from sidebar
+  const handleSelectFile = (path?: string) => {
+    if (path) {
+      // Re-open a recent file - for now just update current file
+      // In real implementation this would call readFile via WebUI
+      const file = recentFiles.find(f => f.path === path)
+      if (file) {
+        setCurrentFile({ path: file.path, name: file.name })
+      }
+    } else {
+      // Open file dialog - trigger file input click
+      fileInputRef.current?.click()
+    }
+  }
+
+  // Handle clearing recent files
+  const handleClearRecent = () => {
+    setRecentFiles([])
+  }
+
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 p-8">
-      <h1 className="text-3xl font-bold mb-4 flex items-center gap-3">
-        <FileText className="w-8 h-8" />
-        Mocha Log Viewer
-      </h1>
-      <p className="text-gray-400 mb-6">React + Vite + Tailwind setup complete</p>
+    <div className="h-screen flex bg-gray-50">
+      {/* Sidebar */}
+      <Sidebar
+        recentFiles={recentFiles}
+        currentFile={currentFile}
+        onSelectFile={handleSelectFile}
+        onClearRecent={handleClearRecent}
+      />
+
+      {/* Main content area */}
+      <div className="flex-1 overflow-auto bg-gray-900 text-gray-100 p-8">
+        <h1 className="text-3xl font-bold mb-4 flex items-center gap-3">
+          <FileText className="w-8 h-8" />
+          Mocha Log Viewer
+        </h1>
+        <p className="text-gray-400 mb-6">React + Vite + Tailwind setup complete</p>
 
       <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 mb-4">
         <h2 className="text-xl font-semibold mb-2 text-green-400">Setup Status</h2>
@@ -608,6 +638,7 @@ function App() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   )

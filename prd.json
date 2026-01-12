@@ -269,7 +269,7 @@
       "Add 'Clear' button for recent files"
     ],
     "reference": "./spec/ui-components.md#sidebar",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "ui",

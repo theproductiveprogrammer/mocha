@@ -469,3 +469,46 @@
 - Empty states show helpful messages for "no logs" vs "no matches"
 - Next tasks should be: ui-sidebar, ui-toolbar, or ui-dropzone
 - Integration tasks can start once Sidebar/Toolbar are ready
+
+## 2026-01-12 - ui-sidebar COMPLETED
+
+### What was done:
+- Created ui/src/components/Sidebar.tsx - file navigation sidebar component
+- Implemented all required features per spec:
+  - "Open File..." button at top that triggers file input
+  - Recent files list with file icon, name, and relative timestamp
+  - Active indicator (blue highlight) for currently open file
+  - Clear button (trash icon) to remove all recent files
+  - Click on recent file to re-open it
+  - Footer showing file count
+- Added formatRelativeTime() helper function for human-readable timestamps
+  - Displays "Just now", "X mins ago", "X hours ago", "X days ago"
+- Updated components/index.ts to export Sidebar
+- Integrated Sidebar into App.tsx layout:
+  - Added flex container with sidebar on left
+  - Added handleSelectFile() to open files or trigger file input
+  - Added handleClearRecent() to clear recent files list
+- Verified with Playwright:
+  - "Open File..." button triggers file chooser dialog
+  - File upload works and logs display correctly
+  - "Simulate File Load" button adds file to sidebar
+  - Recent file displays with name and "Just now" timestamp
+  - Clear button removes all recent files
+  - Sidebar layout appears correctly (light gray bg, 256px width)
+
+### Files created:
+- ui/src/components/Sidebar.tsx
+
+### Files modified:
+- ui/src/components/index.ts (added Sidebar export)
+- ui/src/App.tsx (integrated Sidebar into layout)
+- prd.json (marked ui-sidebar as complete)
+
+### Notes for next developer:
+- Import Sidebar: `import { Sidebar } from './components'`
+- Props: `{ recentFiles, currentFile, onSelectFile, onClearRecent }`
+- onSelectFile(path?) - if path provided, re-open that file; if undefined, trigger file dialog
+- formatRelativeTime() converts timestamps to human-readable strings
+- Sidebar uses light theme (bg-gray-50) while main content uses dark theme
+- Next tasks should be: ui-toolbar, ui-dropzone, ui-fileinput, or ui-app
+- Once Toolbar is done, can integrate all components into final App layout
