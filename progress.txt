@@ -423,3 +423,49 @@
 - The component expects light theme styling - will need adjustment if app uses dark theme
 - Next tasks should be: ui-sidebar, ui-toolbar, ui-logviewer, or ui-dropzone
 - Consider ui-logviewer next as it will use LogLine and add keyboard shortcuts
+
+## 2026-01-12 - ui-logviewer COMPLETED
+
+### What was done:
+- Created ui/src/components/LogViewer.tsx - the main log display component
+- Implemented all required features per spec:
+  - Applies service filter (inactiveNames) from useLogViewerStore
+  - Applies text/regex filters from useLogViewerStore
+  - Excludes deleted hashes from useSelectionStore
+  - Reverses logs for newest-first display
+  - Renders LogLine for each visible log entry
+  - Keyboard shortcuts:
+    - Ctrl+A: Select all visible logs
+    - Ctrl+C: Copy selected logs to clipboard
+    - Delete/Backspace: Hide selected logs (move to deleted)
+    - Escape: Clear selection
+  - Clipboard copy extracts raw log data in display order
+  - Empty state messages for no logs loaded or no matches
+- Updated components/index.ts to export LogViewer
+- Updated App.tsx to use LogViewer component instead of inline LogLine rendering
+- Cleaned up unused imports/variables in App.tsx (removed handleLogClick, toggleWrap, etc.)
+- Verified with Playwright:
+  - File upload loads 27 log entries
+  - Ctrl+A selects all 27 entries (verified by selected count)
+  - Delete key hides all selected (27 deleted, 0 visible)
+  - Restore Deleted button restores all hidden logs
+  - Wrap toggle works (Wrapped count updates)
+  - Service badges and timestamps display correctly
+
+### Files created:
+- ui/src/components/LogViewer.tsx
+
+### Files modified:
+- ui/src/components/index.ts (added LogViewer export)
+- ui/src/App.tsx (uses LogViewer, cleaned up unused code)
+- prd.json (marked ui-logviewer as complete)
+
+### Notes for next developer:
+- Import LogViewer: `import { LogViewer } from './components'`
+- Props: `{ logs: LogEntry[] }` - just pass the parsed logs array
+- LogViewer uses Zustand stores internally for filters/selection state
+- Keyboard shortcuts are global (document-level) but only fire when not in input fields
+- The component reverses logs automatically for newest-first display
+- Empty states show helpful messages for "no logs" vs "no matches"
+- Next tasks should be: ui-sidebar, ui-toolbar, or ui-dropzone
+- Integration tasks can start once Sidebar/Toolbar are ready

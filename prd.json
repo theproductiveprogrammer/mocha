@@ -321,7 +321,7 @@
       "Implement clipboard copy of selected lines"
     ],
     "reference": "./spec/ui-components.md#logviewer",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "ui",

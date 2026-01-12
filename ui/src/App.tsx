@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { FileText, Check, Package, X, Server, AlertCircle, Upload, Code, Filter, MousePointer, Trash2, FolderOpen, Loader2 } from 'lucide-react'
 // Import types (WebUI global type is declared in types.ts)
 import type { ParsedLogFileResult } from './types'
@@ -10,7 +10,7 @@ import { parseLogFile } from './parser'
 // Import store and helpers
 import { useLogViewerStore, useSelectionStore, useFileStore, parseFilterInput, filterLogs } from './store'
 // Import components
-import { LogLine } from './components'
+import { LogViewer } from './components'
 
 function App() {
   // Log viewer store
@@ -30,14 +30,10 @@ function App() {
     selectedHashes,
     deletedHashes,
     wrappedHashes,
-    lastSelectedHash,
-    toggleSelection,
-    selectRange,
     selectAll,
     deleteSelected,
     clearSelection,
     clearDeleted,
-    toggleWrap,
   } = useSelectionStore()
 
   // File store
@@ -80,20 +76,6 @@ function App() {
   const allHashes = useMemo(() => {
     return filteredLogs.map((log) => log.hash).filter((h): h is string => !!h)
   }, [filteredLogs])
-
-  // Handle log entry click for selection
-  const handleLogClick = useCallback((hash: string, event: React.MouseEvent) => {
-    if (event.shiftKey && lastSelectedHash) {
-      // Shift+Click: range selection
-      selectRange(lastSelectedHash, hash, allHashes)
-    } else if (event.ctrlKey || event.metaKey) {
-      // Ctrl/Cmd+Click: add to selection
-      toggleSelection(hash)
-    } else {
-      // Regular click: toggle single selection
-      toggleSelection(hash)
-    }
-  }, [lastSelectedHash, allHashes, selectRange, toggleSelection])
 
   // Test WebUI integration on mount using the API wrapper
   useEffect(() => {
@@ -617,30 +599,12 @@ function App() {
               )}
             </div>
 
-            {/* LogLine Component Demo */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden" data-testid="logline-demo">
-              <div className="max-h-96 overflow-y-auto">
-                {filteredLogs.slice(0, 50).map((log) => {
-                  const isSelected = log.hash ? selectedHashes.has(log.hash) : false
-                  const isWrapped = log.hash ? wrappedHashes.has(log.hash) : false
-
-                  return (
-                    <LogLine
-                      key={log.hash || log.data}
-                      log={log}
-                      isSelected={isSelected}
-                      isWrapped={isWrapped}
-                      onSelect={handleLogClick}
-                      onToggleWrap={toggleWrap}
-                    />
-                  )
-                })}
-              </div>
-              {filteredLogs.length > 50 && (
-                <div className="text-gray-500 text-sm p-2 bg-gray-50 border-t border-gray-200">
-                  ... and {filteredLogs.length - 50} more entries
-                </div>
-              )}
+            {/* LogViewer Component Demo */}
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden h-96" data-testid="logviewer-demo">
+              <LogViewer logs={parseResult.logs} />
+            </div>
+            <div className="text-xs text-gray-500 mt-2">
+              <p><strong>Keyboard shortcuts:</strong> Ctrl+A (select all), Ctrl+C (copy), Delete (hide selected), Escape (clear selection)</p>
             </div>
           </div>
         )}
