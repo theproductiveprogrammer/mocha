@@ -350,7 +350,7 @@
       "Parse and display selected file"
     ],
     "reference": "./spec/webui-bindings.md#1-browser-file-input",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "ui",

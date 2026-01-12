@@ -807,3 +807,41 @@
   - ui-fileinput: Browser file input (file input exists but not formally verified)
   - Polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
   - Test tasks: All test-* tasks need verification
+
+## 2026-01-12 - ui-fileinput VERIFIED AND COMPLETED
+
+### What was done:
+- Verified that browser file input was already fully implemented in App.tsx
+- Tested with Playwright to confirm all functionality works:
+  - Hidden `<input type="file">` element exists at line 296-303 in App.tsx
+  - Accept `.log` and `.txt` extensions configured
+  - "Open File" button triggers file dialog via fileInputRef.current?.click()
+  - FileReader reads file content (handleFileInputChange callback at line 148-195)
+  - Parsed logs display correctly with timestamps, levels, and service badges
+
+### Verified with Playwright:
+- Started Vite dev server on port 5174
+- Clicked "Open File" button - file chooser dialog opened
+- Uploaded genie.log (43/44 lines parsed and displayed)
+- Uploaded core-log-snippet.txt (27/54 lines parsed and displayed)
+- Both .log and .txt extensions accepted correctly
+- Recent files list updated after file upload
+- File info displayed in toolbar (name, line count)
+- Log entries show timestamps, level badges (DEBUG, INFO, ERROR), and service badges
+- No console errors
+
+### Files modified:
+- prd.json (marked ui-fileinput as complete with passes: "2026-01-12")
+
+### Notes for next developer:
+- ALL UI COMPONENTS ARE NOW VERIFIED AND COMPLETE
+- The file input implementation was already in place from the ui-app task
+- Key implementation details:
+  - Hidden input ref: fileInputRef
+  - Accept attribute: accept=".log,.txt"
+  - data-testid="file-input" for testing
+  - handleFileInputChange reads with FileReader, parses with parseLogFile()
+  - Recent files updated locally in browser mode (no WebUI backend needed)
+- Next priority tasks:
+  - Polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+  - Test tasks: All test-* tasks need verification with Playwright
