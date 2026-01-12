@@ -885,3 +885,40 @@
   - test-parse-genie: Genie/Rust format parsing
   - test-parse-maven: Maven error format parsing
 - Or proceed with polish tasks if testing is lower priority
+
+## 2026-01-12 - test-file-truncate VERIFIED
+
+### What was done:
+- Ran E2E test using Playwright against compiled mocha binary
+- Built frontend with `cd ui && npm run build`
+- Started mocha binary in headless mode
+- Uploaded _tmp/logs/salesbox_microservice_core.log (11MB, 11610 lines)
+- Verified all test-file-truncate requirements:
+  1. Large file uploaded successfully
+  2. Truncation indicator shows: Orange "⚠ truncated" badge visible in toolbar
+  3. Log count limited: "1999/11610 lines" displayed (within 2000 line limit)
+  4. Message shown: "File truncated to last 2000 lines"
+
+### Verified with Playwright:
+- File loads correctly (11MB salesbox_microservice_core.log)
+- Line count: 1999/11610 lines displayed
+- Truncation indicator: Orange warning badge with "truncated" text
+- Service badge: "salesbox_microservice_co" appears on each log entry
+- Timestamps extracted: 11:33:24, 11:33:23, etc.
+- Level badges: INFO badges visible on all entries
+- No console errors
+- Screenshot captured: test-file-truncate-success.png
+
+### Files modified:
+- prd.json (marked test-file-truncate as complete with passes: "2026-01-12")
+
+### Notes for next developer:
+- Large file truncation is verified and working correctly
+- Parser limits output to last 2000 lines as specified in spec
+- Truncation indicator is orange warning badge in toolbar
+- Next priority test tasks:
+  - test-parse-salesbox: SalesBox format parsing verification
+  - test-parse-iwf: IWF/Spring format parsing
+  - test-parse-genie: Genie/Rust format parsing
+  - test-parse-maven: Maven error format parsing
+- Or proceed with polish tasks if testing is lower priority
