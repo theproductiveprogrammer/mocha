@@ -1142,3 +1142,42 @@
   - test-filter-service: Verify service badge filtering
   - test-select-all, test-select-delete, test-copy, test-wrap-toggle
 - Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+
+## 2026-01-12 - test-filter-exclude VERIFIED
+
+### What was done:
+- Ran E2E test using Playwright against compiled mocha binary
+- Built frontend with `cd ui && npm run build`
+- Started mocha binary in headless mode on port 60798
+- Uploaded _tmp/logs/core-log-snippet.txt via file input
+- Verified all test-filter-exclude requirements:
+  1. Loaded core-log-snippet.txt: 27/54 lines displayed
+  2. Typed '-INFO' in filter input, pressed Enter
+  3. Verified INFO lines are hidden: Line count reduced to 2/54 lines
+  4. Verified ERROR lines still visible: Both ERROR entries displayed:
+     - `ERROR c.s.c.service.bizlogic.MCPService - Invalid or expired JWT token`
+     - `ERROR c.s.core.auth.TokenProviderLogic - Token has expired`
+  5. Verified exclude filter chip appears with "-INFO" text and X button
+  6. Removed filter by clicking X: Line count returned to 27/54 lines
+
+### Verified with Playwright:
+- File loads correctly via browser file input (27/54 lines)
+- Exclude filter `-INFO` reduces visible logs from 27 to 2 (only ERROR lines remain)
+- Filter chip displays showing "-INFO" with remove button (X)
+- Only ERROR lines visible when exclude filter is active
+- Removing filter restores all 27 visible logs including INFO entries
+- No console errors
+
+### Files modified:
+- prd.json (marked test-filter-exclude as complete with passes: "2026-01-12")
+
+### Notes for next developer:
+- Exclude filtering is verified and working correctly
+- Exclude patterns are detected by the `-` prefix: `-text` hides matching lines
+- The exclude filter hides any line containing the specified text (case-insensitive match on log content)
+- Exclude filter chips display in the toolbar with distinct styling
+- Next priority test tasks:
+  - test-filter-service: Verify service badge filtering
+  - test-select-all, test-select-delete, test-copy, test-wrap-toggle
+  - test-polling, test-recent-persist
+- Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
