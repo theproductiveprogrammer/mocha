@@ -377,7 +377,7 @@
       "Display in Sidebar component",
       "Handle errors gracefully"
     ],
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "integration",
@@ -389,7 +389,7 @@
       "For recent file click, path is full path",
       "Refresh recent files list after add"
     ],
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "integration",
@@ -402,7 +402,7 @@
       "Update currentFile state"
     ],
     "reference": "./spec/webui-bindings.md#3-recent-files-via-c-backend",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "integration",

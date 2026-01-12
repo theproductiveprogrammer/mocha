@@ -640,3 +640,42 @@
   - backend-recent-add: Already implemented in setup-webui
 - Or integration tasks: int-recent-load, int-recent-add, int-recent-reopen, int-polling, int-hash
 - Polish tasks can be done after core functionality is complete
+
+## 2026-01-12 - int-recent-load, int-recent-add, int-recent-reopen COMPLETED
+
+### What was done:
+- Verified that all three recent files integration tasks were already implemented in App.tsx
+- Tested full integration with Playwright against the WebUI backend:
+  - getRecentFiles() is called on app mount (lines 66-82 in App.tsx)
+  - Recent files are stored in useFileStore and displayed in Sidebar
+  - Errors are handled gracefully (try/catch with console.error)
+  - addRecentFile(path) is called after opening files (line 126 in handleOpenFile)
+  - For browser input/drop, path is just the filename
+  - For recent files via WebUI, full path is used
+  - Recent files list is refreshed after adding (lines 129-130)
+  - Clicking recent file calls readFile(path, 0) via handleOpenFile (lines 97-103)
+  - Content is parsed with parseLogFile() and displayed in LogViewer
+  - currentFile state is updated properly
+
+### Verified with Playwright:
+- Started mocha binary in headless mode on port 18876
+- Navigated to app, confirmed "No recent files" initially shown
+- Tested readFile binding: Successfully read genie.log (6009 bytes)
+- Tested addRecentFile binding: Added genie.log to recent files
+- Tested getRecentFiles binding: Returns array with 1 file
+- Page reload shows recent file in sidebar after WebSocket connects
+- Clicked recent file: File opens with 43/44 lines parsed and displayed
+- Toolbar shows full file path and line count
+- Log entries show timestamps, DEBUG/INFO levels, service badges
+- Recent files list updates to show 2 entries (file added again on reopen)
+
+### Files modified:
+- prd.json (marked int-recent-load, int-recent-add, int-recent-reopen as complete)
+
+### Notes for next developer:
+- All recent files integration is now complete and verified
+- The implementation was already in place from the ui-app task
+- Next priority task is int-polling to implement file watching/polling
+- After that, int-hash for hash generation (also may already be implemented)
+- Backend tasks (backend-readfile, backend-json-escape, backend-recent-get, backend-recent-add) are also implemented but not formally marked - could verify and mark them
+- Then move to polish tasks and test tasks
