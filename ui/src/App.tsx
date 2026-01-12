@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
-import { FileText, Check, Package, X, Server, AlertCircle, Upload, Code, Filter } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { FileText, Check, Package, X, Server, AlertCircle, Upload, Code, Filter, MousePointer, Trash2, WrapText } from 'lucide-react'
 // Import types (WebUI global type is declared in types.ts)
 import type { ParsedLogFileResult } from './types'
 import './types'
@@ -8,7 +8,7 @@ import { isWebUI, waitForConnection, readFile, getRecentFiles } from './api'
 // Import log parser
 import { parseLogFile } from './parser'
 // Import store and helpers
-import { useLogViewerStore, parseFilterInput, filterLogs } from './store'
+import { useLogViewerStore, useSelectionStore, parseFilterInput, filterLogs } from './store'
 
 function App() {
   // Log viewer store
@@ -22,6 +22,21 @@ function App() {
     clearFilters,
     setInput,
   } = useLogViewerStore()
+
+  // Selection store
+  const {
+    selectedHashes,
+    deletedHashes,
+    wrappedHashes,
+    lastSelectedHash,
+    toggleSelection,
+    selectRange,
+    selectAll,
+    deleteSelected,
+    clearSelection,
+    clearDeleted,
+    toggleWrap,
+  } = useSelectionStore()
 
   // WebUI integration state
   const [webuiDetected, setWebuiDetected] = useState<boolean | null>(null)
@@ -41,11 +56,30 @@ function App() {
     return Array.from(names).sort()
   }, [parseResult])
 
-  // Filter logs using the store state
+  // Filter logs using the store state (including deleted hashes)
   const filteredLogs = useMemo(() => {
     if (!parseResult) return []
-    return filterLogs(parseResult.logs, filters, inactiveNames)
-  }, [parseResult, filters, inactiveNames])
+    return filterLogs(parseResult.logs, filters, inactiveNames, deletedHashes)
+  }, [parseResult, filters, inactiveNames, deletedHashes])
+
+  // Get all hashes for selection operations
+  const allHashes = useMemo(() => {
+    return filteredLogs.map((log) => log.hash).filter((h): h is string => !!h)
+  }, [filteredLogs])
+
+  // Handle log entry click for selection
+  const handleLogClick = useCallback((hash: string, event: React.MouseEvent) => {
+    if (event.shiftKey && lastSelectedHash) {
+      // Shift+Click: range selection
+      selectRange(lastSelectedHash, hash, allHashes)
+    } else if (event.ctrlKey || event.metaKey) {
+      // Ctrl/Cmd+Click: add to selection
+      toggleSelection(hash)
+    } else {
+      // Regular click: toggle single selection
+      toggleSelection(hash)
+    }
+  }, [lastSelectedHash, allHashes, selectRange, toggleSelection])
 
   // Test WebUI integration on mount using the API wrapper
   useEffect(() => {
@@ -289,6 +323,81 @@ function App() {
         )}
       </div>
 
+      {/* Selection Store Test Section */}
+      <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 mb-4">
+        <h2 className="text-xl font-semibold mb-2 text-pink-400 flex items-center gap-2">
+          <MousePointer className="w-5 h-5" />
+          Selection Test (useSelectionStore)
+        </h2>
+
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          {/* Selection stats */}
+          <div className="bg-gray-900 p-3 rounded">
+            <div className="text-sm text-gray-400 mb-1">Selected</div>
+            <div className="text-2xl font-bold text-pink-400" data-testid="selected-count">
+              {selectedHashes.size}
+            </div>
+          </div>
+          <div className="bg-gray-900 p-3 rounded">
+            <div className="text-sm text-gray-400 mb-1">Deleted (hidden)</div>
+            <div className="text-2xl font-bold text-red-400" data-testid="deleted-count">
+              {deletedHashes.size}
+            </div>
+          </div>
+          <div className="bg-gray-900 p-3 rounded">
+            <div className="text-sm text-gray-400 mb-1">Wrapped</div>
+            <div className="text-2xl font-bold text-blue-400" data-testid="wrapped-count">
+              {wrappedHashes.size}
+            </div>
+          </div>
+        </div>
+
+        {/* Selection action buttons */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => selectAll(allHashes)}
+            disabled={allHashes.length === 0}
+            className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm flex items-center gap-1"
+            data-testid="select-all-btn"
+          >
+            <Check className="w-4 h-4" />
+            Select All ({allHashes.length})
+          </button>
+          <button
+            onClick={clearSelection}
+            disabled={selectedHashes.size === 0}
+            className="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm flex items-center gap-1"
+            data-testid="clear-selection-btn"
+          >
+            <X className="w-4 h-4" />
+            Clear Selection
+          </button>
+          <button
+            onClick={deleteSelected}
+            disabled={selectedHashes.size === 0}
+            className="px-3 py-1.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm flex items-center gap-1"
+            data-testid="delete-selected-btn"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete Selected
+          </button>
+          <button
+            onClick={clearDeleted}
+            disabled={deletedHashes.size === 0}
+            className="px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm flex items-center gap-1"
+            data-testid="restore-deleted-btn"
+          >
+            <Check className="w-4 h-4" />
+            Restore Deleted
+          </button>
+        </div>
+
+        {/* Instructions */}
+        <div className="text-xs text-gray-500">
+          <p>Click a log entry to select. Shift+Click for range. Ctrl/Cmd+Click to add. Click content to toggle wrap.</p>
+        </div>
+      </div>
+
       <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
         <h2 className="text-xl font-semibold mb-2 text-orange-400 flex items-center gap-2">
           <Code className="w-5 h-5" />
@@ -350,59 +459,100 @@ function App() {
             </div>
 
             <div className="max-h-96 overflow-y-auto space-y-2">
-              {filteredLogs.slice(0, 20).map((log, idx) => (
-                <div
-                  key={log.hash || idx}
-                  className="bg-gray-900 p-3 rounded text-xs font-mono border border-gray-700"
-                  data-testid={`log-entry-${idx}`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    {log.parsed?.level && (
-                      <span
-                        className={`px-2 py-0.5 rounded text-xs font-bold ${
-                          log.parsed.level === 'ERROR'
-                            ? 'bg-red-900 text-red-300'
-                            : log.parsed.level === 'WARN'
-                            ? 'bg-yellow-900 text-yellow-300'
-                            : log.parsed.level === 'INFO'
-                            ? 'bg-blue-900 text-blue-300'
-                            : log.parsed.level === 'DEBUG'
-                            ? 'bg-gray-700 text-gray-300'
-                            : 'bg-gray-700 text-gray-400'
+              {filteredLogs.slice(0, 20).map((log, idx) => {
+                const isSelected = log.hash ? selectedHashes.has(log.hash) : false
+                const isWrapped = log.hash ? wrappedHashes.has(log.hash) : false
+
+                return (
+                  <div
+                    key={log.hash || idx}
+                    className={`bg-gray-900 p-3 rounded text-xs font-mono border cursor-pointer transition-colors ${
+                      isSelected
+                        ? 'border-pink-500 bg-pink-900/20'
+                        : 'border-gray-700 hover:border-gray-500'
+                    }`}
+                    onClick={(e) => log.hash && handleLogClick(log.hash, e)}
+                    data-testid={`log-entry-${idx}`}
+                    data-selected={isSelected}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      {/* Selection indicator */}
+                      <div
+                        className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${
+                          isSelected
+                            ? 'bg-pink-600 border-pink-500'
+                            : 'border-gray-600 hover:border-gray-400'
                         }`}
-                        data-testid={`log-level-${idx}`}
+                        data-testid={`log-checkbox-${idx}`}
                       >
-                        {log.parsed.level}
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                      </div>
+
+                      {log.parsed?.level && (
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs font-bold ${
+                            log.parsed.level === 'ERROR'
+                              ? 'bg-red-900 text-red-300'
+                              : log.parsed.level === 'WARN'
+                              ? 'bg-yellow-900 text-yellow-300'
+                              : log.parsed.level === 'INFO'
+                              ? 'bg-blue-900 text-blue-300'
+                              : log.parsed.level === 'DEBUG'
+                              ? 'bg-gray-700 text-gray-300'
+                              : 'bg-gray-700 text-gray-400'
+                          }`}
+                          data-testid={`log-level-${idx}`}
+                        >
+                          {log.parsed.level}
+                        </span>
+                      )}
+                      {log.parsed?.timestamp && (
+                        <span className="text-gray-500" data-testid={`log-timestamp-${idx}`}>
+                          {log.parsed.timestamp}
+                        </span>
+                      )}
+                      {log.parsed?.logger && (
+                        <span className="text-purple-400" data-testid={`log-logger-${idx}`}>
+                          {log.parsed.logger}
+                        </span>
+                      )}
+                      <span
+                        className="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-400"
+                        data-testid={`log-service-${idx}`}
+                      >
+                        {log.name}
                       </span>
-                    )}
-                    {log.parsed?.timestamp && (
-                      <span className="text-gray-500" data-testid={`log-timestamp-${idx}`}>
-                        {log.parsed.timestamp}
-                      </span>
-                    )}
-                    {log.parsed?.logger && (
-                      <span className="text-purple-400" data-testid={`log-logger-${idx}`}>
-                        {log.parsed.logger}
-                      </span>
-                    )}
-                    <span
-                      className="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-400"
-                      data-testid={`log-service-${idx}`}
-                    >
-                      {log.name}
-                    </span>
-                  </div>
-                  <div className="text-gray-300 line-clamp-2" data-testid={`log-content-${idx}`}>
-                    {log.parsed?.content || log.data}
-                  </div>
-                  {log.parsed?.apiCall && (
-                    <div className="mt-1 text-cyan-400 text-xs" data-testid={`log-api-${idx}`}>
-                      API: {log.parsed.apiCall.direction} {log.parsed.apiCall.method || ''} {log.parsed.apiCall.endpoint}
-                      {log.parsed.apiCall.status && ` -> ${log.parsed.apiCall.status}`}
+
+                      {/* Wrap toggle button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (log.hash) toggleWrap(log.hash)
+                        }}
+                        className={`ml-auto p-1 rounded hover:bg-gray-700 ${
+                          isWrapped ? 'text-blue-400' : 'text-gray-500'
+                        }`}
+                        title={isWrapped ? 'Collapse text' : 'Expand text'}
+                        data-testid={`log-wrap-${idx}`}
+                      >
+                        <WrapText className="w-4 h-4" />
+                      </button>
                     </div>
-                  )}
-                </div>
-              ))}
+                    <div
+                      className={`text-gray-300 ${isWrapped ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}
+                      data-testid={`log-content-${idx}`}
+                    >
+                      {log.parsed?.content || log.data}
+                    </div>
+                    {log.parsed?.apiCall && (
+                      <div className="mt-1 text-cyan-400 text-xs" data-testid={`log-api-${idx}`}>
+                        API: {log.parsed.apiCall.direction} {log.parsed.apiCall.method || ''} {log.parsed.apiCall.endpoint}
+                        {log.parsed.apiCall.status && ` -> ${log.parsed.apiCall.status}`}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
               {filteredLogs.length > 20 && (
                 <div className="text-gray-500 text-sm">
                   ... and {filteredLogs.length - 20} more entries

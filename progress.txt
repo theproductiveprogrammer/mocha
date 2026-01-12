@@ -298,3 +298,47 @@
 - localStorage key: "mocha-log-viewer-state"
 - Next tasks should be frontend-store-selection and frontend-store-file for remaining stores
 - After stores are complete, proceed to UI components (ui-sidebar, ui-toolbar, ui-logline, ui-logviewer)
+
+## 2026-01-12 - frontend-store-selection COMPLETED
+
+### What was done:
+- Added useSelectionStore to ui/src/store.ts with full selection, deletion, and wrap management
+- Implemented all required state and actions:
+  - selectedHashes: Set<string> for currently selected log hashes
+  - deletedHashes: Set<string> for hidden/deleted log hashes
+  - wrappedHashes: Set<string> for logs with expanded text wrapping
+  - lastSelectedHash: string | null for Shift+Click range selection tracking
+  - toggleSelection: Toggle single log selection
+  - selectRange: Select range between two hashes (for Shift+Click)
+  - selectAll: Select all visible logs
+  - deleteSelected: Move selected to deleted (hide them)
+  - clearSelection: Clear all selections
+  - clearDeleted: Restore all hidden logs
+  - toggleWrap: Toggle text wrapping for a log entry
+  - cleanupInvalidHashes: Remove stale hashes when loading new file
+- Added custom selectionStorage for Set serialization/deserialization
+- Added localStorage persistence (only deletedHashes and wrappedHashes persist - selections reset on load)
+- Updated App.tsx with Selection Test section:
+  - Stats display (Selected, Deleted, Wrapped counts)
+  - Action buttons (Select All, Clear Selection, Delete Selected, Restore Deleted)
+  - Log entries with selection checkboxes and wrap toggle buttons
+  - Click to select, Shift+Click for range, Ctrl/Cmd+Click to add
+- Verified with Playwright:
+  - Single selection works (click log entry, selected count = 1)
+  - Select All works (43 logs selected)
+  - Delete Selected works (43 deleted, 0 visible)
+  - Restore Deleted works (all 43 visible again)
+  - Wrap toggle works (expand/collapse text button)
+
+### Files modified:
+- ui/src/store.ts (added useSelectionStore and selectionStorage)
+- ui/src/App.tsx (added Selection Test section with interactive UI)
+- prd.json (marked frontend-store-selection as complete)
+
+### Notes for next developer:
+- Import selection store: `import { useSelectionStore } from './store'`
+- Store hook usage: `const { selectedHashes, toggleSelection, selectAll, ... } = useSelectionStore()`
+- Use filterLogs with deletedHashes to hide deleted logs: `filterLogs(logs, filters, inactiveNames, deletedHashes)`
+- localStorage key: "mocha-selection-state"
+- Next task should be frontend-store-file for file state management
+- After all stores are complete, proceed to UI components (ui-sidebar, ui-toolbar, ui-logline, ui-logviewer)

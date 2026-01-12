@@ -7,7 +7,7 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { LogViewerState, ParsedFilter } from './types'
+import type { LogViewerState, SelectionState, ParsedFilter } from './types'
 
 // ============================================================================
 // Custom Storage for Set serialization
@@ -42,6 +42,58 @@ const setAwareStorage = {
       if (parsed.state) {
         if (parsed.state.inactiveNames instanceof Set) {
           parsed.state.inactiveNames = Array.from(parsed.state.inactiveNames)
+        }
+      }
+      localStorage.setItem(name, JSON.stringify(parsed))
+    } catch {
+      localStorage.setItem(name, value)
+    }
+  },
+  removeItem: (name: string): void => {
+    localStorage.removeItem(name)
+  },
+}
+
+/**
+ * Custom storage for Selection store - handles multiple Set fields
+ */
+const selectionStorage = {
+  getItem: (name: string): string | null => {
+    const str = localStorage.getItem(name)
+    if (!str) return null
+
+    try {
+      const parsed = JSON.parse(str)
+      // Convert arrays back to Sets for all Set fields
+      if (parsed.state) {
+        if (Array.isArray(parsed.state.selectedHashes)) {
+          parsed.state.selectedHashes = new Set(parsed.state.selectedHashes)
+        }
+        if (Array.isArray(parsed.state.deletedHashes)) {
+          parsed.state.deletedHashes = new Set(parsed.state.deletedHashes)
+        }
+        if (Array.isArray(parsed.state.wrappedHashes)) {
+          parsed.state.wrappedHashes = new Set(parsed.state.wrappedHashes)
+        }
+      }
+      return JSON.stringify(parsed)
+    } catch {
+      return str
+    }
+  },
+  setItem: (name: string, value: string): void => {
+    try {
+      const parsed = JSON.parse(value)
+      // Convert Sets to arrays for JSON storage
+      if (parsed.state) {
+        if (parsed.state.selectedHashes instanceof Set) {
+          parsed.state.selectedHashes = Array.from(parsed.state.selectedHashes)
+        }
+        if (parsed.state.deletedHashes instanceof Set) {
+          parsed.state.deletedHashes = Array.from(parsed.state.deletedHashes)
+        }
+        if (parsed.state.wrappedHashes instanceof Set) {
+          parsed.state.wrappedHashes = Array.from(parsed.state.wrappedHashes)
         }
       }
       localStorage.setItem(name, JSON.stringify(parsed))
@@ -132,6 +184,163 @@ export const useLogViewerStore = create<LogViewerState>()(
         inactiveNames: state.inactiveNames,
         filters: state.filters,
         // Don't persist input - always start empty
+      }),
+    }
+  )
+)
+
+// ============================================================================
+// useSelectionStore - Selection, deletion, and wrap state
+// ============================================================================
+
+/**
+ * Store for managing log line selection, deletion (hiding), and text wrapping.
+ *
+ * Features:
+ * - selectedHashes: Set of currently selected log hashes
+ * - deletedHashes: Set of hidden/deleted log hashes
+ * - wrappedHashes: Set of logs with expanded text wrapping
+ * - lastSelectedHash: Tracks last selection for Shift+Click range selection
+ *
+ * Only deletedHashes and wrappedHashes are persisted to localStorage.
+ */
+export const useSelectionStore = create<SelectionState>()(
+  persist(
+    (set, get) => ({
+      // State
+      selectedHashes: new Set<string>(),
+      deletedHashes: new Set<string>(),
+      wrappedHashes: new Set<string>(),
+      lastSelectedHash: null,
+
+      // Actions
+
+      /**
+       * Toggle selection of a single log entry.
+       * Updates lastSelectedHash for range selection support.
+       */
+      toggleSelection: (hash: string) => {
+        const { selectedHashes } = get()
+        const newSelected = new Set(selectedHashes)
+
+        if (newSelected.has(hash)) {
+          newSelected.delete(hash)
+        } else {
+          newSelected.add(hash)
+        }
+
+        set({ selectedHashes: newSelected, lastSelectedHash: hash })
+      },
+
+      /**
+       * Select a range of log entries between two hashes (for Shift+Click).
+       * Requires the full list of hashes to determine the range.
+       */
+      selectRange: (hash1: string, hash2: string, allHashes: string[]) => {
+        const idx1 = allHashes.indexOf(hash1)
+        const idx2 = allHashes.indexOf(hash2)
+
+        if (idx1 === -1 || idx2 === -1) return
+
+        const start = Math.min(idx1, idx2)
+        const end = Math.max(idx1, idx2)
+        const rangeHashes = allHashes.slice(start, end + 1)
+
+        const { selectedHashes } = get()
+        const newSelected = new Set(selectedHashes)
+
+        for (const hash of rangeHashes) {
+          newSelected.add(hash)
+        }
+
+        set({ selectedHashes: newSelected, lastSelectedHash: hash2 })
+      },
+
+      /**
+       * Select all log entries from the provided list of hashes.
+       */
+      selectAll: (allHashes: string[]) => {
+        set({
+          selectedHashes: new Set(allHashes),
+          lastSelectedHash: allHashes.length > 0 ? allHashes[allHashes.length - 1] : null,
+        })
+      },
+
+      /**
+       * Move all selected hashes to deleted set (hide them).
+       * Clears the selection after deleting.
+       */
+      deleteSelected: () => {
+        const { selectedHashes, deletedHashes } = get()
+        const newDeleted = new Set(deletedHashes)
+
+        for (const hash of selectedHashes) {
+          newDeleted.add(hash)
+        }
+
+        set({
+          deletedHashes: newDeleted,
+          selectedHashes: new Set(),
+          lastSelectedHash: null,
+        })
+      },
+
+      /**
+       * Clear all selections (does not restore deleted items).
+       */
+      clearSelection: () => {
+        set({ selectedHashes: new Set(), lastSelectedHash: null })
+      },
+
+      /**
+       * Clear all deleted hashes (restore hidden logs).
+       */
+      clearDeleted: () => {
+        set({ deletedHashes: new Set() })
+      },
+
+      /**
+       * Toggle text wrapping for a log entry.
+       */
+      toggleWrap: (hash: string) => {
+        const { wrappedHashes } = get()
+        const newWrapped = new Set(wrappedHashes)
+
+        if (newWrapped.has(hash)) {
+          newWrapped.delete(hash)
+        } else {
+          newWrapped.add(hash)
+        }
+
+        set({ wrappedHashes: newWrapped })
+      },
+
+      /**
+       * Clean up invalid hashes that no longer exist in the current logs.
+       * Call this when loading a new file to prevent stale state.
+       */
+      cleanupInvalidHashes: (validHashes: string[]) => {
+        const validSet = new Set(validHashes)
+        const { selectedHashes, deletedHashes, wrappedHashes } = get()
+
+        const newSelected = new Set([...selectedHashes].filter((h) => validSet.has(h)))
+        const newDeleted = new Set([...deletedHashes].filter((h) => validSet.has(h)))
+        const newWrapped = new Set([...wrappedHashes].filter((h) => validSet.has(h)))
+
+        set({
+          selectedHashes: newSelected,
+          deletedHashes: newDeleted,
+          wrappedHashes: newWrapped,
+        })
+      },
+    }),
+    {
+      name: 'mocha-selection-state',
+      storage: createJSONStorage(() => selectionStorage),
+      partialize: (state) => ({
+        // Only persist deleted and wrapped - selections should reset on load
+        deletedHashes: state.deletedHashes,
+        wrappedHashes: state.wrappedHashes,
       }),
     }
   )

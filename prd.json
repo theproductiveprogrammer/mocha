@@ -238,7 +238,7 @@
       "Add localStorage persistence"
     ],
     "reference": "./spec/ui-components.md#useselectionstore",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "frontend",
