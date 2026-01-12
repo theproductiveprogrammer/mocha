@@ -4,11 +4,8 @@ import { FileText, Check, Package, X, Server, AlertCircle } from 'lucide-react'
 import murmurhash from 'murmurhash'
 // Import types (WebUI global type is declared in types.ts)
 import './types'
-
-// Check if running in WebUI context
-function isWebUI(): boolean {
-  return typeof window.webui !== 'undefined';
-}
+// Import WebUI API wrapper
+import { isWebUI, waitForConnection, readFile, getRecentFiles } from './api'
 
 // Test zustand store
 interface TestState {
@@ -31,10 +28,10 @@ function App() {
   const [readFileResult, setReadFileResult] = useState<string | null>(null)
   const [webuiError, setWebuiError] = useState<string | null>(null)
 
-  // Test WebUI integration on mount
+  // Test WebUI integration on mount using the API wrapper
   useEffect(() => {
     const testWebUI = async () => {
-      // Check if webui is available
+      // Check if webui is available using the API wrapper
       const detected = isWebUI()
       setWebuiDetected(detected)
 
@@ -43,37 +40,24 @@ function App() {
         return
       }
 
-      // Wait for WebSocket connection (webui.isConnected())
-      const waitForConnection = async (maxAttempts = 20): Promise<boolean> => {
-        for (let i = 0; i < maxAttempts; i++) {
-          if (window.webui && typeof (window.webui as any).isConnected === 'function') {
-            if ((window.webui as any).isConnected()) {
-              return true
-            }
-          }
-          await new Promise(resolve => setTimeout(resolve, 250))
-        }
-        return false
-      }
-
-      const connected = await waitForConnection()
+      // Wait for WebSocket connection using the API wrapper
+      const connected = await waitForConnection(5000)
       if (!connected) {
-        setWebuiError('WebSocket is not connected')
+        setWebuiError('WebSocket connection timeout')
         return
       }
 
       try {
-        // Test getRecentFiles binding
-        const recentResult = await window.webui!.call('getRecentFiles')
-        setRecentFilesResult(recentResult)
+        // Test getRecentFiles using the API wrapper
+        const recentFiles = await getRecentFiles()
+        setRecentFilesResult(JSON.stringify(recentFiles))
 
-        // Test readFile binding with a known file
-        const readResult = await window.webui!.call('readFile', './prd.json', 0)
-        const parsed = JSON.parse(readResult)
-        if (parsed.success) {
-          setReadFileResult(`Read ${parsed.name}: ${parsed.size} bytes`)
+        // Test readFile using the API wrapper
+        const fileResult = await readFile('./prd.json', 0)
+        if (fileResult.success) {
+          setReadFileResult(`Read ${fileResult.name}: ${fileResult.size} bytes`)
         } else {
-          setReadFileResult(`Error: ${parsed.error}`)
+          setReadFileResult(`Error: ${fileResult.error}`)
         }
       } catch (err) {
         setWebuiError(err instanceof Error ? err.message : 'Unknown error')

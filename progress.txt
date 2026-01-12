@@ -158,3 +158,36 @@
 - The WebUI global type is declared in types.ts, so no need to declare it elsewhere
 - Next logical task is frontend-api to create the WebUI API wrapper
 - After that, frontend-parser-patterns to implement log parsing
+
+## 2026-01-12 - frontend-api COMPLETED
+
+### What was done:
+- Created ui/src/api.ts with clean TypeScript WebUI API wrapper
+- Implemented all required functions:
+  - isWebUI() - checks if running in WebUI context
+  - waitForConnection(timeoutMs) - waits for WebSocket connection
+  - readFile(path, offset) - reads file with differential/polling support
+  - getRecentFiles() - fetches recent files list from ~/.mocha/recent.json
+  - addRecentFile(path) - adds file to recent files list
+- All functions properly typed using types from ./types.ts
+- Added error handling for all API calls
+- Updated App.tsx to use the new API wrapper instead of inline calls
+- Verified with Playwright:
+  - isWebUI() returns true when served by mocha binary
+  - waitForConnection() successfully waits for WebSocket
+  - getRecentFiles() returns [] (empty for fresh install)
+  - readFile() reads prd.json successfully (22031 bytes)
+- Build succeeds
+
+### Files created:
+- ui/src/api.ts
+
+### Files modified:
+- ui/src/App.tsx (imports and uses API wrapper functions)
+
+### Notes for next developer:
+- Import API functions: `import { isWebUI, readFile, getRecentFiles, addRecentFile } from './api'`
+- Use waitForConnection() before making API calls if you need to ensure connection is ready
+- readFile returns FileResult type with success/error handling built in
+- All functions gracefully handle non-WebUI context (return empty/error without crashing)
+- Next logical task is frontend-parser-patterns to implement log format parsing

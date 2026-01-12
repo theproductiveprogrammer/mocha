@@ -137,7 +137,7 @@
       "Implement addRecentFile(path) wrapper"
     ],
     "reference": "./spec/webui-bindings.md#frontend-api-wrapper",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "frontend",
