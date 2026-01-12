@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { FileText, Check, Package, X, Server, AlertCircle, Upload, Code, Filter, MousePointer, Trash2, WrapText } from 'lucide-react'
+import { FileText, Check, Package, X, Server, AlertCircle, Upload, Code, Filter, MousePointer, Trash2, WrapText, FolderOpen, Loader2 } from 'lucide-react'
 // Import types (WebUI global type is declared in types.ts)
 import type { ParsedLogFileResult } from './types'
 import './types'
@@ -8,7 +8,7 @@ import { isWebUI, waitForConnection, readFile, getRecentFiles } from './api'
 // Import log parser
 import { parseLogFile } from './parser'
 // Import store and helpers
-import { useLogViewerStore, useSelectionStore, parseFilterInput, filterLogs } from './store'
+import { useLogViewerStore, useSelectionStore, useFileStore, parseFilterInput, filterLogs } from './store'
 
 function App() {
   // Log viewer store
@@ -37,6 +37,18 @@ function App() {
     clearDeleted,
     toggleWrap,
   } = useSelectionStore()
+
+  // File store
+  const {
+    currentFile,
+    recentFiles,
+    isLoading,
+    error: fileError,
+    setCurrentFile,
+    setRecentFiles,
+    setLoading,
+    setError: setFileError,
+  } = useFileStore()
 
   // WebUI integration state
   const [webuiDetected, setWebuiDetected] = useState<boolean | null>(null)
@@ -395,6 +407,151 @@ function App() {
         {/* Instructions */}
         <div className="text-xs text-gray-500">
           <p>Click a log entry to select. Shift+Click for range. Ctrl/Cmd+Click to add. Click content to toggle wrap.</p>
+        </div>
+      </div>
+
+      {/* File Store Test Section */}
+      <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 mb-4">
+        <h2 className="text-xl font-semibold mb-2 text-emerald-400 flex items-center gap-2">
+          <FolderOpen className="w-5 h-5" />
+          File Store Test (useFileStore)
+        </h2>
+
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          {/* Current file info */}
+          <div className="bg-gray-900 p-3 rounded">
+            <div className="text-sm text-gray-400 mb-1">Current File</div>
+            <div className="text-sm font-mono" data-testid="current-file">
+              {currentFile ? (
+                <div className="space-y-1">
+                  <div className="text-emerald-400">{currentFile.name}</div>
+                  <div className="text-gray-500 text-xs">{currentFile.path}</div>
+                  {currentFile.size && (
+                    <div className="text-gray-500 text-xs">{currentFile.size.toLocaleString()} bytes</div>
+                  )}
+                </div>
+              ) : (
+                <span className="text-gray-500">No file open</span>
+              )}
+            </div>
+          </div>
+
+          {/* Status indicators */}
+          <div className="bg-gray-900 p-3 rounded">
+            <div className="text-sm text-gray-400 mb-1">Status</div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2" data-testid="loading-status">
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                    <span className="text-emerald-400 text-sm">Loading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4 text-gray-500" />
+                    <span className="text-gray-500 text-sm">Idle</span>
+                  </>
+                )}
+              </div>
+              {fileError && (
+                <div className="flex items-center gap-2 text-red-400 text-sm" data-testid="file-error">
+                  <AlertCircle className="w-4 h-4" />
+                  {fileError}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Recent files list */}
+        <div className="mb-4">
+          <div className="text-sm text-gray-400 mb-2">
+            Recent Files ({recentFiles.length}):
+          </div>
+          <div className="space-y-1 max-h-32 overflow-y-auto" data-testid="recent-files-list">
+            {recentFiles.length > 0 ? (
+              recentFiles.map((file, idx) => (
+                <div
+                  key={file.path}
+                  className="flex items-center gap-2 px-2 py-1 bg-gray-900 rounded text-sm hover:bg-gray-700 cursor-pointer"
+                  onClick={() => setCurrentFile({ path: file.path, name: file.name })}
+                  data-testid={`recent-file-${idx}`}
+                >
+                  <FileText className="w-4 h-4 text-gray-500" />
+                  <span className="text-emerald-400">{file.name}</span>
+                  <span className="text-gray-500 text-xs ml-auto">
+                    {new Date(file.lastOpened).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-gray-500 text-sm px-2">No recent files</div>
+            )}
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => {
+              setLoading(true)
+              // Simulate a file load operation
+              setTimeout(() => {
+                setCurrentFile({
+                  path: '/Users/test/logs/example.log',
+                  name: 'example.log',
+                  size: 12345,
+                })
+                // Add to recent files
+                setRecentFiles([
+                  { path: '/Users/test/logs/example.log', name: 'example.log', lastOpened: Date.now() },
+                  ...recentFiles.filter(f => f.path !== '/Users/test/logs/example.log').slice(0, 19),
+                ])
+                setLoading(false)
+              }, 1000)
+            }}
+            disabled={isLoading}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm flex items-center gap-1"
+            data-testid="simulate-load-btn"
+          >
+            <FolderOpen className="w-4 h-4" />
+            Simulate File Load
+          </button>
+          <button
+            onClick={() => setFileError('Test error: File not found')}
+            disabled={isLoading}
+            className="px-3 py-1.5 bg-red-600 hover:bg-red-500 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm flex items-center gap-1"
+            data-testid="simulate-error-btn"
+          >
+            <AlertCircle className="w-4 h-4" />
+            Simulate Error
+          </button>
+          <button
+            onClick={() => {
+              setCurrentFile(null)
+              setFileError(null)
+            }}
+            disabled={isLoading}
+            className="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm flex items-center gap-1"
+            data-testid="clear-file-btn"
+          >
+            <X className="w-4 h-4" />
+            Clear Current File
+          </button>
+          <button
+            onClick={() => setRecentFiles([])}
+            disabled={recentFiles.length === 0}
+            className="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:text-gray-500 rounded text-sm flex items-center gap-1"
+            data-testid="clear-recent-btn"
+          >
+            <Trash2 className="w-4 h-4" />
+            Clear Recent
+          </button>
+        </div>
+
+        {/* Instructions */}
+        <div className="text-xs text-gray-500">
+          <p>Test useFileStore: setCurrentFile, setRecentFiles, setLoading, setError. Recent files persist to localStorage.</p>
         </div>
       </div>
 

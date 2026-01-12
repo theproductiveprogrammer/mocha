@@ -253,7 +253,7 @@
       "Implement setLoading, setError"
     ],
     "reference": "./spec/ui-components.md#usefilestore",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "ui",

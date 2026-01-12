@@ -342,3 +342,43 @@
 - localStorage key: "mocha-selection-state"
 - Next task should be frontend-store-file for file state management
 - After all stores are complete, proceed to UI components (ui-sidebar, ui-toolbar, ui-logline, ui-logviewer)
+
+## 2026-01-12 - frontend-store-file COMPLETED
+
+### What was done:
+- Added useFileStore to ui/src/store.ts for file and loading state management
+- Implemented all required state and actions:
+  - currentFile: OpenedFile | null for currently opened file info
+  - recentFiles: RecentFile[] for array of recently opened files
+  - isLoading: boolean for loading indicator
+  - error: string | null for error messages from file operations
+  - setCurrentFile: Sets current file and clears error
+  - setRecentFiles: Updates recent files array
+  - setLoading: Sets loading state
+  - setError: Sets error and clears loading state
+- Added localStorage persistence for recentFiles only (using zustand/persist)
+- Updated App.tsx with File Store Test section:
+  - Current file info display (name, path, size)
+  - Status indicator (loading spinner or idle)
+  - Error display with alert icon
+  - Recent files list (clickable to re-select)
+  - Action buttons: Simulate File Load, Simulate Error, Clear Current File, Clear Recent
+- Verified with Playwright:
+  - Simulate File Load works (sets current file, adds to recent files, shows loading state)
+  - Simulate Error works (displays error message)
+  - Clear Current File works (clears file and error)
+  - Clicking recent file sets it as current
+  - Clear Recent works (empties recent files list)
+
+### Files modified:
+- ui/src/store.ts (added useFileStore with persistence)
+- ui/src/App.tsx (added File Store Test section with interactive UI)
+- prd.json (marked frontend-store-file as complete)
+
+### Notes for next developer:
+- Import file store: `import { useFileStore } from './store'`
+- Store hook usage: `const { currentFile, recentFiles, isLoading, error, setCurrentFile, ... } = useFileStore()`
+- localStorage key: "mocha-file-state"
+- ALL THREE ZUSTAND STORES ARE NOW COMPLETE (useLogViewerStore, useSelectionStore, useFileStore)
+- Next tasks should be UI components: ui-sidebar, ui-toolbar, ui-logline, ui-logviewer
+- Or backend tasks: backend-readfile, backend-json-escape, backend-recent-get, backend-recent-add

@@ -7,7 +7,7 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { LogViewerState, SelectionState, ParsedFilter } from './types'
+import type { LogViewerState, SelectionState, FileState, ParsedFilter, OpenedFile, RecentFile } from './types'
 
 // ============================================================================
 // Custom Storage for Set serialization
@@ -341,6 +341,50 @@ export const useSelectionStore = create<SelectionState>()(
         // Only persist deleted and wrapped - selections should reset on load
         deletedHashes: state.deletedHashes,
         wrappedHashes: state.wrappedHashes,
+      }),
+    }
+  )
+)
+
+// ============================================================================
+// useFileStore - File and loading state
+// ============================================================================
+
+/**
+ * Store for managing file state including current file, recent files, and loading state.
+ *
+ * Features:
+ * - currentFile: Currently opened file info
+ * - recentFiles: Array of recently opened files
+ * - isLoading: Loading indicator
+ * - error: Error message from file operations
+ *
+ * Only recentFiles is persisted to localStorage (as a fallback for browser mode).
+ */
+export const useFileStore = create<FileState>()(
+  persist(
+    (set) => ({
+      // State
+      currentFile: null,
+      recentFiles: [],
+      isLoading: false,
+      error: null,
+
+      // Actions
+      setCurrentFile: (file: OpenedFile | null) => set({ currentFile: file, error: null }),
+
+      setRecentFiles: (files: RecentFile[]) => set({ recentFiles: files }),
+
+      setLoading: (loading: boolean) => set({ isLoading: loading }),
+
+      setError: (error: string | null) => set({ error, isLoading: false }),
+    }),
+    {
+      name: 'mocha-file-state',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        // Only persist recentFiles - currentFile and loading state should reset on load
+        recentFiles: state.recentFiles,
       }),
     }
   )
