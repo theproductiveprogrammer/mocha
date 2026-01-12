@@ -7,7 +7,22 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { LogViewerState, SelectionState, FileState, ParsedFilter, OpenedFile, RecentFile } from './types'
+import type { LogViewerState, SelectionState, FileState, ParsedFilter, OpenedFile, RecentFile, LogEntry } from './types'
+
+/**
+ * Get short service name from log entry.
+ * Uses logger if available, otherwise falls back to filename.
+ * Duplicated from LogLine.tsx to avoid circular imports.
+ */
+function getServiceName(log: LogEntry): string {
+  if (log.parsed?.logger) {
+    // Extract short name from logger (e.g., "c.s.c.c.bizlogic.MCPController" -> "MCPController")
+    const logger = log.parsed.logger
+    const parts = logger.split('.')
+    return parts[parts.length - 1] || logger
+  }
+  return log.name
+}
 
 // ============================================================================
 // Custom Storage for Set serialization
@@ -493,8 +508,6 @@ export function parseFilterInput(input: string): ParsedFilter | null {
 // Helper: Apply filters to log entries
 // ============================================================================
 
-import type { LogEntry } from './types'
-
 /**
  * Check if a log entry matches a single filter.
  */
@@ -547,8 +560,9 @@ export function filterLogs(
     : undefined
 
   return logs.filter((log) => {
-    // Check if service is visible
-    if (inactiveNames instanceof Set && inactiveNames.has(log.name)) {
+    // Check if service is visible (using derived service name from logger)
+    const serviceName = getServiceName(log)
+    if (inactiveNames instanceof Set && inactiveNames.has(serviceName)) {
       return false
     }
 

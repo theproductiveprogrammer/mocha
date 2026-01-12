@@ -5,7 +5,7 @@ import './types'
 import { isWebUI, waitForConnection, readFile, getRecentFiles, addRecentFile } from './api'
 import { parseLogFile } from './parser'
 import { useLogViewerStore, useSelectionStore, useFileStore, filterLogs } from './store'
-import { LogViewer, Sidebar, Toolbar, DropZone } from './components'
+import { LogViewer, Sidebar, Toolbar, DropZone, getServiceName } from './components'
 
 function App() {
   // Log viewer store
@@ -49,10 +49,10 @@ function App() {
   // File input ref
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Get unique service names from parsed logs
+  // Get unique service names from parsed logs (using logger if available, otherwise filename)
   const serviceNames = useMemo(() => {
     if (!parseResult) return []
-    const names = new Set(parseResult.logs.map((log) => log.name))
+    const names = new Set(parseResult.logs.map((log) => getServiceName(log)))
     return Array.from(names).sort()
   }, [parseResult])
 

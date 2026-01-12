@@ -1181,3 +1181,41 @@
   - test-select-all, test-select-delete, test-copy, test-wrap-toggle
   - test-polling, test-recent-persist
 - Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+
+## 2026-01-12 - test-filter-service VERIFIED (with implementation fix)
+
+### What was done:
+- Fixed service badge implementation to extract logger names from parsed logs
+- Previously, all logs from a file showed the filename as the service badge
+- Now, logs show the actual logger/class name extracted from the log line
+- Implementation changes:
+  1. Added `getServiceName()` helper in LogLine.tsx to extract short logger name
+  2. Updated App.tsx to use `getServiceName()` for toolbar service badges
+  3. Updated store.ts `filterLogs()` to filter by logger-derived service name
+  4. Updated LogLine.tsx to display extracted service name on each log entry
+- Verified with Playwright:
+  1. Loaded core-log-snippet.txt (27/54 lines displayed)
+  2. Multiple service badges now appear in toolbar: "ActivityProcessingScheduler", "core-log-snippet.txt" (for lines without logger)
+  3. Clicked on "ActivityProcessingScheduler" badge
+  4. Verified only that service's logs visible: Line count reduced to 1/54 lines
+  5. Clicked badge again, verified all logs return: Line count back to 27/54 lines
+
+### Files modified:
+- ui/src/components/LogLine.tsx (added getServiceName helper, updated service name display)
+- ui/src/components/index.ts (export getServiceName)
+- ui/src/App.tsx (use getServiceName for serviceNames computation)
+- ui/src/store.ts (added getServiceName helper, updated filterLogs to use it)
+- prd.json (marked test-filter-service as complete with passes: "2026-01-12")
+
+### Notes for next developer:
+- Service badge filtering now works with logger names extracted from parsed logs
+- The `getServiceName()` function extracts the last segment of the logger path (e.g., "c.s.c.c.bizlogic.MCPController" -> "MCPController")
+- For logs without a parsed logger, the filename is used as fallback
+- This enables true multi-service filtering from a single log file
+- Next priority test tasks:
+  - test-select-all: Verify Ctrl+A select all
+  - test-select-delete: Verify Delete hides selected logs
+  - test-copy: Verify Ctrl+C copies to clipboard
+  - test-wrap-toggle: Verify line wrap toggle
+  - test-polling, test-recent-persist
+- Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package

@@ -1,4 +1,4 @@
-export { LogLine } from './LogLine'
+export { LogLine, getServiceName } from './LogLine'
 export type { LogLineProps } from './LogLine'
 
 export { LogViewer } from './LogViewer'

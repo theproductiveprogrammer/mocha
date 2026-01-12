@@ -56,6 +56,20 @@ function getServiceColor(name: string): { bg: string; text: string } {
   return SERVICE_COLORS.default
 }
 
+/**
+ * Get short service name from log entry.
+ * Uses logger if available, otherwise falls back to filename.
+ */
+export function getServiceName(log: LogEntry): string {
+  if (log.parsed?.logger) {
+    // Extract short name from logger (e.g., "c.s.c.c.bizlogic.MCPController" -> "MCPController")
+    const logger = log.parsed.logger
+    const parts = logger.split('.')
+    return parts[parts.length - 1] || logger
+  }
+  return log.name
+}
+
 export interface LogLineProps {
   log: LogEntry
   isSelected: boolean
@@ -75,7 +89,8 @@ function LogLineComponent({
   const levelStyle = LEVEL_STYLES[level] || LEVEL_STYLES.INFO
   const levelTextStyle = LEVEL_TEXT_STYLES[level] || LEVEL_TEXT_STYLES.INFO
   const levelBadgeStyle = LEVEL_BADGE_STYLES[level] || LEVEL_BADGE_STYLES.INFO
-  const serviceColor = getServiceColor(log.name)
+  const serviceName = getServiceName(log)
+  const serviceColor = getServiceColor(serviceName)
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -150,9 +165,9 @@ function LogLineComponent({
       >
         <span
           className={`px-1.5 py-0.5 rounded text-xs truncate ${serviceColor.bg} ${serviceColor.text}`}
-          title={log.name}
+          title={log.parsed?.logger || log.name}
         >
-          {log.name}
+          {serviceName}
         </span>
       </div>
 
