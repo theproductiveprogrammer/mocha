@@ -591,3 +591,52 @@
 - Error messages auto-dismiss after 3 seconds
 - Next tasks should be: ui-fileinput (partially done - file input exists), ui-app (main app integration)
 - Or proceed with integration tasks: int-recent-load, int-recent-add, int-recent-reopen
+
+## 2026-01-12 - ui-app COMPLETED
+
+### What was done:
+- Completely rewrote ui/src/App.tsx to be a clean, production-ready root component
+- Removed all test/debug UI sections (Setup Status, Dependencies Test, WebUI Integration Test, Store Test, Selection Test, File Store Test, Log Parser Test)
+- Implemented proper layout per spec: Sidebar + MainContent (Toolbar + LogViewer)
+- Added recent files loading on mount via getRecentFiles() API call
+- Implemented file opening from three sources:
+  1. Browser file input (hidden input, triggered by "Open File" button)
+  2. Drag and drop (via DropZone component)
+  3. Recent files list (via WebUI readFile binding when available)
+- Added file polling support for live file updates (3 second interval)
+- Implemented empty state with helpful instructions and "Open File" button
+- Added error display banner with dismiss button
+- Added loading indicator banner
+- Proper TypeScript typing with null-safe optional chaining
+- All state properly managed via Zustand stores (useLogViewerStore, useSelectionStore, useFileStore)
+- Cleanup of stale selection hashes when new file is loaded
+
+### Verified with Playwright:
+- App loads with empty state showing "No log file open" message
+- "Open File" button triggers file chooser dialog
+- File upload loads and parses log file correctly (43 entries from genie.log)
+- Recent files list populated with uploaded file
+- Line count displayed in toolbar (43/44 lines)
+- Filter input works: Added "INFO" filter, reduced to 30 logs
+- Filter chip appears and can be removed with X button
+- Ctrl+A selects all logs (checkmark icons appear)
+- Escape clears selection (checkmark icons disappear)
+- Sidebar shows recent file with "Just now" timestamp
+- Clear recent files button visible
+
+### Files modified:
+- ui/src/App.tsx (complete rewrite - clean production UI)
+- prd.json (marked ui-app as complete)
+
+### Notes for next developer:
+- The App component is now clean and production-ready
+- All test UI has been removed - use npm run dev and interact directly
+- File opening works in browser mode (file input/drop) and WebUI mode (recent files via readFile)
+- Polling only works in WebUI mode when a file is opened by path
+- Next priority tasks should be backend tasks that have empty passes:
+  - backend-readfile: Already mostly implemented, verify it works correctly
+  - backend-json-escape: Already implemented in setup-webui
+  - backend-recent-get: Already implemented in setup-webui
+  - backend-recent-add: Already implemented in setup-webui
+- Or integration tasks: int-recent-load, int-recent-add, int-recent-reopen, int-polling, int-hash
+- Polish tasks can be done after core functionality is complete

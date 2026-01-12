@@ -365,7 +365,7 @@
       "Pass file state and handlers to children"
     ],
     "reference": "./spec/ui-components.md#app",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "integration",
