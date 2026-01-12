@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mocha - Log Viewer</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eaeaea;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        h1 { font-size: 3rem; margin-bottom: 1rem; }
+        p { color: #888; margin-bottom: 2rem; }
+        .status {
+            padding: 1rem 2rem;
+            background: #16213e;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .success { border-left: 4px solid #4ade80; }
+        .pending { border-left: 4px solid #fbbf24; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 0.5rem;
+        }
+        button:hover { background: #4338ca; }
+        #result {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #0f0f1a;
+            border-radius: 6px;
+            max-width: 600px;
+            word-wrap: break-word;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mocha</h1>
+    <p>Log Viewer Application</p>
+
+    <div class="status success" id="webui-status">
+        WebUI: Checking...
+    </div>
+
+    <div>
+        <button onclick="testGetRecent()">Test getRecentFiles</button>
+        <button onclick="testReadFile()">Test readFile</button>
+    </div>
+
+    <div id="result"></div>
+
+    <script src="webui.js"></script>
+    <script>
+        // Check WebUI status
+        const statusEl = document.getElementById('webui-status');
+        if (typeof webui !== 'undefined') {
+            statusEl.textContent = 'WebUI: Connected';
+            statusEl.classList.remove('pending');
+            statusEl.classList.add('success');
+        } else {
+            statusEl.textContent = 'WebUI: Not available (browser mode)';
+            statusEl.classList.remove('success');
+            statusEl.classList.add('pending');
+        }
+
+        const resultEl = document.getElementById('result');
+
+        async function testGetRecent() {
+            try {
+                const result = await webui.call('getRecentFiles');
+                resultEl.textContent = 'getRecentFiles result:\n' + result;
+            } catch (err) {
+                resultEl.textContent = 'Error: ' + err.message;
+            }
+        }
+
+        async function testReadFile() {
+            // Test with a known file path
+            const testPath = '/Users/charleslobo/Desktop/chaRcoal/me/mocha/prd.json';
+            try {
+                const result = await webui.call('readFile', testPath, 0);
+                const parsed = JSON.parse(result);
+                if (parsed.success) {
+                    resultEl.textContent = 'readFile result:\n' +
+                        'Path: ' + parsed.path + '\n' +
+                        'Name: ' + parsed.name + '\n' +
+                        'Size: ' + parsed.size + ' bytes\n' +
+                        'Content preview: ' + (parsed.content || '').substring(0, 200) + '...';
+                } else {
+                    resultEl.textContent = 'readFile error: ' + parsed.error;
+                }
+            } catch (err) {
+                resultEl.textContent = 'Error: ' + err.message;
+            }
+        }
+    </script>
+</body>
+</html>

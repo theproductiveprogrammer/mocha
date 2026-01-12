@@ -10,7 +10,7 @@
       "Test compilation produces mocha binary"
     ],
     "reference": "./spec/implementation-overview.md",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "setup",
