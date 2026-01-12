@@ -418,7 +418,7 @@
       "Reset size when file changes"
     ],
     "reference": "./spec/webui-bindings.md#polling-implementation",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "integration",

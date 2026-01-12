@@ -679,3 +679,48 @@
 - After that, int-hash for hash generation (also may already be implemented)
 - Backend tasks (backend-readfile, backend-json-escape, backend-recent-get, backend-recent-add) are also implemented but not formally marked - could verify and mark them
 - Then move to polish tasks and test tasks
+
+## 2026-01-12 - int-polling COMPLETED
+
+### What was done:
+- Verified that polling implementation was already in App.tsx (lines 243-291)
+- The implementation follows the spec from webui-bindings.md:
+  - Uses `fileSizeRef` to track current file size
+  - Polls every 3 seconds using `setInterval`
+  - Calls `readFile(currentFile.path, fileSizeRef.current)` for differential reads
+  - Parses new content with `parseLogFile()` and appends to existing logs
+  - Updates tracked size from response (`fileSizeRef.current = newSize`)
+  - Polling only runs when `isWatching` is true and in WebUI mode
+  - Interval is cleared when component unmounts or watching is disabled
+
+### Verified with Playwright:
+- Started mocha binary in headless mode on port 13519
+- Created test log file with 3 initial entries at _tmp/logs/polling-test.log
+- Added test file to recent files via addRecentFile binding
+- Opened file from recent files sidebar - displayed 3/4 lines
+- Enabled watch toggle (button changed to "Disable auto-refresh" with active state)
+- Appended 2 new log lines to file via Bash:
+  - WARN: "New polled entry 4 - polling test"
+  - ERROR: "New polled entry 5 - error test"
+- Waited 4 seconds for polling interval
+- Verified new entries appeared in log viewer:
+  - Line count updated from 3/4 to 5/7
+  - New entries displayed at top (newest-first order)
+  - ERROR entry has red background styling
+  - WARN entry has amber/orange background styling
+- Captured screenshot: int-polling-success.png
+- No console errors
+
+### Files modified:
+- prd.json (marked int-polling as complete with passes: "2026-01-12")
+
+### Notes for next developer:
+- Polling is fully functional and verified
+- Works only in WebUI mode (when file has full path from recent files)
+- Browser file input/drop doesn't support polling (no full path available)
+- The implementation is inline in App.tsx useEffect, not a separate hook
+- Next priority tasks:
+  - int-hash: Hash generation (likely already implemented in parser.ts)
+  - Backend tasks: Could verify and mark as complete
+  - Polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+  - Test tasks: All test-* tasks need verification
