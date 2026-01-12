@@ -31,3 +31,36 @@
 - The dist/index.html is just a test page - will be replaced by React build output
 - Build with: `cd src && make`
 - Run with: `./mocha` from project root
+
+## 2026-01-12 - setup-react COMPLETED
+
+### What was done:
+- Created ui/ directory with React + TypeScript + Vite project
+- Ran `npm create vite@latest . -- --template react-ts`
+- Installed tailwindcss and @tailwindcss/vite
+- Configured vite.config.ts with:
+  - Tailwind plugin
+  - Build output to ../dist (so React builds go where WebUI expects them)
+- Updated index.css with `@import "tailwindcss"` and monospace font
+- Created simple App.tsx with Tailwind-styled "Mocha Log Viewer" test page
+- Removed unused boilerplate (App.css, logos)
+- Successfully ran `npm run build` - outputs to dist/
+- Verified with Playwright that dev server shows styled React app
+
+### Files created:
+- ui/package.json
+- ui/vite.config.ts
+- ui/tsconfig.json, ui/tsconfig.app.json, ui/tsconfig.node.json
+- ui/index.html
+- ui/src/main.tsx
+- ui/src/App.tsx
+- ui/src/index.css
+- ui/src/vite-env.d.ts
+- dist/ (React build output - replaces test index.html)
+
+### Notes for next developer:
+- Frontend dev: `cd ui && npm run dev` - runs on http://localhost:5173
+- Production build: `cd ui && npm run build` - outputs to ../dist
+- Then run `./mocha` to serve the built React app via WebUI
+- Next task should be setup-deps to install zustand, lucide-react, murmurhash
+- Or could proceed to setup-hello to test WebUI + React integration
