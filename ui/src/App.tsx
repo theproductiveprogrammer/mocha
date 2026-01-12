@@ -10,7 +10,7 @@ import { parseLogFile } from './parser'
 // Import store and helpers
 import { useLogViewerStore, useSelectionStore, useFileStore, parseFilterInput, filterLogs } from './store'
 // Import components
-import { LogViewer, Sidebar } from './components'
+import { LogViewer, Sidebar, Toolbar } from './components'
 
 function App() {
   // Log viewer store
@@ -58,6 +58,9 @@ function App() {
   const [parseResult, setParseResult] = useState<ParsedLogFileResult | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Watching/polling state
+  const [isWatching, setIsWatching] = useState(false)
 
   // Get unique service names from parsed logs
   const serviceNames = useMemo(() => {
@@ -147,6 +150,11 @@ function App() {
     setRecentFiles([])
   }
 
+  // Handle watch toggle
+  const handleToggleWatch = () => {
+    setIsWatching(!isWatching)
+  }
+
   return (
     <div className="h-screen flex bg-gray-50">
       {/* Sidebar */}
@@ -157,8 +165,28 @@ function App() {
         onClearRecent={handleClearRecent}
       />
 
-      {/* Main content area */}
-      <div className="flex-1 overflow-auto bg-gray-900 text-gray-100 p-8">
+      {/* Main content area with toolbar */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Toolbar */}
+        <Toolbar
+          serviceNames={serviceNames}
+          inactiveNames={inactiveNames}
+          filters={filters}
+          filterInput={input}
+          currentFile={currentFile}
+          onToggleService={(name) => toggleName(serviceNames, name)}
+          onAddFilter={addFilter}
+          onRemoveFilter={removeFilter}
+          onFilterInputChange={setInput}
+          onToggleWatch={handleToggleWatch}
+          totalLines={parseResult?.totalLines ?? 0}
+          truncated={parseResult?.truncated ?? false}
+          visibleCount={filteredLogs.length}
+          isWatching={isWatching}
+        />
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-auto bg-gray-900 text-gray-100 p-8">
         <h1 className="text-3xl font-bold mb-4 flex items-center gap-3">
           <FileText className="w-8 h-8" />
           Mocha Log Viewer
@@ -639,6 +667,7 @@ function App() {
           </div>
         )}
       </div>
+        </div>
       </div>
     </div>
   )

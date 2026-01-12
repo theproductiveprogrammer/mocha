@@ -512,3 +512,43 @@
 - Sidebar uses light theme (bg-gray-50) while main content uses dark theme
 - Next tasks should be: ui-toolbar, ui-dropzone, ui-fileinput, or ui-app
 - Once Toolbar is done, can integrate all components into final App layout
+
+## 2026-01-12 - ui-toolbar COMPLETED
+
+### What was done:
+- Created ui/src/components/Toolbar.tsx - toolbar for filtering and file controls
+- Implemented all required features per spec:
+  - File info display (name, line count, truncation indicator)
+  - Service badges (clickable to toggle visibility, color-coded)
+  - Active filter chips (removable with X button)
+  - Filter input with Enter to add filter
+  - Support for /regex/ syntax detection
+  - Support for -exclude prefix detection
+  - Watch/polling toggle button with Eye/EyeOff icons
+- Added ExtendedToolbarProps interface for additional display props (totalLines, truncated, visibleCount, isWatching)
+- Integrated Toolbar into App.tsx layout between Sidebar and main content
+- Added isWatching state and handleToggleWatch handler in App.tsx
+- Fixed JSX structure issue (missing closing div tag)
+- Verified with Playwright:
+  - File loads correctly (27 log entries)
+  - Service badge appears in toolbar
+  - Filter input accepts "ERROR", creates filter chip, reduces visible logs to 3
+  - Filter chip X button removes filter, logs return to 27
+  - Watch toggle button switches between enable/disable states
+
+### Files created:
+- ui/src/components/Toolbar.tsx
+
+### Files modified:
+- ui/src/components/index.ts (added Toolbar export)
+- ui/src/App.tsx (integrated Toolbar, added isWatching state, fixed JSX structure)
+- prd.json (marked ui-toolbar as complete)
+
+### Notes for next developer:
+- Import Toolbar: `import { Toolbar } from './components'`
+- Props: ToolbarProps (from types.ts) + extended props: totalLines, truncated, visibleCount, isWatching
+- Filter input parses text into ParsedFilter with type detection (regex, exclude, text)
+- SERVICE_COLORS in Toolbar.tsx defines badge colors for known services
+- Toolbar uses white background (bg-white) to contrast with dark main content
+- Next tasks should be: ui-dropzone, ui-fileinput, or ui-app for full integration
+- Consider backend tasks: backend-readfile, backend-json-escape, backend-recent-get, backend-recent-add

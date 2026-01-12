@@ -286,7 +286,7 @@
       "Add polling toggle button"
     ],
     "reference": "./spec/ui-components.md#toolbar",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "ui",
