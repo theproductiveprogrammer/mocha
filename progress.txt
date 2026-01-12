@@ -1034,3 +1034,40 @@
   - test-filter-text, test-filter-regex, test-filter-exclude, test-filter-service
   - test-select-all, test-select-delete, test-copy, test-wrap-toggle
 - Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+
+## 2026-01-12 - test-parse-maven VERIFIED
+
+### What was done:
+- Ran E2E test using Playwright against compiled mocha binary
+- Built frontend with `cd ui && npm run build`
+- Started mocha binary in headless mode on port 35901
+- Uploaded _tmp/logs/salesboxai-core-compile-error.log via file input
+- Verified all test-parse-maven requirements:
+  1. [ERROR] COMPILATION ERROR detected: Multiple ERROR badges visible throughout the log viewer
+  2. Error level styling applied (red): ERROR badges display with red text on light red background, error lines have reddish background tint
+  3. File paths in errors visible: Full Java file paths displayed, e.g., `/home/microservices/salesboxai-core/src/main/java/com/salesboxai/core/Application.java:[19,40]`
+  4. INFO level also detected: INFO badge visible for "Total time: 01:38 min" entry
+
+### Verified with Playwright:
+- File loads correctly: 42/61 lines displayed
+- ERROR badges (red) displayed on compilation errors
+- INFO badges (blue) displayed on build status lines
+- File paths with line numbers visible in error messages
+- Maven plugin error messages parsed correctly: "Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.0:compile"
+- Screenshot captured: test-parse-maven-success.png
+- No console errors
+
+### Files modified:
+- prd.json (marked test-parse-maven as complete with passes: "2026-01-12")
+
+### Notes for next developer:
+- Maven error format parsing is verified and working correctly
+- The maven pattern in parser.ts handles [ERROR], [INFO], [WARN] prefixes
+- Continuation lines from compilation errors are merged with parent entries
+- Next priority test tasks:
+  - test-filter-text: Verify text filtering
+  - test-filter-regex: Verify regex filtering
+  - test-filter-exclude: Verify exclude filtering
+  - test-filter-service: Verify service badge filtering
+  - test-select-all, test-select-delete, test-copy, test-wrap-toggle
+- Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
