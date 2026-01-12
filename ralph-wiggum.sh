@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+#set -e
 
 if [ -z "$1" ]; then
   echo "Usage: $0 <iterations>"
@@ -13,7 +13,7 @@ for ((i=1; i<=$1; i++)); do
   result=$(claude --permission-mode acceptEdits --dangerously-skip-permissions -p "@prd.json @progress.txt \
 1. Find the highest-priority feature to work on and work only on that feature.
 This should be the one YOU decide has the highest priority - not necessarily the first
-2. Check that the feature implemented actually works using playwright. \
+2. Check that the feature implemented actually works by running the app. \
 3. Read specifications from spec/ folder. Update them only if it makes sense \
 3. Update the PRD with the work that was done. \
 4. Append your progress to the progress.txt file. \
