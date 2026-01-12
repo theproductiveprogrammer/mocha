@@ -1252,3 +1252,40 @@
   - test-wrap-toggle: Verify line wrap toggle
   - test-polling, test-recent-persist
 - Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+
+## 2026-01-12 - test-select-delete VERIFIED
+
+### What was done:
+- Ran E2E test using Playwright against compiled mocha binary
+- Built frontend with `cd ui && npm run build`
+- Started mocha binary in headless mode on port 19050
+- Verified all test-select-delete requirements:
+  1. Loaded core-log-snippet.txt via file input (27/54 lines displayed)
+  2. Pressed Ctrl+A to select all (checkmark icons appeared on all 27 entries)
+  3. Pressed Delete key
+  4. Verified logs are hidden: Line count changed from 27/54 to 0/54 lines
+  5. UI shows "No logs match filters" message indicating all visible logs are deleted
+  6. The "0/54 lines" count effectively serves as the deleted indicator
+
+### Verified with Playwright:
+- File loads correctly via browser file input (27/54 lines)
+- Ctrl+A selects all visible logs (checkmark icons appear on all entries)
+- Delete key hides all selected logs (line count drops to 0/54)
+- "No logs match filters" empty state message displayed
+- No console errors
+
+### Files modified:
+- prd.json (marked test-select-delete as complete with passes: "2026-01-12")
+
+### Notes for next developer:
+- Delete key functionality is verified and working correctly
+- The Delete key moves selected logs to deletedHashes Set
+- deletedHashes are persisted to localStorage via selectionStorage
+- Logs can be restored (though no UI button exists in current implementation)
+- The "0/54 lines" count shows the deleted state - all logs hidden
+- Next priority test tasks:
+  - test-copy: Verify Ctrl+C copies to clipboard
+  - test-wrap-toggle: Verify line wrap toggle
+  - test-polling: Verify polling picks up new content
+  - test-recent-persist: Verify recent files persist
+- Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
