@@ -64,3 +64,31 @@
 - Then run `./mocha` to serve the built React app via WebUI
 - Next task should be setup-deps to install zustand, lucide-react, murmurhash
 - Or could proceed to setup-hello to test WebUI + React integration
+
+## 2026-01-12 - setup-deps COMPLETED
+
+### What was done:
+- Installed zustand v5.0.10 for state management
+- Installed lucide-react v0.562.0 for icons
+- Installed murmurhash v2.0.1 for hash generation
+- Updated App.tsx to test all three dependencies:
+  - Zustand: Created test store with count/increment, verified state updates
+  - Lucide-react: Added FileText, Check, Package icons throughout UI
+  - Murmurhash: Computed hash of "test-string" (result: 3758097995)
+- Verified with Playwright:
+  - All icons render correctly
+  - Zustand state management works (increment button updates count)
+  - Murmurhash computes and displays hash value
+- Build succeeds with all dependencies
+
+### Files modified:
+- ui/package.json (added 3 dependencies)
+- ui/src/App.tsx (added dependency tests)
+
+### Notes for next developer:
+- All setup tasks are now complete (webui, react, deps)
+- Next task should be setup-hello to test WebUI + React integration
+- The current App.tsx includes test code for dependencies - this can be removed once real components are built
+- Zustand pattern: `const useStore = create<State>((set) => ({ ... }))`
+- Lucide icons: import as React components from 'lucide-react'
+- Murmurhash: use `murmurhash.v3(string)` for consistent hashing
