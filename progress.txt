@@ -845,3 +845,43 @@
 - Next priority tasks:
   - Polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
   - Test tasks: All test-* tasks need verification with Playwright
+
+## 2026-01-12 - test-file-load VERIFIED
+
+### What was done:
+- Ran E2E test using Playwright against compiled mocha binary (not Vite dev server)
+- Built frontend with `cd ui && npm run build`
+- Started mocha binary in headless mode on port 19969
+- Verified all test-file-load requirements:
+  1. Opened app in Playwright - empty state displayed correctly
+  2. Clicked "Open File" button - file chooser dialog triggered
+  3. Uploaded _tmp/logs/core-log-snippet.txt via file input
+  4. Verified logs displayed - 27/54 lines shown in toolbar
+  5. Verified service badges appear - "core-log-snippet.txt" badge on each log
+  6. Verified timestamps parsed - "04:48:45", "04:48:40", etc. extracted correctly
+  7. Verified level badges - INFO and ERROR badges visible
+  8. Recent files list updated with uploaded file
+
+### Verified with Playwright:
+- File loads correctly via browser file input
+- Line count: 27/54 lines displayed
+- Timestamps extracted from SalesBox log format
+- Level badges (INFO, ERROR) displayed correctly
+- Service badge shows filename
+- Recent files sidebar updated with "core-log-snippet.txt Just now"
+- No console errors
+
+### Files modified:
+- prd.json (marked test-file-load as complete with passes: "2026-01-12")
+
+### Notes for next developer:
+- First test task is now complete
+- Testing follows spec/testing.md E2E approach: test against compiled binary, not dev server
+- Use `./mocha --headless` for automated testing (starts server without opening browser)
+- Next priority test tasks:
+  - test-file-truncate: Large file truncation (11MB file)
+  - test-parse-salesbox: SalesBox format parsing verification
+  - test-parse-iwf: IWF/Spring format parsing
+  - test-parse-genie: Genie/Rust format parsing
+  - test-parse-maven: Maven error format parsing
+- Or proceed with polish tasks if testing is lower priority
