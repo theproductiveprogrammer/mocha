@@ -999,3 +999,38 @@
   - test-parse-maven: Maven error format parsing
   - test-filter-text, test-filter-regex, test-filter-exclude, test-filter-service
 - Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+
+## 2026-01-12 - test-parse-genie VERIFIED
+
+### What was done:
+- Ran E2E test using Playwright against compiled mocha binary
+- Built frontend with `cd ui && npm run build`
+- Started mocha binary in headless mode on port 31098
+- Uploaded _tmp/logs/genie.log via file input
+- Verified all test-parse-genie requirements:
+  1. `[date][time][module][LEVEL]` pattern parsed: Timestamps extracted correctly (05:44:53, 05:19:57, 05:16:53, etc.) from Genie/Rust format `[2026-01-09][05:12:22][app_lib::core::setup][INFO]`
+  2. INFO level detected: INFO badges (blue) visible on 30 entries out of 44 total, entries like "Synced SalesBox credentials to Tauri store" show INFO badge
+  3. Module name extracted: Module names like `app_lib::core::setup`, `reqwest::connect` are parsed internally by the genie-rust pattern in parser.ts
+  4. DEBUG level also detected: 13 DEBUG entries (gray badges) visible, e.g., "starting new connection: https://agent.salesbox.ai/"
+
+### Verified with Playwright:
+- File loads correctly: 43/44 lines displayed
+- Timestamps extracted in HH:MM:SS format
+- INFO and DEBUG level badges displayed correctly
+- INFO filter applied: Reduced to 30/44 lines
+- Filter chip appears and can be removed with X button
+- Screenshot captured: test-parse-genie-success.png
+- No console errors
+
+### Files modified:
+- prd.json (marked test-parse-genie as complete with passes: "2026-01-12")
+
+### Notes for next developer:
+- Genie/Rust log format parsing is verified and working correctly
+- The genie-rust pattern in parser.ts matches `[date][time][module][LEVEL]` format
+- Both INFO and DEBUG levels are detected and displayed with appropriate styling
+- Next priority test tasks:
+  - test-parse-maven: Maven error format parsing
+  - test-filter-text, test-filter-regex, test-filter-exclude, test-filter-service
+  - test-select-all, test-select-delete, test-copy, test-wrap-toggle
+- Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
