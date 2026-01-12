@@ -724,3 +724,42 @@
   - Backend tasks: Could verify and mark as complete
   - Polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
   - Test tasks: All test-* tasks need verification
+
+## 2026-01-12 - backend-readfile, backend-json-escape, backend-recent-get, backend-recent-add VERIFIED
+
+### What was done:
+- Verified all 4 backend bindings work correctly with Playwright
+- Started mocha binary in headless mode on port 26536
+- Tested readFile binding with comprehensive test suite:
+  - Test 1: Full file read (offset=0) - SUCCESS (130 bytes read)
+  - Test 2: Differential read when file hasn't grown (offset=130, size=130) - SUCCESS (empty content returned)
+  - Test 3: Differential read after file grows (offset=130, size=189) - SUCCESS (only 59 new bytes returned)
+  - Test 4: Error handling for nonexistent file - SUCCESS ("Cannot stat file" error)
+  - Test 5: JSON escaping with special characters (quotes, backslash, newlines, tabs) - SUCCESS (all properly escaped)
+- Verified getRecentFiles returns stored recent files
+- Verified addRecentFile adds files to recent list
+
+### Backend implementation summary (in src/main.c):
+- json_escape() function handles all special characters including control chars
+- readFile binding implements full differential read logic:
+  - stat() gets current file size
+  - Returns empty content if file hasn't grown (offset >= size)
+  - Seeks to offset and reads only new bytes
+  - Returns JSON with content, path, name, size, prevSize
+  - Handles errors: no path, stat fail, open fail, too large, memory fail
+- getRecentFiles reads ~/.mocha/recent.json or returns []
+- addRecentFile creates directory, prepends entry to JSON array
+
+### Files modified:
+- prd.json (marked backend-readfile, backend-json-escape, backend-recent-get, backend-recent-add as complete)
+
+### Notes for next developer:
+- ALL BACKEND BINDINGS ARE NOW VERIFIED AND COMPLETE
+- The C implementation was already done in setup-webui but not formally verified
+- Differential reads work correctly for file polling support
+- JSON escaping handles quotes, backslashes, newlines, tabs, and control chars
+- Next priority tasks:
+  - int-hash: Hash generation (verify already implemented in parser.ts)
+  - ui-fileinput: Browser file input (partially done)
+  - Polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+  - Test tasks: All test-* tasks need verification

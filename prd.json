@@ -66,7 +66,7 @@
       "Handle errors (file not found, too large)"
     ],
     "reference": "./spec/webui-bindings.md#binding-readfilepath-offset",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "backend",
@@ -79,7 +79,7 @@
       "Test with log files containing special characters"
     ],
     "reference": "./spec/webui-bindings.md",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "backend",
@@ -92,7 +92,7 @@
       "Handle read errors gracefully"
     ],
     "reference": "./spec/webui-bindings.md#binding-getrecentfiles",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "backend",
@@ -107,7 +107,7 @@
       "Write back to recent.json"
     ],
     "reference": "./spec/webui-bindings.md#binding-addrecentfile",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "frontend",
