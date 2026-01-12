@@ -1071,3 +1071,37 @@
   - test-filter-service: Verify service badge filtering
   - test-select-all, test-select-delete, test-copy, test-wrap-toggle
 - Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+
+## 2026-01-12 - test-filter-text VERIFIED
+
+### What was done:
+- Ran E2E test using Playwright against compiled mocha binary
+- Built frontend with `cd ui && npm run build`
+- Started mocha binary in headless mode on port 17629
+- Verified all test-filter-text requirements:
+  1. Loaded core-log-snippet.txt via file input (27/54 lines displayed)
+  2. Typed 'ERROR' in filter input, pressed Enter
+  3. Verified only ERROR lines visible: Line count reduced to 3/54 lines
+  4. Verified filter chip appears: "ERROR" chip displayed with remove button (X)
+  5. Clicked X on chip, verified all logs return: Line count back to 27/54 lines
+
+### Verified with Playwright:
+- File loads correctly via browser file input
+- Text filter "ERROR" reduces visible logs from 27 to 3
+- Filter chip displays with blue background and X button
+- Removing filter restores all 27 visible logs
+- No console errors
+
+### Files modified:
+- prd.json (marked test-filter-text as complete with passes: "2026-01-12")
+
+### Notes for next developer:
+- Text filtering is verified and working correctly
+- The filter is case-sensitive by default (searches for exact text match in log content)
+- Filter chips display in the toolbar between service badges and filter input
+- Next priority test tasks:
+  - test-filter-regex: Verify regex filtering with /pattern/ syntax
+  - test-filter-exclude: Verify exclude filtering with -prefix syntax
+  - test-filter-service: Verify service badge filtering
+  - test-select-all, test-select-delete, test-copy, test-wrap-toggle
+- Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
