@@ -1289,3 +1289,40 @@
   - test-polling: Verify polling picks up new content
   - test-recent-persist: Verify recent files persist
 - Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+
+## 2026-01-13 - test-copy VERIFIED
+
+### What was done:
+- Ran E2E test using Playwright against Vite dev server
+- Started dev server on port 5175
+- Uploaded _tmp/logs/core-log-snippet.txt via file input
+- Verified all test-copy requirements:
+  1. Loaded core-log-snippet.txt via file input (27/54 lines displayed)
+  2. Pressed Ctrl+A to select all logs (checkmark icons appeared on all 27 entries)
+  3. Pressed Ctrl+C to copy to clipboard
+  4. Verified clipboard contains all 27 raw log lines using navigator.clipboard.readText()
+  5. Clipboard content includes full timestamps, thread info, log levels, logger names, and messages
+
+### Verified with Playwright:
+- File loads correctly via browser file input (27/54 lines)
+- Ctrl+A selects all visible logs (checkmark icons appear on all entries)
+- Ctrl+C copies selected logs to clipboard
+- Clipboard content verified contains raw log data:
+  - First line: `2026-01-09 04:48:45,406 70931304 [scheduled-executor-thread-3] INFO  c.s.c.s.ActivityProcessingScheduler - Set Lead-specific fields...`
+  - ERROR lines present: `2026-01-09 04:48:34,370 70908248 [boundedElastic-2] ERROR c.s.c.service.bizlogic.MCPService - Invalid or expired JWT token`
+  - All 27 log entries copied with newline separators
+- No console errors
+
+### Files modified:
+- prd.json (marked test-copy as complete with passes: "2026-01-13")
+
+### Notes for next developer:
+- Ctrl+C clipboard copy is verified and working correctly
+- The copy functionality extracts the raw log content for each selected entry
+- Clipboard uses navigator.clipboard.writeText() API
+- Works in both browser mode (dev server) and WebUI mode
+- Next priority test tasks:
+  - test-wrap-toggle: Verify line wrap toggle
+  - test-polling: Verify polling picks up new content
+  - test-recent-persist: Verify recent files persist
+- Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package

@@ -667,7 +667,7 @@
       "Verify clipboard contains raw log line"
     ],
     "reference": "./spec/testing.md",
-    "passes": ""
+    "passes": "2026-01-13"
   },
   {
     "category": "test",
