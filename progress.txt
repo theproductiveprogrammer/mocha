@@ -244,3 +244,57 @@
 - The parser handles various edge cases like timestamp-only metadata lines
 - Next tasks should be frontend-store-viewer, frontend-store-selection, frontend-store-file for Zustand stores
 - Or could proceed to UI components (ui-sidebar, ui-toolbar, ui-logline)
+
+## 2026-01-12 - frontend-store-viewer COMPLETED
+
+### What was done:
+- Created ui/src/store.ts with useLogViewerStore Zustand store
+- Implemented all required state and actions:
+  - inactiveNames: Set<string> for hidden services
+  - filters: ParsedFilter[] for text/regex/exclude filters
+  - input: string for current filter input
+  - toggleName: Solo mode (click to show only that service) or toggle
+  - addFilter, removeFilter, clearFilters: Filter management
+  - setInput: Input state management
+- Added localStorage persistence with custom Set serialization
+  - Created setAwareStorage that converts Sets to/from arrays for JSON storage
+  - Uses zustand/middleware persist with partialize to exclude input from persistence
+- Added helper functions:
+  - parseFilterInput(): Parses filter strings into ParsedFilter objects
+    - /pattern/ → regex filter
+    - -text → exclude filter
+    - text → plain text filter
+  - filterLogs(): Applies filters and service visibility to log entries
+    - Handles include filters (OR logic)
+    - Handles exclude filters (AND logic - all must pass)
+    - Filters by service name visibility
+    - Optional deleted hashes filtering
+- Updated App.tsx with Store Test section:
+  - Filter input with Enter to submit
+  - Active filter chips with remove buttons and color coding
+  - Service badge buttons for filtering by service
+  - Filtered log count display
+  - Integrated filtering with parsed logs display
+- Verified with Playwright:
+  - Text filter: Added "MCP" filter, reduced logs from 43 to 10
+  - Regex filter: Added "/INFO/" filter, displayed as purple chip
+  - Exclude filter: Added "-DEBUG" filter, displayed as red chip
+  - Remove filter: Clicked X on filter chip, filter removed
+  - Clear all: Clicked "Clear all" button, all filters removed
+  - Service badge: Displayed for loaded log files
+
+### Files created:
+- ui/src/store.ts
+
+### Files modified:
+- ui/src/App.tsx (added Store Test section with filter UI)
+- prd.json (marked frontend-store-viewer as complete)
+
+### Notes for next developer:
+- Import store: `import { useLogViewerStore, parseFilterInput, filterLogs } from './store'`
+- Store hook usage: `const { filters, addFilter, toggleName, ... } = useLogViewerStore()`
+- Filter parsing: `const filter = parseFilterInput(inputString)` returns ParsedFilter or null
+- Filter application: `const filtered = filterLogs(logs, filters, inactiveNames, deletedHashes?)`
+- localStorage key: "mocha-log-viewer-state"
+- Next tasks should be frontend-store-selection and frontend-store-file for remaining stores
+- After stores are complete, proceed to UI components (ui-sidebar, ui-toolbar, ui-logline, ui-logviewer)

@@ -220,7 +220,7 @@
       "Add localStorage persistence with Set serialization"
     ],
     "reference": "./spec/ui-components.md#uselogviewerstore",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "frontend",
