@@ -191,3 +191,56 @@
 - readFile returns FileResult type with success/error handling built in
 - All functions gracefully handle non-WebUI context (return empty/error without crashing)
 - Next logical task is frontend-parser-patterns to implement log format parsing
+
+## 2026-01-12 - frontend-parser-patterns, frontend-parser-api, frontend-parser-normalize, frontend-parser-main COMPLETED
+
+### What was done:
+- Created ui/src/parser.ts with comprehensive log format parsing
+- Implemented all 11 log format patterns from spec:
+  1. salesbox-app: SalesBox application format with counter and thread
+  2. iwf-spring: IWF/Spring format with source file line numbers
+  3. logback-with-source: Full logback with source file info
+  4. logback-internal: Logback internal messages (|-INFO format)
+  5. maven: Maven build output ([INFO], [ERROR], etc.)
+  6. logback: Standard logback format
+  7. bracketed: Simple bracketed level format
+  8. simple: Timestamp + level + message
+  9. logback-time-only: Time-only logback format
+  10. level-only: Just [LEVEL] message format
+  11. genie-rust: Rust/Genie format with bracketed sections
+- Implemented parseApiCall() for API call pattern detection:
+  - Outgoing GET/POST/DELETE requests
+  - HTTP status responses with timing
+  - Incoming request/response patterns
+- Implemented continuation line handling:
+  - isContinuationLine() detects indented, ASCII art, short lines
+  - isTimestampOnlyLine() filters metadata timestamp lines
+  - normalize() merges continuation lines with previous entry
+- Implemented main parsing functions:
+  - parseLogLine() tries each pattern until one matches
+  - parseLogFile() handles full file parsing with truncation
+  - Handles tab-separated epoch format (metadata timestamps)
+  - Limits to last 2000 lines for large files
+  - Returns { logs, totalLines, truncated }
+- Implemented hash generation using murmurhash for unique log IDs
+- Updated App.tsx with parser test UI section
+- Verified with Playwright:
+  - Genie/Rust format: Full parsing with INFO badges, timestamps, logger names
+  - Maven format: Parses ERROR/INFO levels correctly
+  - SalesBox format: Cleans up timestamp-only lines properly
+
+### Files created:
+- ui/src/parser.ts
+
+### Files modified:
+- ui/src/App.tsx (added parser test UI with file upload)
+- prd.json (marked 4 parser tasks as complete)
+
+### Notes for next developer:
+- Import parser: `import { parseLogFile, parseLogLine, isContinuationLine } from './parser'`
+- parseLogFile(content, fileName) returns ParsedLogFileResult with logs array
+- Each log has parsed?.level, parsed?.timestamp, parsed?.logger, parsed?.content
+- parseApiCall() is called automatically and attaches apiCall info if detected
+- The parser handles various edge cases like timestamp-only metadata lines
+- Next tasks should be frontend-store-viewer, frontend-store-selection, frontend-store-file for Zustand stores
+- Or could proceed to UI components (ui-sidebar, ui-toolbar, ui-logline)

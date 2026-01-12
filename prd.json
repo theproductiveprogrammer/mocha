@@ -159,7 +159,7 @@
       "Implement genie-rust pattern"
     ],
     "reference": "./spec/log-parser.md#log-format-patterns",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "frontend",
@@ -175,7 +175,7 @@
       "Extract endpoint, method, status, timing"
     ],
     "reference": "./spec/log-parser.md#api-call-patterns",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "frontend",
@@ -190,7 +190,7 @@
       "Test with multi-line stack traces"
     ],
     "reference": "./spec/log-parser.md#continuation-line-detection",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "frontend",
@@ -204,7 +204,7 @@
       "Return { logs, totalLines, truncated }"
     ],
     "reference": "./spec/log-parser.md#public-api",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "frontend",
