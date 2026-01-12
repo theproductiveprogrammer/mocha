@@ -963,3 +963,39 @@
   - test-parse-maven: Maven error format parsing
   - test-filter-text, test-filter-regex, test-filter-exclude, test-filter-service
 - Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+
+## 2026-01-12 - test-parse-iwf VERIFIED
+
+### What was done:
+- Ran E2E test using Playwright against compiled mocha binary
+- Built frontend with `cd ui && npm run build`
+- Started mocha binary in headless mode on port 35646
+- Uploaded _tmp/logs/salesbox_microservice_iwf.log (13MB file, 6145 lines)
+- Verified all test-parse-iwf requirements:
+  1. `[thread] LEVEL logger` pattern parsed: Timestamps extracted (11:28:39, 11:23:39, etc.), level badges (ERROR, INFO, WARN) displayed, logger names parsed from salesbox-app format
+  2. Source file line numbers extracted: Stack traces show `.java:line` format (IwfHttpException.java:72, UnregisteredClient.java:173, Client.java:185, NotificationSchedulerService.java:75, etc.)
+  3. Continuation lines merged: Full stack traces merged with parent ERROR entries, expanded view shows complete exception chain
+
+### Verified with Playwright:
+- File loads correctly with truncation (1705/6145 lines shown)
+- Truncation indicator visible in toolbar
+- ERROR filter applied: Reduced to 33/6145 lines
+- ERROR badges (red) displayed correctly
+- Continuation lines (stack traces) merged with parent entries
+- Expanded view shows full stack trace with source file line numbers
+- Screenshots captured: test-parse-iwf-attempt1.png, test-parse-iwf-error-filter.png, test-parse-iwf-expanded-entry.png
+- No console errors
+
+### Files modified:
+- prd.json (marked test-parse-iwf as complete with passes: "2026-01-12")
+
+### Notes for next developer:
+- IWF/Spring log format parsing is verified and working correctly
+- The salesbox_microservice_iwf.log file uses salesbox-app format (not pure IWF format)
+- The key validation is continuation line merging - stack traces are properly merged with ERROR entries
+- Source file line numbers visible in stack traces when log entry is expanded
+- Next priority test tasks:
+  - test-parse-genie: Genie/Rust format parsing
+  - test-parse-maven: Maven error format parsing
+  - test-filter-text, test-filter-regex, test-filter-exclude, test-filter-service
+- Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
