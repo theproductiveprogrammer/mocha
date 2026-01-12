@@ -10,7 +10,7 @@ fi
 for ((i=1; i<=$1; i++)); do
   echo "Iteration $i"
   echo "--------------"
-  result=$(claude --permission-mode acceptEdits -p "@prd.json @progress.txt \
+  result=$(claude --permission-mode acceptEdits --dangerously-skip-permissions -p "@prd.json @progress.txt \
 1. Find the highest-priority feature to work on and work only on that feature.
 This should be the one YOU decide has the highest priority - not necessarily the first
 2. Check that the feature implemented actually works using playwright. \
