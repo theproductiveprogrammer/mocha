@@ -431,7 +431,7 @@
       "Use hash for selection and deletion tracking"
     ],
     "reference": "./spec/log-parser.md#hash-generation",
-    "passes": ""
+    "passes": "2026-01-12"
   },
   {
     "category": "polish",

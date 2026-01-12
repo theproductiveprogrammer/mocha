@@ -27,9 +27,9 @@ export function LogViewer({ logs }: LogViewerProps) {
 
   // Selection store
   const {
-    selectedHashes,
-    deletedHashes,
-    wrappedHashes,
+    selectedHashes: rawSelectedHashes,
+    deletedHashes: rawDeletedHashes,
+    wrappedHashes: rawWrappedHashes,
     lastSelectedHash,
     toggleSelection,
     selectRange,
@@ -38,6 +38,20 @@ export function LogViewer({ logs }: LogViewerProps) {
     clearSelection,
     toggleWrap,
   } = useSelectionStore()
+
+  // Ensure hashes are Sets (handles hydration race condition)
+  const selectedHashes = useMemo(
+    () => (rawSelectedHashes instanceof Set ? rawSelectedHashes : new Set(Array.isArray(rawSelectedHashes) ? rawSelectedHashes : [])),
+    [rawSelectedHashes]
+  )
+  const deletedHashes = useMemo(
+    () => (rawDeletedHashes instanceof Set ? rawDeletedHashes : new Set(Array.isArray(rawDeletedHashes) ? rawDeletedHashes : [])),
+    [rawDeletedHashes]
+  )
+  const wrappedHashes = useMemo(
+    () => (rawWrappedHashes instanceof Set ? rawWrappedHashes : new Set(Array.isArray(rawWrappedHashes) ? rawWrappedHashes : [])),
+    [rawWrappedHashes]
+  )
 
   // Filter and reverse logs (newest-first)
   const filteredLogs = useMemo(() => {

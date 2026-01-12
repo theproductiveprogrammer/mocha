@@ -763,3 +763,47 @@
   - ui-fileinput: Browser file input (partially done)
   - Polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
   - Test tasks: All test-* tasks need verification
+
+## 2026-01-12 - int-hash VERIFIED AND BUG FIXED
+
+### What was done:
+- Verified hash generation was already implemented in parser.ts (lines 524-535)
+- Uses murmurhash.v3() to generate hash from `serviceName|content`
+- Duplicate hashes handled by appending index: `base.<<index>>`
+- Found and fixed critical bug in Zustand store Set serialization:
+  - Problem: `JSON.stringify(Set)` returns `"{}"` not an array
+  - Zustand's `createJSONStorage` calls `JSON.stringify` before custom storage's `setItem`
+  - This caused Sets to become empty objects when persisted
+  - After reload, `.has()` calls failed with "is not a function" error
+- Fixed by implementing custom StateStorage for both stores:
+  - `logViewerStorage` for useLogViewerStore (handles inactiveNames Set)
+  - `selectionStorage` for useSelectionStore (handles deletedHashes, wrappedHashes Sets)
+  - Custom storage implements `getItem`/`setItem` that properly convert Sets to/from arrays
+  - Removed `createJSONStorage` wrapper for these stores
+- Added defensive handling in LogViewer.tsx:
+  - useMemo wrappers ensure Sets even during hydration race condition
+- Added defensive handling in filterLogs():
+  - Accepts Set or array for deletedHashes, converts to Set internally
+
+### Verified with Playwright:
+- Hash generation creates numeric strings from murmurhash: e.g., "382694734"
+- Duplicate content gets index suffix: e.g., "382694734.<<42>>"
+- Selection works: Ctrl+A selects all 43 logs
+- Deletion works: Delete key hides selected logs (0/44 visible)
+- Persistence works: 43 hashes saved as array in localStorage
+- Reload persistence works: After page reload, deleted logs remain hidden
+- No console errors after fix
+
+### Files modified:
+- ui/src/store.ts (new logViewerStorage and fixed selectionStorage)
+- ui/src/components/LogViewer.tsx (defensive Set handling)
+- prd.json (marked int-hash as complete)
+
+### Notes for next developer:
+- Hash generation and persistence now work correctly
+- The Zustand Set serialization fix is critical - don't use createJSONStorage for stores with Set fields
+- Custom storage pattern: getItem returns parsed object with Sets, setItem converts Sets to arrays before JSON.stringify
+- Next priority tasks:
+  - ui-fileinput: Browser file input (file input exists but not formally verified)
+  - Polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+  - Test tasks: All test-* tasks need verification

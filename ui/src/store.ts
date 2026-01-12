@@ -14,39 +14,50 @@ import type { LogViewerState, SelectionState, FileState, ParsedFilter, OpenedFil
 // ============================================================================
 
 /**
- * Custom storage that handles Set serialization/deserialization for localStorage.
- * Sets are converted to arrays for JSON storage and back to Sets on load.
+ * Custom StateStorage for LogViewer store that properly handles Set serialization.
+ *
+ * The problem: Zustand's createJSONStorage uses JSON.stringify which converts Sets to "{}".
+ * Solution: Implement StateStorage interface directly with custom serialize/deserialize.
  */
-const setAwareStorage = {
-  getItem: (name: string): string | null => {
+const logViewerStorage = {
+  getItem: (name: string) => {
     const str = localStorage.getItem(name)
     if (!str) return null
 
     try {
       const parsed = JSON.parse(str)
-      // Convert arrays back to Sets for known Set fields
+      // Convert arrays back to Sets
       if (parsed.state) {
         if (Array.isArray(parsed.state.inactiveNames)) {
           parsed.state.inactiveNames = new Set(parsed.state.inactiveNames)
         }
       }
-      return JSON.stringify(parsed)
+      return parsed
     } catch {
-      return str
+      return null
     }
   },
-  setItem: (name: string, value: string): void => {
+  setItem: (name: string, value: unknown): void => {
     try {
-      const parsed = JSON.parse(value)
-      // Convert Sets to arrays for JSON storage
-      if (parsed.state) {
-        if (parsed.state.inactiveNames instanceof Set) {
-          parsed.state.inactiveNames = Array.from(parsed.state.inactiveNames)
-        }
+      // value is the raw state object (not stringified yet)
+      const toStore = value as { state?: { inactiveNames?: Set<string> }; version?: number }
+
+      // Convert Sets to arrays before serializing
+      const serializable = {
+        ...toStore,
+        state: toStore.state
+          ? {
+              ...toStore.state,
+              inactiveNames: toStore.state.inactiveNames instanceof Set
+                ? Array.from(toStore.state.inactiveNames)
+                : toStore.state.inactiveNames,
+            }
+          : undefined,
       }
-      localStorage.setItem(name, JSON.stringify(parsed))
-    } catch {
-      localStorage.setItem(name, value)
+
+      localStorage.setItem(name, JSON.stringify(serializable))
+    } catch (e) {
+      console.error('Failed to persist log viewer state:', e)
     }
   },
   removeItem: (name: string): void => {
@@ -55,31 +66,56 @@ const setAwareStorage = {
 }
 
 /**
- * Custom storage for Selection store - handles multiple Set fields
- * Sets are serialized as arrays and converted back when loaded
+ * Custom StateStorage for Selection store that properly handles Set serialization.
+ *
+ * The problem: Zustand's createJSONStorage uses JSON.stringify which converts Sets to "{}".
+ * Solution: Implement StateStorage interface directly with custom serialize/deserialize.
  */
 const selectionStorage = {
-  getItem: (name: string): string | null => {
-    return localStorage.getItem(name)
-  },
-  setItem: (name: string, value: string): void => {
+  getItem: (name: string) => {
+    const str = localStorage.getItem(name)
+    if (!str) return null
+
     try {
-      const parsed = JSON.parse(value)
-      // Convert Sets to arrays for JSON storage
+      const parsed = JSON.parse(str)
+      // Convert arrays back to Sets
       if (parsed.state) {
-        if (parsed.state.selectedHashes instanceof Set) {
-          parsed.state.selectedHashes = Array.from(parsed.state.selectedHashes)
+        if (Array.isArray(parsed.state.deletedHashes)) {
+          parsed.state.deletedHashes = new Set(parsed.state.deletedHashes)
         }
-        if (parsed.state.deletedHashes instanceof Set) {
-          parsed.state.deletedHashes = Array.from(parsed.state.deletedHashes)
-        }
-        if (parsed.state.wrappedHashes instanceof Set) {
-          parsed.state.wrappedHashes = Array.from(parsed.state.wrappedHashes)
+        if (Array.isArray(parsed.state.wrappedHashes)) {
+          parsed.state.wrappedHashes = new Set(parsed.state.wrappedHashes)
         }
       }
-      localStorage.setItem(name, JSON.stringify(parsed))
+      return parsed
     } catch {
-      localStorage.setItem(name, value)
+      return null
+    }
+  },
+  setItem: (name: string, value: unknown): void => {
+    try {
+      // value is the raw state object (not stringified yet)
+      const toStore = value as { state?: { deletedHashes?: Set<string>; wrappedHashes?: Set<string> }; version?: number }
+
+      // Convert Sets to arrays before serializing
+      const serializable = {
+        ...toStore,
+        state: toStore.state
+          ? {
+              ...toStore.state,
+              deletedHashes: toStore.state.deletedHashes instanceof Set
+                ? Array.from(toStore.state.deletedHashes)
+                : toStore.state.deletedHashes,
+              wrappedHashes: toStore.state.wrappedHashes instanceof Set
+                ? Array.from(toStore.state.wrappedHashes)
+                : toStore.state.wrappedHashes,
+            }
+          : undefined,
+      }
+
+      localStorage.setItem(name, JSON.stringify(serializable))
+    } catch (e) {
+      console.error('Failed to persist selection state:', e)
     }
   },
   removeItem: (name: string): void => {
@@ -100,18 +136,17 @@ const mergeSelectionState = (
     wrappedHashes: string[] | Set<string>
   }>
 
+  // Helper to ensure we always get a Set
+  const toSet = (value: unknown): Set<string> => {
+    if (value instanceof Set) return value
+    if (Array.isArray(value)) return new Set(value)
+    return new Set()
+  }
+
   return {
     ...currentState,
-    deletedHashes: Array.isArray(persisted?.deletedHashes)
-      ? new Set(persisted.deletedHashes)
-      : persisted?.deletedHashes instanceof Set
-      ? persisted.deletedHashes
-      : currentState.deletedHashes,
-    wrappedHashes: Array.isArray(persisted?.wrappedHashes)
-      ? new Set(persisted.wrappedHashes)
-      : persisted?.wrappedHashes instanceof Set
-      ? persisted.wrappedHashes
-      : currentState.wrappedHashes,
+    deletedHashes: persisted?.deletedHashes ? toSet(persisted.deletedHashes) : currentState.deletedHashes,
+    wrappedHashes: persisted?.wrappedHashes ? toSet(persisted.wrappedHashes) : currentState.wrappedHashes,
   }
 }
 
@@ -188,7 +223,7 @@ export const useLogViewerStore = create<LogViewerState>()(
     }),
     {
       name: 'mocha-log-viewer-state',
-      storage: createJSONStorage(() => setAwareStorage),
+      storage: logViewerStorage,
       partialize: (state) => ({
         inactiveNames: state.inactiveNames,
         filters: state.filters,
@@ -345,7 +380,7 @@ export const useSelectionStore = create<SelectionState>()(
     }),
     {
       name: 'mocha-selection-state',
-      storage: createJSONStorage(() => selectionStorage),
+      storage: selectionStorage,
       partialize: (state) => ({
         // Only persist deleted and wrapped - selections should reset on load
         deletedHashes: state.deletedHashes,
@@ -502,16 +537,23 @@ export function filterLogs(
   logs: LogEntry[],
   filters: ParsedFilter[],
   inactiveNames: Set<string>,
-  deletedHashes?: Set<string>
+  deletedHashes?: Set<string> | string[]
 ): LogEntry[] {
+  // Ensure deletedHashes is a Set (handles hydration race condition)
+  const deletedSet = deletedHashes instanceof Set
+    ? deletedHashes
+    : Array.isArray(deletedHashes)
+    ? new Set(deletedHashes)
+    : undefined
+
   return logs.filter((log) => {
     // Check if service is visible
-    if (inactiveNames.has(log.name)) {
+    if (inactiveNames instanceof Set && inactiveNames.has(log.name)) {
       return false
     }
 
     // Check if deleted
-    if (deletedHashes && log.hash && deletedHashes.has(log.hash)) {
+    if (deletedSet && log.hash && deletedSet.has(log.hash)) {
       return false
     }
 
