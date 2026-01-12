@@ -1,0 +1,713 @@
+[
+  {
+    "category": "setup",
+    "id": "setup-webui",
+    "description": "Set up WebUI C project with Makefile",
+    "steps": [
+      "Download WebUI library (header + static lib)",
+      "Create src/ directory with main.c skeleton",
+      "Create Makefile that compiles main.c and links WebUI",
+      "Test compilation produces mocha binary"
+    ],
+    "reference": "./spec/implementation-overview.md",
+    "passes": ""
+  },
+  {
+    "category": "setup",
+    "id": "setup-react",
+    "description": "Initialize React/Vite/Tailwind project",
+    "steps": [
+      "Run npm create vite@latest in ui/ directory",
+      "Select React + TypeScript template",
+      "Install tailwindcss and @tailwindcss/vite",
+      "Configure vite.config.ts with tailwind plugin",
+      "Configure build output to ../dist",
+      "Test npm run dev works"
+    ],
+    "reference": "./spec/implementation-overview.md",
+    "passes": ""
+  },
+  {
+    "category": "setup",
+    "id": "setup-deps",
+    "description": "Install frontend dependencies",
+    "steps": [
+      "npm install zustand for state management",
+      "npm install lucide-react for icons",
+      "npm install murmurhash for hash generation",
+      "Verify all dependencies in package.json"
+    ],
+    "reference": "./spec/implementation-overview.md",
+    "passes": ""
+  },
+  {
+    "category": "setup",
+    "id": "setup-hello",
+    "description": "Test WebUI hello world with React",
+    "steps": [
+      "Build React frontend: npm run build",
+      "Add minimal main() in main.c that shows dist/index.html",
+      "Compile and run mocha binary",
+      "Browser window opens with React app"
+    ],
+    "reference": "./spec/webui-bindings.md",
+    "passes": ""
+  },
+  {
+    "category": "backend",
+    "id": "backend-readfile",
+    "description": "Implement readFile binding with differential reads",
+    "steps": [
+      "Add readFile binding that accepts (path, offset)",
+      "Use stat() to get current file size",
+      "If offset > 0 and size <= offset, return empty content",
+      "Otherwise seek to offset and read new bytes",
+      "Return JSON with content, size, prevSize, path, name",
+      "Handle errors (file not found, too large)"
+    ],
+    "reference": "./spec/webui-bindings.md#binding-readfilepath-offset",
+    "passes": ""
+  },
+  {
+    "category": "backend",
+    "id": "backend-json-escape",
+    "description": "Implement proper JSON escaping for file content",
+    "steps": [
+      "Create json_escape() helper function",
+      "Escape backslash, quotes, newlines, tabs, control chars",
+      "Use escaped content in readFile response",
+      "Test with log files containing special characters"
+    ],
+    "reference": "./spec/webui-bindings.md",
+    "passes": ""
+  },
+  {
+    "category": "backend",
+    "id": "backend-recent-get",
+    "description": "Implement getRecentFiles binding",
+    "steps": [
+      "Read ~/.mocha/recent.json file",
+      "Return empty array [] if file doesn't exist",
+      "Return JSON array of {path, name, lastOpened}",
+      "Handle read errors gracefully"
+    ],
+    "reference": "./spec/webui-bindings.md#binding-getrecentfiles",
+    "passes": ""
+  },
+  {
+    "category": "backend",
+    "id": "backend-recent-add",
+    "description": "Implement addRecentFile binding",
+    "steps": [
+      "Create ~/.mocha/ directory if needed",
+      "Read existing recent.json",
+      "Remove duplicate if path already exists",
+      "Prepend new entry with current timestamp",
+      "Limit array to 20 entries",
+      "Write back to recent.json"
+    ],
+    "reference": "./spec/webui-bindings.md#binding-addrecentfile",
+    "passes": ""
+  },
+  {
+    "category": "frontend",
+    "id": "frontend-types",
+    "description": "Create TypeScript type definitions",
+    "steps": [
+      "Create ui/src/types.ts",
+      "Define LogEntry interface",
+      "Define ParsedLogLine interface",
+      "Define ApiCallInfo interface",
+      "Define FileResult interface",
+      "Define RecentFile interface"
+    ],
+    "reference": "./spec/log-parser.md#type-definitions",
+    "passes": ""
+  },
+  {
+    "category": "frontend",
+    "id": "frontend-api",
+    "description": "Create WebUI API wrapper",
+    "steps": [
+      "Create ui/src/api.ts",
+      "Declare window.webui global type",
+      "Implement isWebUI() check",
+      "Implement readFile(path, offset) wrapper",
+      "Implement getRecentFiles() wrapper",
+      "Implement addRecentFile(path) wrapper"
+    ],
+    "reference": "./spec/webui-bindings.md#frontend-api-wrapper",
+    "passes": ""
+  },
+  {
+    "category": "frontend",
+    "id": "frontend-parser-patterns",
+    "description": "Implement log format pattern matchers",
+    "steps": [
+      "Create ui/src/parser.ts",
+      "Define LogPattern interface with name and parse function",
+      "Implement salesbox-app pattern",
+      "Implement iwf-spring pattern",
+      "Implement logback-with-source pattern",
+      "Implement logback-internal pattern",
+      "Implement maven pattern",
+      "Implement logback standard pattern",
+      "Implement bracketed level pattern",
+      "Implement simple format pattern",
+      "Implement logback-time-only pattern",
+      "Implement level-only pattern",
+      "Implement genie-rust pattern"
+    ],
+    "reference": "./spec/log-parser.md#log-format-patterns",
+    "passes": ""
+  },
+  {
+    "category": "frontend",
+    "id": "frontend-parser-api",
+    "description": "Implement API call pattern detection",
+    "steps": [
+      "Implement parseApiCall() function",
+      "Detect outgoing GET requests",
+      "Detect outgoing POST requests",
+      "Detect outgoing DELETE requests",
+      "Detect HTTP status responses",
+      "Detect incoming requests/responses",
+      "Extract endpoint, method, status, timing"
+    ],
+    "reference": "./spec/log-parser.md#api-call-patterns",
+    "passes": ""
+  },
+  {
+    "category": "frontend",
+    "id": "frontend-parser-normalize",
+    "description": "Implement continuation line merging",
+    "steps": [
+      "Implement isContinuationLine() function",
+      "Detect indented lines",
+      "Detect ASCII art lines",
+      "Detect short lines without timestamp",
+      "Implement normalize() to merge continuations",
+      "Test with multi-line stack traces"
+    ],
+    "reference": "./spec/log-parser.md#continuation-line-detection",
+    "passes": ""
+  },
+  {
+    "category": "frontend",
+    "id": "frontend-parser-main",
+    "description": "Implement main parsing functions",
+    "steps": [
+      "Implement parseLogLine() that tries each pattern",
+      "Implement parseLogFile() for full file parsing",
+      "Handle tab-separated epoch format",
+      "Limit to last 2000 lines for large files",
+      "Return { logs, totalLines, truncated }"
+    ],
+    "reference": "./spec/log-parser.md#public-api",
+    "passes": ""
+  },
+  {
+    "category": "frontend",
+    "id": "frontend-store-viewer",
+    "description": "Create LogViewer Zustand store",
+    "steps": [
+      "Create ui/src/store.ts",
+      "Define LogViewerState interface",
+      "Implement inactiveNames (Set of hidden services)",
+      "Implement filters array with ParsedFilter type",
+      "Implement toggleName action",
+      "Implement addFilter, removeFilter, clearFilters",
+      "Add localStorage persistence with Set serialization"
+    ],
+    "reference": "./spec/ui-components.md#uselogviewerstore",
+    "passes": ""
+  },
+  {
+    "category": "frontend",
+    "id": "frontend-store-selection",
+    "description": "Create Selection Zustand store",
+    "steps": [
+      "Define SelectionState interface",
+      "Implement selectedHashes, deletedHashes, wrappedHashes (Sets)",
+      "Implement toggleSelection action",
+      "Implement selectRange action for Shift+Click",
+      "Implement selectAll action",
+      "Implement deleteSelected action",
+      "Implement clearSelection, clearDeleted",
+      "Implement toggleWrap action",
+      "Add localStorage persistence"
+    ],
+    "reference": "./spec/ui-components.md#useselectionstore",
+    "passes": ""
+  },
+  {
+    "category": "frontend",
+    "id": "frontend-store-file",
+    "description": "Create File Zustand store",
+    "steps": [
+      "Define FileState interface",
+      "Track currentFile (path, name, size, etc)",
+      "Track recentFiles array",
+      "Track isLoading and error states",
+      "Implement setCurrentFile, setRecentFiles",
+      "Implement setLoading, setError"
+    ],
+    "reference": "./spec/ui-components.md#usefilestore",
+    "passes": ""
+  },
+  {
+    "category": "ui",
+    "id": "ui-sidebar",
+    "description": "Create Sidebar component",
+    "steps": [
+      "Create ui/src/components/Sidebar.tsx",
+      "Add 'Open File' button that triggers file input",
+      "Display recent files list",
+      "Show file name and relative timestamp",
+      "Highlight currently open file",
+      "Handle click to re-open recent file",
+      "Add 'Clear' button for recent files"
+    ],
+    "reference": "./spec/ui-components.md#sidebar",
+    "passes": ""
+  },
+  {
+    "category": "ui",
+    "id": "ui-toolbar",
+    "description": "Create Toolbar component",
+    "steps": [
+      "Create ui/src/components/Toolbar.tsx",
+      "Display file info (name, line count, truncation)",
+      "Show service badges with click to toggle",
+      "Display active filter chips with X to remove",
+      "Add filter input with Enter to add",
+      "Support /regex/ syntax detection",
+      "Support -exclude prefix detection",
+      "Add polling toggle button"
+    ],
+    "reference": "./spec/ui-components.md#toolbar",
+    "passes": ""
+  },
+  {
+    "category": "ui",
+    "id": "ui-logline",
+    "description": "Create LogLine component",
+    "steps": [
+      "Create ui/src/components/LogLine.tsx",
+      "Render selection gutter on left",
+      "Render timestamp column",
+      "Render service badge with color",
+      "Render log content with level coloring",
+      "Handle click for selection toggle",
+      "Handle Ctrl+Click for add to selection",
+      "Handle content click for wrap toggle",
+      "Apply line-clamp-3 when not wrapped"
+    ],
+    "reference": "./spec/ui-components.md#logline",
+    "passes": ""
+  },
+  {
+    "category": "ui",
+    "id": "ui-logviewer",
+    "description": "Create LogViewer component",
+    "steps": [
+      "Create ui/src/components/LogViewer.tsx",
+      "Apply service filter from store",
+      "Apply text/regex filters from store",
+      "Exclude deleted hashes",
+      "Reverse logs for newest-first display",
+      "Render LogLine for each visible log",
+      "Handle keyboard shortcuts (Ctrl+A, Ctrl+C, Delete, Escape)",
+      "Implement clipboard copy of selected lines"
+    ],
+    "reference": "./spec/ui-components.md#logviewer",
+    "passes": ""
+  },
+  {
+    "category": "ui",
+    "id": "ui-dropzone",
+    "description": "Implement drag-and-drop file loading",
+    "steps": [
+      "Add onDragOver, onDragLeave, onDrop handlers to LogViewer",
+      "Show overlay when dragging files",
+      "Accept .log and .txt files only",
+      "Read file content with FileReader",
+      "Parse and display dropped file",
+      "Hide overlay after drop"
+    ],
+    "reference": "./spec/ui-components.md#dropzone",
+    "passes": ""
+  },
+  {
+    "category": "ui",
+    "id": "ui-fileinput",
+    "description": "Implement browser file input",
+    "steps": [
+      "Add hidden <input type='file'> element",
+      "Accept .log and .txt extensions",
+      "Trigger input click from 'Open' button",
+      "Read file content with FileReader",
+      "Parse and display selected file"
+    ],
+    "reference": "./spec/webui-bindings.md#1-browser-file-input",
+    "passes": ""
+  },
+  {
+    "category": "ui",
+    "id": "ui-app",
+    "description": "Create main App component",
+    "steps": [
+      "Create ui/src/App.tsx",
+      "Layout Sidebar + main content area",
+      "Load recent files on mount via getRecentFiles()",
+      "Handle file open from input/drop/recent",
+      "Wire up Sidebar and LogViewer components",
+      "Pass file state and handlers to children"
+    ],
+    "reference": "./spec/ui-components.md#app",
+    "passes": ""
+  },
+  {
+    "category": "integration",
+    "id": "int-recent-load",
+    "description": "Integrate recent files loading",
+    "steps": [
+      "Call getRecentFiles() on app mount",
+      "Store in useFileStore",
+      "Display in Sidebar component",
+      "Handle errors gracefully"
+    ],
+    "passes": ""
+  },
+  {
+    "category": "integration",
+    "id": "int-recent-add",
+    "description": "Integrate adding to recent files",
+    "steps": [
+      "After opening any file, call addRecentFile(path)",
+      "For browser input/drop, path is just the filename",
+      "For recent file click, path is full path",
+      "Refresh recent files list after add"
+    ],
+    "passes": ""
+  },
+  {
+    "category": "integration",
+    "id": "int-recent-reopen",
+    "description": "Integrate re-opening recent files",
+    "steps": [
+      "On recent file click, call readFile(path, 0)",
+      "Parse returned content with parseLogFile()",
+      "Display logs in LogViewer",
+      "Update currentFile state"
+    ],
+    "reference": "./spec/webui-bindings.md#3-recent-files-via-c-backend",
+    "passes": ""
+  },
+  {
+    "category": "integration",
+    "id": "int-polling",
+    "description": "Implement polling for file updates",
+    "steps": [
+      "Create useFilePolling hook",
+      "Track file size in useRef",
+      "Poll every 3 seconds when enabled",
+      "Call readFile(path, prevSize) for differential read",
+      "Parse new content and append to logs",
+      "Update tracked size from response",
+      "Reset size when file changes"
+    ],
+    "reference": "./spec/webui-bindings.md#polling-implementation",
+    "passes": ""
+  },
+  {
+    "category": "integration",
+    "id": "int-hash",
+    "description": "Implement hash generation for logs",
+    "steps": [
+      "Import murmurhash library",
+      "Generate hash from serviceName|content",
+      "Handle duplicate hashes by appending index",
+      "Use hash for selection and deletion tracking"
+    ],
+    "reference": "./spec/log-parser.md#hash-generation",
+    "passes": ""
+  },
+  {
+    "category": "polish",
+    "id": "polish-errors",
+    "description": "Add error handling and display",
+    "steps": [
+      "Display errors from readFile in UI",
+      "Show toast or banner for file errors",
+      "Handle 'file not found' for recent files",
+      "Handle 'file too large' gracefully"
+    ],
+    "passes": ""
+  },
+  {
+    "category": "polish",
+    "id": "polish-loading",
+    "description": "Add loading states",
+    "steps": [
+      "Show loading indicator during file read",
+      "Disable interactions while loading",
+      "Show progress for large files if possible"
+    ],
+    "passes": ""
+  },
+  {
+    "category": "polish",
+    "id": "polish-styling",
+    "description": "Polish UI styling",
+    "steps": [
+      "Apply monospace font (Fira Code or system mono)",
+      "Fine-tune service badge colors",
+      "Ensure consistent spacing and borders",
+      "Test dark mode if supported",
+      "Verify responsive behavior"
+    ],
+    "reference": "./spec/ui-components.md#styling-guidelines",
+    "passes": ""
+  },
+  {
+    "category": "polish",
+    "id": "polish-build",
+    "description": "Set up production build",
+    "steps": [
+      "Configure Vite for production build",
+      "Ensure dist/ contains index.html and assets",
+      "Compile C backend with release flags",
+      "Test mocha binary runs correctly",
+      "Verify file bindings work in production"
+    ],
+    "passes": ""
+  },
+  {
+    "category": "polish",
+    "id": "polish-package",
+    "description": "Create distribution package",
+    "steps": [
+      "Create macOS .app bundle structure",
+      "Place binary and dist/ in bundle",
+      "Set appropriate Info.plist",
+      "Test app launches correctly",
+      "Consider DMG creation for distribution"
+    ],
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-file-load",
+    "description": "Verify file loading via browser input",
+    "steps": [
+      "Open app in Playwright",
+      "Upload _tmp/logs/core-log-snippet.txt via file input",
+      "Take snapshot, verify logs displayed",
+      "Verify service badges appear",
+      "Verify timestamps parsed"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-file-truncate",
+    "description": "Verify large file truncation",
+    "steps": [
+      "Upload _tmp/logs/salesbox_microservice_core.log (11MB)",
+      "Verify truncation indicator shows",
+      "Verify log count <= 2000 lines",
+      "Verify 'last 2000 lines' message"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-parse-salesbox",
+    "description": "Verify SalesBox log format parsing",
+    "steps": [
+      "Upload _tmp/logs/core-log-snippet.txt",
+      "Verify timestamp extracted (2026-01-09 04:48:09,193)",
+      "Verify level extracted (INFO, WARN, ERROR)",
+      "Verify logger extracted (MCPController, etc)",
+      "Verify content is message after hyphen"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-parse-iwf",
+    "description": "Verify IWF/Spring log format parsing",
+    "steps": [
+      "Upload _tmp/logs/2026-01-02_log_liveserver1/salesbox_microservice_iwf.log",
+      "Verify [thread] LEVEL logger pattern parsed",
+      "Verify source file line numbers extracted",
+      "Verify continuation lines merged"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-parse-genie",
+    "description": "Verify Genie/Rust log format parsing",
+    "steps": [
+      "Upload _tmp/logs/genie.log",
+      "Verify [date][time][module][LEVEL] pattern parsed",
+      "Verify INFO level detected",
+      "Verify module name extracted"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-parse-maven",
+    "description": "Verify Maven error format parsing",
+    "steps": [
+      "Upload _tmp/logs/salesboxai-core-compile-error.log",
+      "Verify [ERROR] COMPILATION ERROR detected",
+      "Verify error level styling applied (red)",
+      "Verify file paths in errors visible"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-filter-text",
+    "description": "Verify text filtering",
+    "steps": [
+      "Load core-log-snippet.txt",
+      "Type 'ERROR' in filter input, press Enter",
+      "Verify only ERROR lines visible",
+      "Verify filter chip appears",
+      "Click X on chip, verify all logs return"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-filter-regex",
+    "description": "Verify regex filtering",
+    "steps": [
+      "Load core-log-snippet.txt",
+      "Type '/Controller/' in filter input, press Enter",
+      "Verify only lines with 'Controller' visible",
+      "Verify regex filter chip shows /pattern/"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-filter-exclude",
+    "description": "Verify exclude filtering",
+    "steps": [
+      "Load core-log-snippet.txt",
+      "Type '-INFO' in filter input, press Enter",
+      "Verify INFO lines are hidden",
+      "Verify ERROR and WARN lines still visible"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-filter-service",
+    "description": "Verify service badge filtering",
+    "steps": [
+      "Load multi-service log file",
+      "Click on a service badge",
+      "Verify only that service's logs visible",
+      "Click badge again, verify all services return"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-select-all",
+    "description": "Verify Ctrl+A select all",
+    "steps": [
+      "Load core-log-snippet.txt",
+      "Press Ctrl+A",
+      "Verify all log lines show selection indicator",
+      "Press Escape, verify selection cleared"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-select-delete",
+    "description": "Verify Delete hides selected logs",
+    "steps": [
+      "Load core-log-snippet.txt",
+      "Press Ctrl+A to select all",
+      "Press Delete key",
+      "Verify logs are hidden",
+      "Verify deleted count indicator shows"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-copy",
+    "description": "Verify Ctrl+C copies to clipboard",
+    "steps": [
+      "Load core-log-snippet.txt",
+      "Click a log line to select",
+      "Press Ctrl+C",
+      "Verify clipboard contains raw log line"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-wrap-toggle",
+    "description": "Verify line wrap toggle",
+    "steps": [
+      "Load file with long lines",
+      "Click on log content area",
+      "Verify text wrapping toggles",
+      "Verify line-clamp removed when wrapped"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-polling",
+    "description": "Verify polling picks up new content",
+    "steps": [
+      "Load file via recent files (has full path)",
+      "Enable polling toggle",
+      "Append new line to log file via Bash",
+      "Wait 3+ seconds",
+      "Verify new line appears in viewer"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  },
+  {
+    "category": "test",
+    "id": "test-recent-persist",
+    "description": "Verify recent files persist",
+    "steps": [
+      "Open a log file",
+      "Verify it appears in recent files sidebar",
+      "Reload the page",
+      "Verify recent file still in list",
+      "Click to re-open, verify it loads"
+    ],
+    "reference": "./spec/testing.md",
+    "passes": ""
+  }
+]
