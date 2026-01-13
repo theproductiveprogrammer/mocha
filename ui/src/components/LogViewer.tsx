@@ -1,8 +1,8 @@
-import { useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Search, FilterX } from 'lucide-react'
 import type { LogEntry } from '../types'
-import { useLogViewerStore, useSelectionStore, filterLogs } from '../store'
+import { useLogViewerStore, useStoryStore, filterLogs } from '../store'
 import { LogLine, getServiceName } from './LogLine'
 
 export interface LogViewerProps {
@@ -10,7 +10,16 @@ export interface LogViewerProps {
 }
 
 /**
- * LogViewer component - Virtualized log display with filtering, selection, and keyboard shortcuts.
+ * Extract thread/source identifier from log line for grouping
+ */
+function getThreadId(log: LogEntry): string | null {
+  // Try to extract [thread-id] pattern
+  const match = log.data.match(/\[([^\]]+)\]/)
+  return match?.[1] || null
+}
+
+/**
+ * LogViewer component - Virtualized log display with filtering and story integration.
  */
 export function LogViewer({ logs }: LogViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -18,46 +27,31 @@ export function LogViewer({ logs }: LogViewerProps) {
   // Log viewer store (filters and service visibility)
   const { inactiveNames, filters } = useLogViewerStore()
 
-  // Selection store
-  const {
-    selectedHashes: rawSelectedHashes,
-    deletedHashes: rawDeletedHashes,
-    wrappedHashes: rawWrappedHashes,
-    lastSelectedHash,
-    toggleSelection,
-    selectRange,
-    selectAll,
-    deleteSelected,
-    clearSelection,
-    toggleWrap,
-  } = useSelectionStore()
+  // Story store
+  const { storyHashes, toggleStory } = useStoryStore()
 
-  // Ensure hashes are Sets (handles hydration race condition)
-  const selectedHashes = useMemo(
-    () => (rawSelectedHashes instanceof Set ? rawSelectedHashes : new Set(Array.isArray(rawSelectedHashes) ? rawSelectedHashes : [])),
-    [rawSelectedHashes]
-  )
-  const deletedHashes = useMemo(
-    () => (rawDeletedHashes instanceof Set ? rawDeletedHashes : new Set(Array.isArray(rawDeletedHashes) ? rawDeletedHashes : [])),
-    [rawDeletedHashes]
-  )
-  const wrappedHashes = useMemo(
-    () => (rawWrappedHashes instanceof Set ? rawWrappedHashes : new Set(Array.isArray(rawWrappedHashes) ? rawWrappedHashes : [])),
-    [rawWrappedHashes]
-  )
+  // Convert to Set for fast lookup
+  const storyHashSet = useMemo(() => new Set(storyHashes), [storyHashes])
 
-  // Check if two logs belong to same group (within 300ms + same service/class)
+  // Check if two logs belong to same group (within 300ms + same service + same thread)
   const isSameGroup = useCallback((a: LogEntry | null, b: LogEntry): boolean => {
     if (!a) return false
     if (!a.timestamp || !b.timestamp) return false
+
     const within300ms = Math.abs(a.timestamp - b.timestamp) <= 300
     const sameService = getServiceName(a) === getServiceName(b)
-    return within300ms && sameService
+
+    // Also check thread/source if available
+    const aThread = getThreadId(a)
+    const bThread = getThreadId(b)
+    const sameThread = !aThread || !bThread || aThread === bThread
+
+    return within300ms && sameService && sameThread
   }, [])
 
   // Filter and sort logs by timestamp (newest-first), then group related entries
   const filteredLogs = useMemo(() => {
-    const filtered = filterLogs(logs, filters, inactiveNames, deletedHashes)
+    const filtered = filterLogs(logs, filters, inactiveNames)
 
     // Sort by timestamp descending (newest first)
     const sorted = [...filtered].sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
@@ -83,18 +77,7 @@ export function LogViewer({ logs }: LogViewerProps) {
     }
 
     return result
-  }, [logs, filters, inactiveNames, deletedHashes, isSameGroup])
-
-  // Get all hashes for selection operations
-  const allHashes = useMemo(() => {
-    return filteredLogs.map((log) => log.hash).filter((h): h is string => !!h)
-  }, [filteredLogs])
-
-  // Use ref for allHashes to keep callback stable
-  const allHashesRef = useRef(allHashes)
-  useLayoutEffect(() => {
-    allHashesRef.current = allHashes
-  }, [allHashes])
+  }, [logs, filters, inactiveNames, isSameGroup])
 
   // Virtualizer with dynamic measurement
   const virtualizer = useVirtualizer({
@@ -105,80 +88,13 @@ export function LogViewer({ logs }: LogViewerProps) {
     measureElement: (element) => element.getBoundingClientRect().height,
   })
 
-  // Handle log entry click for selection
-  const handleLogClick = useCallback(
-    (hash: string, event: React.MouseEvent) => {
-      if (event.shiftKey && lastSelectedHash) {
-        selectRange(lastSelectedHash, hash, allHashesRef.current)
-      } else if (event.ctrlKey || event.metaKey) {
-        toggleSelection(hash)
-      } else {
-        toggleSelection(hash)
-      }
+  // Handle story toggle
+  const handleToggleStory = useCallback(
+    (hash: string) => {
+      toggleStory(hash)
     },
-    [lastSelectedHash, selectRange, toggleSelection]
+    [toggleStory]
   )
-
-  // Copy selected logs to clipboard
-  const copySelectedToClipboard = useCallback(async () => {
-    if (selectedHashes.size === 0) return
-
-    const selectedLogs = filteredLogs
-      .filter((log) => log.hash && selectedHashes.has(log.hash))
-      .map((log) => log.data)
-      .join('\n')
-
-    try {
-      await navigator.clipboard.writeText(selectedLogs)
-    } catch (err) {
-      console.error('Failed to copy to clipboard:', err)
-    }
-  }, [filteredLogs, selectedHashes])
-
-  // Keyboard shortcuts handler
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const activeElement = document.activeElement
-      if (
-        activeElement instanceof HTMLInputElement ||
-        activeElement instanceof HTMLTextAreaElement ||
-        activeElement instanceof HTMLSelectElement
-      ) {
-        return
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-        e.preventDefault()
-        selectAll(allHashes)
-        return
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        if (selectedHashes.size > 0) {
-          e.preventDefault()
-          copySelectedToClipboard()
-        }
-        return
-      }
-
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedHashes.size > 0) {
-          e.preventDefault()
-          deleteSelected()
-        }
-        return
-      }
-
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        clearSelection()
-        return
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [allHashes, selectedHashes, selectAll, deleteSelected, clearSelection, copySelectedToClipboard])
 
   const virtualItems = virtualizer.getVirtualItems()
 
@@ -257,8 +173,7 @@ export function LogViewer({ logs }: LogViewerProps) {
             const log = filteredLogs[virtualItem.index]
             const prev = virtualItem.index > 0 ? filteredLogs[virtualItem.index - 1] : null
             const next = virtualItem.index < filteredLogs.length - 1 ? filteredLogs[virtualItem.index + 1] : null
-            const isSelected = log.hash ? selectedHashes.has(log.hash) : false
-            const isWrapped = log.hash ? wrappedHashes.has(log.hash) : false
+            const isInStory = log.hash ? storyHashSet.has(log.hash) : false
 
             // Is this line a continuation of the previous?
             const isContinuation = isSameGroup(prev, log)
@@ -282,12 +197,10 @@ export function LogViewer({ logs }: LogViewerProps) {
               >
                 <LogLine
                   log={log}
-                  isSelected={isSelected}
-                  isWrapped={isWrapped}
+                  isInStory={isInStory}
                   isContinuation={isContinuation}
                   isLastInGroup={isLastInGroup}
-                  onSelect={handleLogClick}
-                  onToggleWrap={toggleWrap}
+                  onToggleStory={handleToggleStory}
                 />
               </div>
             )

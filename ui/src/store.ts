@@ -7,7 +7,7 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { LogViewerState, SelectionState, FileState, ParsedFilter, RecentFile, LogEntry, OpenedFileWithLogs } from './types'
+import type { LogViewerState, StoryState, FileState, ParsedFilter, RecentFile, LogEntry, OpenedFileWithLogs } from './types'
 
 /**
  * Get short service name from log entry.
@@ -80,90 +80,6 @@ const logViewerStorage = {
   },
 }
 
-/**
- * Custom StateStorage for Selection store that properly handles Set serialization.
- *
- * The problem: Zustand's createJSONStorage uses JSON.stringify which converts Sets to "{}".
- * Solution: Implement StateStorage interface directly with custom serialize/deserialize.
- */
-const selectionStorage = {
-  getItem: (name: string) => {
-    const str = localStorage.getItem(name)
-    if (!str) return null
-
-    try {
-      const parsed = JSON.parse(str)
-      // Convert arrays back to Sets
-      if (parsed.state) {
-        if (Array.isArray(parsed.state.deletedHashes)) {
-          parsed.state.deletedHashes = new Set(parsed.state.deletedHashes)
-        }
-        if (Array.isArray(parsed.state.wrappedHashes)) {
-          parsed.state.wrappedHashes = new Set(parsed.state.wrappedHashes)
-        }
-      }
-      return parsed
-    } catch {
-      return null
-    }
-  },
-  setItem: (name: string, value: unknown): void => {
-    try {
-      // value is the raw state object (not stringified yet)
-      const toStore = value as { state?: { deletedHashes?: Set<string>; wrappedHashes?: Set<string> }; version?: number }
-
-      // Convert Sets to arrays before serializing
-      const serializable = {
-        ...toStore,
-        state: toStore.state
-          ? {
-              ...toStore.state,
-              deletedHashes: toStore.state.deletedHashes instanceof Set
-                ? Array.from(toStore.state.deletedHashes)
-                : toStore.state.deletedHashes,
-              wrappedHashes: toStore.state.wrappedHashes instanceof Set
-                ? Array.from(toStore.state.wrappedHashes)
-                : toStore.state.wrappedHashes,
-            }
-          : undefined,
-      }
-
-      localStorage.setItem(name, JSON.stringify(serializable))
-    } catch (e) {
-      console.error('Failed to persist selection state:', e)
-    }
-  },
-  removeItem: (name: string): void => {
-    localStorage.removeItem(name)
-  },
-}
-
-/**
- * Merge function for Selection store - converts arrays back to Sets when loading from storage
- */
-const mergeSelectionState = (
-  persistedState: unknown,
-  currentState: SelectionState
-): SelectionState => {
-  const persisted = persistedState as Partial<{
-    selectedHashes: string[] | Set<string>
-    deletedHashes: string[] | Set<string>
-    wrappedHashes: string[] | Set<string>
-  }>
-
-  // Helper to ensure we always get a Set
-  const toSet = (value: unknown): Set<string> => {
-    if (value instanceof Set) return value
-    if (Array.isArray(value)) return new Set(value)
-    return new Set()
-  }
-
-  return {
-    ...currentState,
-    deletedHashes: persisted?.deletedHashes ? toSet(persisted.deletedHashes) : currentState.deletedHashes,
-    wrappedHashes: persisted?.wrappedHashes ? toSet(persisted.wrappedHashes) : currentState.wrappedHashes,
-  }
-}
 
 // ============================================================================
 // useLogViewerStore - Service visibility and text filters
@@ -249,159 +165,83 @@ export const useLogViewerStore = create<LogViewerState>()(
 )
 
 // ============================================================================
-// useSelectionStore - Selection, deletion, and wrap state
+// useStoryStore - Story building state
 // ============================================================================
 
 /**
- * Store for managing log line selection, deletion (hiding), and text wrapping.
+ * Store for managing the story pane - a curated selection of log lines.
  *
  * Features:
- * - selectedHashes: Set of currently selected log hashes
- * - deletedHashes: Set of hidden/deleted log hashes
- * - wrappedHashes: Set of logs with expanded text wrapping
- * - lastSelectedHash: Tracks last selection for Shift+Click range selection
+ * - storyHashes: Ordered array of log hashes in the story
+ * - storyPaneHeight: Persisted height of the story pane
+ * - storyPaneCollapsed: Whether the story pane is collapsed
  *
- * Only deletedHashes and wrappedHashes are persisted to localStorage.
+ * All state is persisted to localStorage.
  */
-export const useSelectionStore = create<SelectionState>()(
+export const useStoryStore = create<StoryState>()(
   persist(
     (set, get) => ({
       // State
-      selectedHashes: new Set<string>(),
-      deletedHashes: new Set<string>(),
-      wrappedHashes: new Set<string>(),
-      lastSelectedHash: null,
+      storyHashes: [],
+      storyPaneHeight: 200,
+      storyPaneCollapsed: false,
 
       // Actions
 
       /**
-       * Toggle selection of a single log entry.
-       * Updates lastSelectedHash for range selection support.
+       * Add a log entry to the story.
        */
-      toggleSelection: (hash: string) => {
-        const { selectedHashes } = get()
-        const newSelected = new Set(selectedHashes)
+      addToStory: (hash: string) => {
+        const { storyHashes } = get()
+        if (!storyHashes.includes(hash)) {
+          set({ storyHashes: [...storyHashes, hash] })
+        }
+      },
 
-        if (newSelected.has(hash)) {
-          newSelected.delete(hash)
+      /**
+       * Remove a log entry from the story.
+       */
+      removeFromStory: (hash: string) => {
+        const { storyHashes } = get()
+        set({ storyHashes: storyHashes.filter(h => h !== hash) })
+      },
+
+      /**
+       * Toggle a log entry in/out of the story.
+       */
+      toggleStory: (hash: string) => {
+        const { storyHashes } = get()
+        if (storyHashes.includes(hash)) {
+          set({ storyHashes: storyHashes.filter(h => h !== hash) })
         } else {
-          newSelected.add(hash)
+          set({ storyHashes: [...storyHashes, hash] })
         }
-
-        set({ selectedHashes: newSelected, lastSelectedHash: hash })
       },
 
       /**
-       * Select a range of log entries between two hashes (for Shift+Click).
-       * Requires the full list of hashes to determine the range.
+       * Clear all entries from the story.
        */
-      selectRange: (hash1: string, hash2: string, allHashes: string[]) => {
-        const idx1 = allHashes.indexOf(hash1)
-        const idx2 = allHashes.indexOf(hash2)
-
-        if (idx1 === -1 || idx2 === -1) return
-
-        const start = Math.min(idx1, idx2)
-        const end = Math.max(idx1, idx2)
-        const rangeHashes = allHashes.slice(start, end + 1)
-
-        const { selectedHashes } = get()
-        const newSelected = new Set(selectedHashes)
-
-        for (const hash of rangeHashes) {
-          newSelected.add(hash)
-        }
-
-        set({ selectedHashes: newSelected, lastSelectedHash: hash2 })
+      clearStory: () => {
+        set({ storyHashes: [] })
       },
 
       /**
-       * Select all log entries from the provided list of hashes.
+       * Set the story pane height.
        */
-      selectAll: (allHashes: string[]) => {
-        set({
-          selectedHashes: new Set(allHashes),
-          lastSelectedHash: allHashes.length > 0 ? allHashes[allHashes.length - 1] : null,
-        })
+      setStoryPaneHeight: (height: number) => {
+        set({ storyPaneHeight: height })
       },
 
       /**
-       * Move all selected hashes to deleted set (hide them).
-       * Clears the selection after deleting.
+       * Set the story pane collapsed state.
        */
-      deleteSelected: () => {
-        const { selectedHashes, deletedHashes } = get()
-        const newDeleted = new Set(deletedHashes)
-
-        for (const hash of selectedHashes) {
-          newDeleted.add(hash)
-        }
-
-        set({
-          deletedHashes: newDeleted,
-          selectedHashes: new Set(),
-          lastSelectedHash: null,
-        })
-      },
-
-      /**
-       * Clear all selections (does not restore deleted items).
-       */
-      clearSelection: () => {
-        set({ selectedHashes: new Set(), lastSelectedHash: null })
-      },
-
-      /**
-       * Clear all deleted hashes (restore hidden logs).
-       */
-      clearDeleted: () => {
-        set({ deletedHashes: new Set() })
-      },
-
-      /**
-       * Toggle text wrapping for a log entry.
-       */
-      toggleWrap: (hash: string) => {
-        const { wrappedHashes } = get()
-        const newWrapped = new Set(wrappedHashes)
-
-        if (newWrapped.has(hash)) {
-          newWrapped.delete(hash)
-        } else {
-          newWrapped.add(hash)
-        }
-
-        set({ wrappedHashes: newWrapped })
-      },
-
-      /**
-       * Clean up invalid hashes that no longer exist in the current logs.
-       * Call this when loading a new file to prevent stale state.
-       */
-      cleanupInvalidHashes: (validHashes: string[]) => {
-        const validSet = new Set(validHashes)
-        const { selectedHashes, deletedHashes, wrappedHashes } = get()
-
-        const newSelected = new Set([...selectedHashes].filter((h) => validSet.has(h)))
-        const newDeleted = new Set([...deletedHashes].filter((h) => validSet.has(h)))
-        const newWrapped = new Set([...wrappedHashes].filter((h) => validSet.has(h)))
-
-        set({
-          selectedHashes: newSelected,
-          deletedHashes: newDeleted,
-          wrappedHashes: newWrapped,
-        })
+      setStoryPaneCollapsed: (collapsed: boolean) => {
+        set({ storyPaneCollapsed: collapsed })
       },
     }),
     {
-      name: 'mocha-selection-state',
-      storage: selectionStorage,
-      partialize: (state) => ({
-        // Only persist deleted and wrapped - selections should reset on load
-        deletedHashes: state.deletedHashes,
-        wrappedHashes: state.wrappedHashes,
-      }),
-      merge: mergeSelectionState,
+      name: 'mocha-story',
+      storage: createJSONStorage(() => localStorage),
     }
   )
 )
@@ -634,31 +474,17 @@ function matchesFilter(log: LogEntry, filter: ParsedFilter): boolean {
  * @param logs - Array of log entries to filter
  * @param filters - Array of active filters
  * @param inactiveNames - Set of hidden service names
- * @param deletedHashes - Set of deleted log hashes (optional)
  * @returns Filtered array of log entries
  */
 export function filterLogs(
   logs: LogEntry[],
   filters: ParsedFilter[],
-  inactiveNames: Set<string>,
-  deletedHashes?: Set<string> | string[]
+  inactiveNames: Set<string>
 ): LogEntry[] {
-  // Ensure deletedHashes is a Set (handles hydration race condition)
-  const deletedSet = deletedHashes instanceof Set
-    ? deletedHashes
-    : Array.isArray(deletedHashes)
-    ? new Set(deletedHashes)
-    : undefined
-
   return logs.filter((log) => {
     // Check if service is visible (using derived service name from logger)
     const serviceName = getServiceName(log)
     if (inactiveNames instanceof Set && inactiveNames.has(serviceName)) {
-      return false
-    }
-
-    // Check if deleted
-    if (deletedSet && log.hash && deletedSet.has(log.hash)) {
       return false
     }
 

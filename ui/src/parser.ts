@@ -6,7 +6,7 @@
  */
 
 import murmurhash from 'murmurhash';
-import type { LogEntry, ParsedLogLine, LogLevel, ApiCallInfo, ParsedLogFileResult } from './types';
+import type { LogEntry, ParsedLogLine, LogLevel, ApiCallInfo, ParsedLogFileResult, LogToken, TokenType } from './types';
 
 // ============================================================================
 // Log Pattern Interface
@@ -813,4 +813,78 @@ export function parseLogFile(content: string, fileName: string, filePath?: strin
     };
   });
   return { logs, totalLines, truncated };
+}
+
+// ============================================================================
+// Content Tokenization
+// ============================================================================
+
+/**
+ * Classify a token string into its type
+ */
+function classifyToken(text: string): TokenType {
+  // URL - starts with / or http
+  if (/^(https?:\/\/|\/[a-zA-Z])/.test(text)) return 'url';
+
+  // JSON - balanced braces (simple check)
+  if (/^\{.*\}$/.test(text) || /^\[.*\]$/.test(text)) return 'json';
+
+  // Symbol - arrows, colons, equals
+  if (/^(<-|->|←|→|=)$/.test(text)) return 'symbol';
+
+  // Data: pure numbers, or number followed by comma
+  if (/^\d+,?$/.test(text)) return 'data';
+
+  // Default: message
+  return 'message';
+}
+
+/**
+ * Tokenize log content into typed segments for rendering
+ * Uses the already-parsed content field, not the raw line
+ */
+export function tokenizeContent(content: string): LogToken[] {
+  if (!content) return [];
+
+  const tokens: LogToken[] = [];
+
+  // Split on whitespace but preserve JSON blocks and URLs
+  // This regex captures:
+  // 1. URLs (http://... or /path/...)
+  // 2. JSON objects {...} (greedy, may not handle nested perfectly)
+  // 3. JSON arrays [...]
+  // 4. Symbols <- -> : =
+  // 5. Other words/tokens
+  const parts = content.split(/(\s+)/);
+
+  for (const part of parts) {
+    // Skip empty parts
+    if (!part) continue;
+
+    // Whitespace - add as-is with message type (will render as space)
+    if (/^\s+$/.test(part)) {
+      tokens.push({ text: part, type: 'message' });
+      continue;
+    }
+
+    // Check for JSON - it may span multiple "words" if there was no space
+    // For now, simple approach: if it looks like JSON, treat it as one token
+    if ((part.startsWith('{') && part.endsWith('}')) ||
+        (part.startsWith('[') && part.endsWith(']'))) {
+      tokens.push({ text: part, type: 'json' });
+      continue;
+    }
+
+    // Check for colon at end (like "tenantId:" or "userId:")
+    if (part.endsWith(':') && part.length > 1) {
+      // This is a label, treat as message
+      tokens.push({ text: part, type: 'message' });
+      continue;
+    }
+
+    // Classify the token
+    tokens.push({ text: part, type: classifyToken(part) });
+  }
+
+  return tokens;
 }

@@ -50,6 +50,19 @@ export interface ParsedLogLine {
 }
 
 /**
+ * Token type for tokenized log content rendering
+ */
+export type TokenType = 'timestamp' | 'level' | 'service' | 'symbol' | 'url' | 'message' | 'data' | 'json';
+
+/**
+ * A single token from tokenized log content
+ */
+export interface LogToken {
+  text: string;
+  type: TokenType;
+}
+
+/**
  * A single log entry with original and parsed data
  */
 export interface LogEntry {
@@ -156,23 +169,20 @@ export interface LogViewerState {
 }
 
 /**
- * Selection store state for log line selection and deletion
+ * Story store state for building curated log narratives
  */
-export interface SelectionState {
-  selectedHashes: Set<string>;
-  deletedHashes: Set<string>;
-  wrappedHashes: Set<string>;
-  lastSelectedHash: string | null;
+export interface StoryState {
+  storyHashes: string[];  // Ordered list of hashes in story
+  storyPaneHeight: number;  // Height of story pane in pixels
+  storyPaneCollapsed: boolean;  // Whether story pane is collapsed
 
   // Actions
-  toggleSelection: (hash: string) => void;
-  selectRange: (hash1: string, hash2: string, allHashes: string[]) => void;
-  selectAll: (allHashes: string[]) => void;
-  deleteSelected: () => void;
-  clearSelection: () => void;
-  clearDeleted: () => void;
-  toggleWrap: (hash: string) => void;
-  cleanupInvalidHashes: (validHashes: string[]) => void;
+  addToStory: (hash: string) => void;
+  removeFromStory: (hash: string) => void;
+  toggleStory: (hash: string) => void;
+  clearStory: () => void;
+  setStoryPaneHeight: (height: number) => void;
+  setStoryPaneCollapsed: (collapsed: boolean) => void;
 }
 
 /**
@@ -236,10 +246,10 @@ export interface LogViewerProps {
  */
 export interface LogLineProps {
   log: LogEntry;
-  isSelected: boolean;
-  isWrapped: boolean;
-  onSelect: (hash: string, event: React.MouseEvent) => void;
-  onToggleWrap: (hash: string) => void;
+  isInStory: boolean;
+  isContinuation: boolean;
+  isLastInGroup: boolean;
+  onToggleStory: (hash: string) => void;
 }
 
 // Export empty object to make this a module

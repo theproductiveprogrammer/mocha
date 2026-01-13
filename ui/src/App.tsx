@@ -6,8 +6,9 @@ import type { LogEntry, OpenedFileWithLogs } from './types'
 import './types'
 import { isTauri, waitForConnection, readFile, getRecentFiles, addRecentFile } from './api'
 import { parseLogFile } from './parser'
-import { useLogViewerStore, useSelectionStore, useFileStore, filterLogs } from './store'
+import { useLogViewerStore, useStoryStore, useFileStore, filterLogs } from './store'
 import { Sidebar, Toolbar, LogViewer } from './components'
+import { StoryPane } from './components/StoryPane'
 
 function App() {
   // Log viewer store
@@ -26,11 +27,16 @@ function App() {
     [rawInactiveNames]
   )
 
-  // Selection store
+  // Story store
   const {
-    deletedHashes,
-    cleanupInvalidHashes,
-  } = useSelectionStore()
+    storyHashes,
+    storyPaneHeight,
+    storyPaneCollapsed,
+    removeFromStory,
+    clearStory,
+    setStoryPaneHeight,
+    setStoryPaneCollapsed,
+  } = useStoryStore()
 
   // File store - now with multi-file support
   const {
@@ -69,6 +75,26 @@ function App() {
     // Sort by timestamp (ascending - LogViewer will reverse for newest-first)
     return allLogs.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
   }, [safeOpenedFiles])
+
+  // Build hash -> log lookup for story
+  const logsByHash = useMemo(() => {
+    const map = new Map<string, LogEntry>()
+    mergedLogs.forEach((log) => {
+      if (log.hash) {
+        map.set(log.hash, log)
+      }
+    })
+    return map
+  }, [mergedLogs])
+
+  // Get story logs in chronological order
+  const storyLogs = useMemo(() => {
+    const logs = storyHashes
+      .map((hash) => logsByHash.get(hash))
+      .filter((log): log is LogEntry => !!log)
+    // Sort by timestamp (chronological)
+    return logs.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
+  }, [storyHashes, logsByHash])
 
   // Count of active files
   const activeFileCount = useMemo(() => {
@@ -157,8 +183,6 @@ function App() {
           addRecentFile(filePath)
           const newRecentFile = { path: filePath, name: fileName, lastOpened: Date.now() }
           setRecentFiles([newRecentFile, ...recentFiles.filter(f => f.path !== filePath).slice(0, 19)])
-          // Don't clear filters when adding a file - user may want to keep their filter
-          cleanupInvalidHashes(parsed.logs.map(l => l.hash).filter((h): h is string => !!h))
         }, 0)
 
       } catch (err) {
@@ -183,7 +207,7 @@ function App() {
         fileInputRef.current?.click()
       }
     }
-  }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, setRecentFiles, recentFiles, cleanupInvalidHashes])
+  }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, setRecentFiles, recentFiles])
 
   // Handle file selection from browser file input
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -225,7 +249,6 @@ function App() {
             { path: file.name, name: file.name, lastOpened: now },
             ...recentFiles.filter(f => f.path !== file.name).slice(0, 19),
           ])
-          cleanupInvalidHashes(parsed.logs.map(l => l.hash).filter((h): h is string => !!h))
         }, 0)
 
       } catch (err) {
@@ -240,7 +263,7 @@ function App() {
     }
     reader.readAsText(file)
     e.target.value = ''
-  }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, setRecentFiles, recentFiles, cleanupInvalidHashes])
+  }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, setRecentFiles, recentFiles])
 
   // Tauri drag/drop event listener - uses native file paths for recent files persistence
   useEffect(() => {
@@ -340,9 +363,8 @@ function App() {
   // Compute visible count from current filters
   const visibleCount = useMemo(() => {
     if (mergedLogs.length === 0) return 0
-    const safeDeletedHashes = deletedHashes instanceof Set ? deletedHashes : new Set<string>()
-    return filterLogs(mergedLogs, filters, inactiveNames, safeDeletedHashes).length
-  }, [mergedLogs, filters, inactiveNames, deletedHashes])
+    return filterLogs(mergedLogs, filters, inactiveNames).length
+  }, [mergedLogs, filters, inactiveNames])
 
   return (
     <div className="h-screen flex" style={{ background: 'var(--mocha-bg)' }}>
@@ -416,7 +438,18 @@ function App() {
 
           {/* Virtualized Log viewer */}
           {mergedLogs.length > 0 ? (
-            <LogViewer logs={mergedLogs} />
+            <>
+              <LogViewer logs={mergedLogs} />
+              <StoryPane
+                storyLogs={storyLogs}
+                height={storyPaneHeight}
+                collapsed={storyPaneCollapsed}
+                onRemoveFromStory={removeFromStory}
+                onClearStory={clearStory}
+                onHeightChange={setStoryPaneHeight}
+                onToggleCollapsed={() => setStoryPaneCollapsed(!storyPaneCollapsed)}
+              />
+            </>
           ) : (
             <div
               className="flex-1 flex items-center justify-center"

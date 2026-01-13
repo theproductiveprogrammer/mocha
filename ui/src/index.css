@@ -12,6 +12,8 @@
   /* === Color Palette === */
   /* Base tones - warm charcoal */
   --mocha-bg: #141210;
+  --mocha-bg-darker: #0e0d0c;
+  --mocha-bg-elevated: #1a1816;
   --mocha-surface: #1e1c1a;
   --mocha-surface-raised: #262320;
   --mocha-surface-hover: #302c28;
