@@ -799,12 +799,17 @@ export function parseLogFile(content: string, fileName: string, filePath?: strin
   const normalized = normalize(rawLogs);
   const logs = normalized.map((log) => {
     const parsed = parseLogLine(log.data);
-    // Use parsed timestamp if available, otherwise keep the original
+    // Determine final timestamp:
+    // - If log.timestamp is a "real" epoch (extracted from file format like Grafana 3-part), keep it
+    // - If log.timestamp is a "fake" epoch (generated from line order, close to now), use parsed timestamp
+    // Fake timestamps are within 1 hour of now (line order × 1000ms)
+    const now = Date.now();
+    const isFakeTimestamp = log.timestamp && Math.abs(now - log.timestamp) < 3600000;
     const parsedEpoch = parsed.timestamp ? parseTimestampToEpoch(parsed.timestamp) : null;
     return {
       ...log,
       parsed,
-      timestamp: parsedEpoch ?? log.timestamp,
+      timestamp: isFakeTimestamp ? (parsedEpoch ?? log.timestamp) : log.timestamp,
     };
   });
   return { logs, totalLines, truncated };

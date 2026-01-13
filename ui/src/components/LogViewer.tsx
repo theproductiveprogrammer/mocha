@@ -45,10 +45,12 @@ export function LogViewer({ logs }: LogViewerProps) {
     [rawWrappedHashes]
   )
 
-  // Filter and reverse logs (newest-first), but keep chronological order within groups
+  // Filter and sort logs by timestamp (newest-first), then group related entries
   const filteredLogs = useMemo(() => {
     const filtered = filterLogs(logs, filters, inactiveNames, deletedHashes)
-    const reversed = [...filtered].reverse()
+
+    // Sort by timestamp descending (newest first)
+    const sorted = [...filtered].sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
 
     // Helper to check if two logs belong to same group (within 100ms + same logger)
     const isSameGroup = (a: LogEntry, b: LogEntry) => {
@@ -57,17 +59,17 @@ export function LogViewer({ logs }: LogViewerProps) {
       return within100ms && sameLogger
     }
 
-    // Group consecutive logs, then reverse within each group for chronological order
+    // Group consecutive logs, keeping chronological order within groups
     const result: LogEntry[] = []
     let currentGroup: LogEntry[] = []
 
-    for (const log of reversed) {
+    for (const log of sorted) {
       if (currentGroup.length === 0) {
         currentGroup.push(log)
       } else if (isSameGroup(currentGroup[currentGroup.length - 1], log)) {
         currentGroup.push(log)
       } else {
-        // Flush current group (reversed for chronological order within group)
+        // Flush current group (reverse for chronological order within group since sorted is newest-first)
         result.push(...currentGroup.reverse())
         currentGroup = [log]
       }

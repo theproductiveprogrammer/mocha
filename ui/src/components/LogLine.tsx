@@ -38,8 +38,22 @@ function getRowStyle(log: LogEntry): { bg: string; text: string } {
 }
 
 // Parse logger into class name and line number
+// Handles formats like:
+//   "c.s.c.MCPController:466" -> { className: "MCPController", lineNumber: "466" }
+//   "c.s.c.MCPController [MCPController.java:466]" -> { className: "MCPController", lineNumber: "466" }
 function parseLogger(logger?: string): { className: string; lineNumber?: string } | undefined {
   if (!logger) return undefined
+
+  // Extract line number from "[Source.java:line]" suffix if present
+  const sourceMatch = logger.match(/\[([^\]]+)\.java:(\d+)\]$/)
+  if (sourceMatch) {
+    // Use the source file name as class name and extracted line number
+    const cleanLogger = logger.replace(/\s*\[[^\]]+\.java:\d+\]$/, '')
+    const className = cleanLogger.split('.').pop() || cleanLogger
+    return { className, lineNumber: sourceMatch[2] }
+  }
+
+  // Fallback: simple "path.ClassName:lineNumber" format
   const [classPath, lineNumber] = logger.split(':')
   const className = classPath.split('.').pop() || classPath
   return { className, lineNumber }
@@ -47,13 +61,22 @@ function parseLogger(logger?: string): { className: string; lineNumber?: string 
 
 /**
  * Get short service name from log entry.
- * Extracts class name from logger path (e.g., "c.s.c.MCPController:466" -> "MCPController")
+ * Extracts class name from logger path.
+ * Examples:
+ *   "c.s.c.MCPController:466" -> "MCPController"
+ *   "c.s.c.MCPController [MCPController.java:466]" -> "MCPController"
+ *   "i.i.w.u.StateWaitForLeads [StateWaitForLeads.java:133]" -> "StateWaitForLeads"
  */
 export function getServiceName(log: LogEntry): string {
   if (log.parsed?.logger) {
-    const logger = log.parsed.logger
+    let logger = log.parsed.logger
+
+    // Remove "[Source.java:line]" suffix if present
+    logger = logger.replace(/\s*\[[^\]]+\.java:\d+\]$/, '')
+
     // Remove line number suffix if present (e.g., ":466")
     const withoutLineNum = logger.split(':')[0]
+
     // Get last segment after dots
     const parts = withoutLineNum.split('.')
     return parts[parts.length - 1] || withoutLineNum
