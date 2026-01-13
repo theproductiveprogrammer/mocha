@@ -131,52 +131,128 @@ interface ToolbarProps {
 
 ### LogViewer (`components/LogViewer.tsx`)
 
-**Purpose**: Main log display with filtering, selection, and interactions.
+**Purpose**: Virtualized log display with filtering, selection, and keyboard shortcuts.
 
 **Props**:
 ```typescript
 interface LogViewerProps {
   logs: LogEntry[];
-  currentFile: OpenedFile | null;
-  onOpenFile: (path?: string) => void;
-  onToggleWatch: () => void;
 }
 ```
 
 **Zustand Stores Used**:
-- `useLogViewerStore`: filters, service visibility
+- `useLogViewerStore`: filters, service visibility (inactiveNames)
 - `useSelectionStore`: selection, deleted hashes, wrapped hashes
 
-**Features**:
+---
 
-1. **Filtering** (via `useMemo`):
-   - Apply service filter (inactiveNames)
-   - Apply text/regex filters
-   - Exclude deleted hashes
-   - Reverse for newest-first
+#### Virtualization
 
-2. **Selection**:
-   - Click: toggle selection
-   - Ctrl+Click: add to selection
-   - Shift+Click: range select
-   - Selection gutter on left
+Uses `@tanstack/react-virtual` for efficient rendering of large log files.
 
-3. **Keyboard Shortcuts**:
-   - `Ctrl+A`: Select all visible
-   - `Ctrl+C`: Copy selected (raw data)
-   - `Delete/Backspace`: Hide selected
-   - `Escape`: Clear selection
+```typescript
+const virtualizer = useVirtualizer({
+  count: filteredLogs.length,
+  getScrollElement: () => containerRef.current,
+  estimateSize: () => 44,  // Default collapsed row height in px
+  overscan: 10,            // Render 10 extra rows above/below viewport
+  measureElement: (element) => element.getBoundingClientRect().height,
+})
+```
 
-4. **Drop Zone**:
-   - Overlay when dragging files
-   - Accept .log, .txt files
-   - Parse and display dropped content
+**Key Points**:
+- Only ~30-50 DOM nodes rendered at any time (vs 1000+ without virtualization)
+- Dynamic measurement via `measureElement` for variable-height expanded rows
+- `overscan: 10` provides smooth scrolling buffer
+- Absolute positioning with `transform: translateY()` for performance
+
+---
+
+#### Filtering Pipeline
+
+```typescript
+const filteredLogs = useMemo(() => {
+  const filtered = filterLogs(logs, filters, inactiveNames, deletedHashes)
+  return [...filtered].reverse()  // Newest-first display
+}, [logs, filters, inactiveNames, deletedHashes])
+```
+
+1. Apply service filter (exclude `inactiveNames`)
+2. Apply text/regex filters
+3. Exclude deleted hashes
+4. Reverse array for newest-first ordering
+
+---
+
+#### Line Continuation Detection
+
+Lines are grouped together when they logically belong to the same log event. Continuation lines hide their timestamp/service badge and remove the bottom border.
+
+**Continuation Rules** (checked in order):
+```typescript
+const isContinuation = !!(prev && (
+  // 1. Stack trace lines are always continuations
+  isStackTraceLine ||
+  // 2. Within 100ms + same logger = grouped output
+  (timestampWithin100ms && sameLogger) ||
+  // 3. Line with no logger following a line with logger
+  (hasNoLogger && prevHasLogger) ||
+  // 4. Both have no logger (likely related plain lines)
+  (hasNoLogger && !prev.parsed?.logger)
+))
+```
+
+**Stack Trace Detection**:
+```typescript
+const isStackTraceLine = /^\s*at\s/.test(content) || /Exception|Error:/.test(content)
+```
+
+**Timestamp Proximity** (100ms threshold):
+```typescript
+const timestampWithin100ms = prev?.timestamp && log.timestamp &&
+  Math.abs(prev.timestamp - log.timestamp) <= 100
+```
+
+**Same Logger Check**:
+```typescript
+const sameLogger = log.parsed?.logger && prev?.parsed?.logger &&
+  log.parsed.logger === prev.parsed.logger
+```
+
+---
+
+#### Selection
+
+- **Gutter click**: Toggle single line selection
+- **Shift+click**: Range select from last selected
+- **Ctrl/Cmd+click**: Add to selection (same as regular click currently)
+
+---
+
+#### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+A` / `Cmd+A` | Select all visible logs |
+| `Ctrl+C` / `Cmd+C` | Copy selected logs (raw data) |
+| `Delete` / `Backspace` | Hide selected logs |
+| `Escape` | Clear selection |
+
+Shortcuts are disabled when focus is in input/textarea/select elements.
+
+---
+
+#### Drop Zone
+
+- Overlay appears when dragging files
+- Accepts `.log`, `.txt` files
+- Parses and displays dropped content
 
 ---
 
 ### LogLine (`components/LogLine.tsx`)
 
-**Purpose**: Render individual log entry with formatting.
+**Purpose**: Render individual log entry with two-column layout.
 
 **Props**:
 ```typescript
@@ -184,53 +260,178 @@ interface LogLineProps {
   log: LogEntry;
   isSelected: boolean;
   isWrapped: boolean;
+  isContinuation: boolean;  // Hide timestamp/badge when true
   onSelect: (hash: string, event: React.MouseEvent) => void;
   onToggleWrap: (hash: string) => void;
 }
 ```
 
-**Layout**:
+---
+
+#### Two-Column Layout
+
 ```
-┌──────┬───────────────┬─────────────────────────────────────────┐
-│ ☐    │ 13:45:23 core │ [INFO] Application started successfully │
-│ gutter│   timestamp   │              content                    │
-└──────┴───────────────┴─────────────────────────────────────────┘
+┌────────┬─────────────┬──────────────────────────────────────────────────────┐
+│ Gutter │ Left Column │ Right Column (Content)                               │
+├────────┼─────────────┼──────────────────────────────────────────────────────┤
+│   ○    │ 11:33:24    │ LeadController:466: /save <- {"id":123,"name":"..."} │
+│        │ LeadCtrl    │                                                       │
+├────────┼─────────────┼──────────────────────────────────────────────────────┤
+│   ○    │             │ at com.example.Service.method(Service.java:42)       │
+│        │ (empty)     │ ← continuation row, no timestamp/badge               │
+└────────┴─────────────┴──────────────────────────────────────────────────────┘
 ```
 
-**Styling by Level**:
+**Column Widths**:
+- Gutter: `w-6` (24px) - selection checkbox
+- Left column: `w-28` (112px) - timestamp + service badge
+- Right column: `flex-1` - log content
+
+---
+
+#### Row Heights
+
+| Row Type | Height | Padding |
+|----------|--------|---------|
+| Normal row | `min-h-[40px]` | `py-2` (8px top/bottom) |
+| Continuation row | Auto (content) | `py-0.5` (2px top/bottom) |
+| Expanded row | Dynamic | `py-2` with wrapped content |
+
+**Estimated Size**: 44px (used by virtualizer for initial layout)
+
+---
+
+#### Service Name Simplification
+
+Logger paths are simplified to just the class name for display:
+
 ```typescript
-const LEVEL_STYLES = {
-  ERROR: 'bg-red-50 text-red-700',
-  WARN: 'bg-amber-50 text-amber-800',
-  INFO: '',
-  DEBUG: 'text-gray-600',
-  TRACE: 'text-gray-500',
-};
+// Input:  "c.s.c.controller.LeadVerificationHistoryController:466"
+// Output: "LeadVerificationHistoryController"
+
+function getServiceName(log: LogEntry): string {
+  if (log.parsed?.logger) {
+    const logger = log.parsed.logger
+    const withoutLineNum = logger.split(':')[0]  // Remove ":466"
+    const parts = withoutLineNum.split('.')
+    return parts[parts.length - 1] || withoutLineNum
+  }
+  return log.name
+}
 ```
 
-**Service Colors**:
+**Badge Tooltip**: Shows full logger path on hover (e.g., `c.s.c.controller.LeadVerificationHistoryController`)
+
+---
+
+#### Content Display
+
+**Logger Prefix in Content**:
 ```typescript
-const SERVICE_COLORS = {
-  core: { bg: "bg-blue-100", text: "text-blue-700" },
-  app: { bg: "bg-purple-100", text: "text-purple-700" },
-  platform: { bg: "bg-green-100", text: "text-green-700" },
-  runner: { bg: "bg-gray-100", text: "text-gray-600" },
-  iwf: { bg: "bg-orange-100", text: "text-orange-700" },
-  rag: { bg: "bg-cyan-100", text: "text-cyan-700" },
-  transcriber: { bg: "bg-pink-100", text: "text-pink-700" },
-  tracker: { bg: "bg-yellow-100", text: "text-yellow-700" },
-  verify: { bg: "bg-indigo-100", text: "text-indigo-700" },
-  pixel: { bg: "bg-teal-100", text: "text-teal-700" },
-  // Default for unknown services
-  default: { bg: "bg-gray-100", text: "text-gray-700" },
-};
+const loggerInfo = parseLogger(log.parsed?.logger)
+// Displays: "LeadController:466: " in bold before content
 ```
 
-**Content Display**:
-- Click to toggle wrap
-- Truncate with `line-clamp-3` when not wrapped
-- Full `whitespace-pre-wrap` when wrapped
-- Special formatting for API calls
+**Line Number Coloring**:
+- Normal logs: Line number in `text-green-600`
+- ERROR/WARN logs: Line number inherits row color (red/amber)
+
+**Truncation vs Wrap**:
+- Default: `truncate` (single line with ellipsis)
+- Expanded: `whitespace-pre-wrap break-words` (full content)
+- Click content area to toggle
+
+---
+
+#### Service Badge Colors
+
+Service colors are matched by checking if the service name **contains** the key:
+
+```typescript
+const SERVICE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  core:        { bg: 'bg-blue-100',   text: 'text-blue-700',   border: 'border-blue-300' },
+  app:         { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300' },
+  platform:    { bg: 'bg-green-100',  text: 'text-green-700',  border: 'border-green-300' },
+  runner:      { bg: 'bg-gray-100',   text: 'text-gray-600',   border: 'border-gray-300' },
+  iwf:         { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300' },
+  rag:         { bg: 'bg-cyan-100',   text: 'text-cyan-700',   border: 'border-cyan-300' },
+  transcriber: { bg: 'bg-pink-100',   text: 'text-pink-700',   border: 'border-pink-300' },
+  tracker:     { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-300' },
+  verify:      { bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-300' },
+  pixel:       { bg: 'bg-teal-100',   text: 'text-teal-700',   border: 'border-teal-300' },
+}
+
+// Default (no match):
+{ bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-slate-300' }
+```
+
+**Badge Styling**:
+```css
+text-[10px] px-1.5 py-0.5 rounded border font-medium max-w-full truncate
+```
+
+---
+
+#### Row Background Colors (by Log Level)
+
+```typescript
+function getRowStyle(log: LogEntry): { bg: string; text: string } {
+  // ERROR level or exception pattern
+  if (log.parsed?.level === 'ERROR') return { bg: 'bg-red-50', text: 'text-red-700' }
+  if (/[.][A-Za-z0-9]*Exception/.test(log.data)) return { bg: 'bg-red-50', text: 'text-red-700' }
+
+  // WARN level
+  if (log.parsed?.level === 'WARN') return { bg: 'bg-amber-50', text: 'text-amber-800' }
+
+  // INFO, DEBUG, TRACE, or unknown
+  return { bg: 'bg-white', text: 'text-gray-800' }
+}
+```
+
+---
+
+#### Selection Gutter
+
+| State | Background | Icon |
+|-------|------------|------|
+| Unselected | `bg-gray-50` | `○` (gray) |
+| Selected | `bg-blue-500` | `✓` (white) |
+
+**Selected Row Indicator**: `ring-2 ring-inset ring-blue-400`
+
+---
+
+#### API Call Display
+
+When `log.parsed.apiCall` exists, shows additional line below content:
+
+```typescript
+{log.parsed.apiCall && (
+  <div className="mt-1 text-cyan-600 text-xs">
+    {direction === 'outgoing' ? '→' : '←'}
+    {method} {endpoint} [{status}] ({timing}ms)
+  </div>
+)}
+```
+
+Example: `← POST /api/leads [200] (45ms)`
+
+---
+
+#### Click Interactions
+
+| Area | Action |
+|------|--------|
+| Gutter | Toggle selection (supports Shift+click for range) |
+| Content area | Toggle wrap/expand |
+
+---
+
+#### Borders
+
+- Normal rows: `border-b border-gray-200` (bottom border)
+- Continuation rows: No bottom border (visually grouped with previous)
+- Left column: `border-r border-gray-200` (right border separator)
 
 ---
 
@@ -339,20 +540,63 @@ interface FileState {
 
 ## Styling Guidelines
 
-**Font**: `font-mono` with Fira Code
+### Typography
 
-**Colors**:
-- Background: `#FAFAFA` (bg-gray-50)
-- Border: `border-gray-200`
-- Selection: `bg-blue-100`
-- Hover: `hover:bg-gray-100`
+**Primary Font**: `font-['Fira_Code',monospace]`
+- Log content: `text-[13px] leading-tight`
+- Timestamps: `text-xs text-gray-400 font-mono`
+- Service badges: `text-[10px] font-medium`
+- API calls: `text-xs text-cyan-600`
 
-**Spacing**:
-- Sidebar width: `w-64` (256px)
-- Toolbar height: `h-12` (48px)
-- Log line padding: `px-2 py-1`
-- Gutter width: `w-6` (24px)
+### Colors
 
-**Responsive**:
+**Backgrounds**:
+- App background: `#FAFAFA` (bg-[#FAFAFA])
+- Normal row: `bg-white`
+- Error row: `bg-red-50`
+- Warning row: `bg-amber-50`
+- Sidebar: `bg-gray-50`
+- Gutter (unselected): `bg-gray-50`
+- Gutter (selected): `bg-blue-500`
+
+**Text**:
+- Normal: `text-gray-800`
+- Error: `text-red-700`
+- Warning: `text-amber-800`
+- Muted: `text-gray-400`, `text-gray-500`
+- Line numbers: `text-green-600` (normal), inherited (error/warn)
+
+**Borders**:
+- Default: `border-gray-200`
+- Service badges: `border-{color}-300`
+
+**Selection**:
+- Ring: `ring-2 ring-inset ring-blue-400`
+- Gutter: `bg-blue-500` with white checkmark
+
+### Spacing
+
+| Element | Width/Height | Tailwind Class |
+|---------|--------------|----------------|
+| Sidebar | 256px | `w-64` |
+| Toolbar | 48px | `h-12` |
+| Selection gutter | 24px | `w-6` |
+| Left column (timestamp/badge) | 112px | `w-28` |
+| Normal row min-height | 40px | `min-h-[40px]` |
+| Normal row padding | 8px vertical | `py-2` |
+| Continuation row padding | 2px vertical | `py-0.5` |
+| Content horizontal padding | 12px | `px-3` |
+
+### Visual Hierarchy
+
+1. **Row separation**: Bottom border on normal rows, no border on continuation rows
+2. **Column separation**: Right border on left column
+3. **Selection indicator**: Blue ring around selected rows
+4. **Error/Warning**: Background tint + text color change
+5. **Continuation grouping**: Compact padding + no timestamp/badge
+
+### Responsive
+
 - Minimum window width: 800px
 - Sidebar can be collapsed on narrow screens
+- Content truncates with ellipsis, click to expand

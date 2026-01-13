@@ -421,6 +421,32 @@ export const useSelectionStore = create<SelectionState>()(
  *
  * Only recentFiles is persisted to localStorage (as a fallback for browser mode).
  */
+/**
+ * Merge function for File store - deduplicates recentFiles by path
+ */
+const mergeFileState = (
+  persistedState: unknown,
+  currentState: FileState
+): FileState => {
+  const persisted = persistedState as Partial<{ recentFiles: RecentFile[] }>
+
+  // If we have persisted recentFiles, use them but ensure no duplicates
+  if (persisted?.recentFiles && Array.isArray(persisted.recentFiles)) {
+    const seen = new Set<string>()
+    const deduplicated = persisted.recentFiles.filter(file => {
+      if (seen.has(file.path)) return false
+      seen.add(file.path)
+      return true
+    })
+    return {
+      ...currentState,
+      recentFiles: deduplicated,
+    }
+  }
+
+  return currentState
+}
+
 export const useFileStore = create<FileState>()(
   persist(
     (set) => ({
@@ -433,7 +459,16 @@ export const useFileStore = create<FileState>()(
       // Actions
       setCurrentFile: (file: OpenedFile | null) => set({ currentFile: file, error: null }),
 
-      setRecentFiles: (files: RecentFile[]) => set({ recentFiles: files }),
+      // Deduplicate when setting recent files to prevent duplicates from race conditions
+      setRecentFiles: (files: RecentFile[]) => {
+        const seen = new Set<string>()
+        const deduplicated = files.filter(file => {
+          if (seen.has(file.path)) return false
+          seen.add(file.path)
+          return true
+        })
+        set({ recentFiles: deduplicated })
+      },
 
       setLoading: (loading: boolean) => set({ isLoading: loading }),
 
@@ -446,6 +481,7 @@ export const useFileStore = create<FileState>()(
         // Only persist recentFiles - currentFile and loading state should reset on load
         recentFiles: state.recentFiles,
       }),
+      merge: mergeFileState,
     }
   )
 )

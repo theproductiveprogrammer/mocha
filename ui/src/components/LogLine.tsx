@@ -1,71 +1,62 @@
 import { memo, useCallback } from 'react'
-import { Check, WrapText } from 'lucide-react'
 import type { LogEntry } from '../types'
 
-// Level-based styling
-const LEVEL_STYLES: Record<string, string> = {
-  ERROR: 'bg-red-50 border-red-200',
-  WARN: 'bg-amber-50 border-amber-200',
-  INFO: 'bg-white border-gray-200',
-  DEBUG: 'bg-gray-50 border-gray-200',
-  TRACE: 'bg-gray-50 border-gray-100',
+// Service colors for consistent badge coloring
+const SERVICE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  core: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300' },
+  app: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300' },
+  platform: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300' },
+  runner: { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-300' },
+  iwf: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300' },
+  rag: { bg: 'bg-cyan-100', text: 'text-cyan-700', border: 'border-cyan-300' },
+  transcriber: { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-300' },
+  tracker: { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-300' },
+  verify: { bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-300' },
+  pixel: { bg: 'bg-teal-100', text: 'text-teal-700', border: 'border-teal-300' },
 }
 
-const LEVEL_TEXT_STYLES: Record<string, string> = {
-  ERROR: 'text-red-700',
-  WARN: 'text-amber-700',
-  INFO: 'text-gray-800',
-  DEBUG: 'text-gray-600',
-  TRACE: 'text-gray-500',
-}
-
-const LEVEL_BADGE_STYLES: Record<string, string> = {
-  ERROR: 'bg-red-100 text-red-700',
-  WARN: 'bg-amber-100 text-amber-700',
-  INFO: 'bg-blue-100 text-blue-700',
-  DEBUG: 'bg-gray-100 text-gray-600',
-  TRACE: 'bg-gray-100 text-gray-500',
-}
-
-// Service-based color mapping
-const SERVICE_COLORS: Record<string, { bg: string; text: string }> = {
-  core: { bg: 'bg-blue-100', text: 'text-blue-700' },
-  app: { bg: 'bg-purple-100', text: 'text-purple-700' },
-  platform: { bg: 'bg-green-100', text: 'text-green-700' },
-  runner: { bg: 'bg-gray-100', text: 'text-gray-600' },
-  iwf: { bg: 'bg-orange-100', text: 'text-orange-700' },
-  rag: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
-  transcriber: { bg: 'bg-pink-100', text: 'text-pink-700' },
-  tracker: { bg: 'bg-yellow-100', text: 'text-yellow-700' },
-  verify: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
-  pixel: { bg: 'bg-teal-100', text: 'text-teal-700' },
-  default: { bg: 'bg-gray-100', text: 'text-gray-700' },
-}
-
-function getServiceColor(name: string): { bg: string; text: string } {
-  // Try exact match first
-  if (SERVICE_COLORS[name.toLowerCase()]) {
-    return SERVICE_COLORS[name.toLowerCase()]
+function getServiceColor(name: string) {
+  const lowerName = name.toLowerCase()
+  for (const [key, colors] of Object.entries(SERVICE_COLORS)) {
+    if (lowerName.includes(key)) return colors
   }
-  // Try partial match
-  for (const key of Object.keys(SERVICE_COLORS)) {
-    if (name.toLowerCase().includes(key)) {
-      return SERVICE_COLORS[key]
-    }
-  }
-  return SERVICE_COLORS.default
+  return { bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-slate-300' }
+}
+
+function getRowStyle(log: LogEntry): { bg: string; text: string } {
+  const errStyle = { bg: 'bg-red-50', text: 'text-red-700' }
+  const warnStyle = { bg: 'bg-amber-50', text: 'text-amber-800' }
+  const normStyle = { bg: 'bg-white', text: 'text-gray-800' }
+
+  if (log.parsed?.level === 'ERROR') return errStyle
+  if (log.parsed?.level === 'WARN') return warnStyle
+
+  // Check for exception patterns
+  if (/[.][A-Za-z0-9]*Exception/.test(log.data)) return errStyle
+
+  return normStyle
+}
+
+// Parse logger into class name and line number
+function parseLogger(logger?: string): { className: string; lineNumber?: string } | undefined {
+  if (!logger) return undefined
+  const [classPath, lineNumber] = logger.split(':')
+  const className = classPath.split('.').pop() || classPath
+  return { className, lineNumber }
 }
 
 /**
  * Get short service name from log entry.
- * Uses logger if available, otherwise falls back to filename.
+ * Extracts class name from logger path (e.g., "c.s.c.MCPController:466" -> "MCPController")
  */
 export function getServiceName(log: LogEntry): string {
   if (log.parsed?.logger) {
-    // Extract short name from logger (e.g., "c.s.c.c.bizlogic.MCPController" -> "MCPController")
     const logger = log.parsed.logger
-    const parts = logger.split('.')
-    return parts[parts.length - 1] || logger
+    // Remove line number suffix if present (e.g., ":466")
+    const withoutLineNum = logger.split(':')[0]
+    // Get last segment after dots
+    const parts = withoutLineNum.split('.')
+    return parts[parts.length - 1] || withoutLineNum
   }
   return log.name
 }
@@ -74,6 +65,7 @@ export interface LogLineProps {
   log: LogEntry
   isSelected: boolean
   isWrapped: boolean
+  isContinuation: boolean
   onSelect: (hash: string, event: React.MouseEvent) => void
   onToggleWrap: (hash: string) => void
 }
@@ -82,18 +74,18 @@ function LogLineComponent({
   log,
   isSelected,
   isWrapped,
+  isContinuation,
   onSelect,
   onToggleWrap,
 }: LogLineProps) {
-  const level = log.parsed?.level || 'INFO'
-  const levelStyle = LEVEL_STYLES[level] || LEVEL_STYLES.INFO
-  const levelTextStyle = LEVEL_TEXT_STYLES[level] || LEVEL_TEXT_STYLES.INFO
-  const levelBadgeStyle = LEVEL_BADGE_STYLES[level] || LEVEL_BADGE_STYLES.INFO
   const serviceName = getServiceName(log)
   const serviceColor = getServiceColor(serviceName)
+  const rowStyle = getRowStyle(log)
 
-  const handleClick = useCallback(
+  const handleGutterClick = useCallback(
     (e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
       if (log.hash) {
         onSelect(log.hash, e)
       }
@@ -101,9 +93,8 @@ function LogLineComponent({
     [log.hash, onSelect]
   )
 
-  const handleContentClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation()
+  const handleLineClick = useCallback(
+    () => {
       if (log.hash) {
         onToggleWrap(log.hash)
       }
@@ -111,87 +102,86 @@ function LogLineComponent({
     [log.hash, onToggleWrap]
   )
 
-  const handleWrapButtonClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation()
-      if (log.hash) {
-        onToggleWrap(log.hash)
-      }
-    },
-    [log.hash, onToggleWrap]
-  )
-
-  // Format timestamp for display (show time only if available)
+  // Format timestamp for display
   const displayTimestamp = log.parsed?.timestamp
     ? log.parsed.timestamp.includes(' ')
-      ? log.parsed.timestamp.split(' ')[1]?.slice(0, 8) // Get HH:MM:SS from datetime
-      : log.parsed.timestamp.slice(0, 8) // Already time only
+      ? log.parsed.timestamp.split(' ')[1]?.slice(0, 8)
+      : log.parsed.timestamp.slice(0, 8)
     : null
+
+  // Parse logger for class name display
+  const loggerInfo = parseLogger(log.parsed?.logger)
+  const isErrorOrWarn = log.parsed?.level === 'ERROR' || log.parsed?.level === 'WARN'
 
   return (
     <div
-      className={`flex items-stretch border-b cursor-pointer transition-colors font-mono text-xs ${levelStyle} ${
-        isSelected ? 'ring-2 ring-blue-400 ring-inset bg-blue-50' : 'hover:bg-gray-50'
+      className={`flex ${isContinuation ? '' : 'border-b border-gray-200'} ${rowStyle.bg} ${
+        isSelected ? 'ring-2 ring-inset ring-blue-400' : ''
       }`}
-      onClick={handleClick}
       data-testid="log-line"
       data-hash={log.hash}
       data-selected={isSelected}
     >
       {/* Selection gutter */}
       <div
-        className={`w-6 flex-shrink-0 flex items-center justify-center border-r ${
-          isSelected ? 'bg-blue-100 border-blue-200' : 'bg-gray-50 border-gray-200'
+        onClick={handleGutterClick}
+        className={`w-6 shrink-0 cursor-pointer self-stretch flex items-center justify-center ${
+          isSelected ? 'bg-blue-500' : 'bg-gray-50'
         }`}
+        title={isSelected ? 'Deselect line (Shift+click for range)' : 'Select line (Shift+click for range)'}
         data-testid="log-line-gutter"
       >
-        {isSelected && <Check className="w-3 h-3 text-blue-600" />}
+        {isSelected ? (
+          <span className="text-white text-xs">✓</span>
+        ) : (
+          <span className="text-gray-300 text-xs">○</span>
+        )}
       </div>
 
-      {/* Timestamp column */}
-      {displayTimestamp && (
-        <div
-          className="w-20 flex-shrink-0 px-2 py-1 text-gray-500 border-r border-gray-200 flex items-center"
-          data-testid="log-line-timestamp"
-        >
-          {displayTimestamp}
-        </div>
-      )}
-
-      {/* Service badge column */}
-      <div
-        className="w-24 flex-shrink-0 px-1 py-1 flex items-center border-r border-gray-200"
-        data-testid="log-line-service"
-      >
-        <span
-          className={`px-1.5 py-0.5 rounded text-xs truncate ${serviceColor.bg} ${serviceColor.text}`}
-          title={log.parsed?.logger || log.name}
-        >
-          {serviceName}
-        </span>
+      {/* Left column: timestamp + service badge (hidden for continuation rows) */}
+      <div className={`w-28 shrink-0 px-2 border-r border-gray-200 flex flex-col justify-center items-start gap-0.5 ${isContinuation ? 'py-0.5' : 'py-2 min-h-[40px]'}`}>
+        {!isContinuation && (
+          <>
+            {displayTimestamp && (
+              <span className="text-xs text-gray-400 font-mono" data-testid="log-line-timestamp">
+                {displayTimestamp}
+              </span>
+            )}
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded border font-medium max-w-full truncate ${serviceColor.bg} ${serviceColor.text} ${serviceColor.border}`}
+              title={log.parsed?.logger || log.name}
+              data-testid="log-line-service"
+            >
+              {serviceName}
+            </span>
+          </>
+        )}
       </div>
 
-      {/* Level badge */}
-      {log.parsed?.level && (
-        <div
-          className="w-14 flex-shrink-0 px-1 py-1 flex items-center"
-          data-testid="log-line-level"
-        >
-          <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${levelBadgeStyle}`}>
-            {log.parsed.level}
-          </span>
-        </div>
-      )}
-
-      {/* Content area */}
+      {/* Right column: log content */}
       <div
-        className={`flex-1 px-2 py-1 min-w-0 ${levelTextStyle}`}
-        onClick={handleContentClick}
+        onClick={handleLineClick}
+        className={`flex-1 px-3 cursor-pointer font-mono text-[13px] leading-tight ${rowStyle.text} ${
+          isContinuation ? 'py-0.5' : 'py-2 min-h-[40px]'
+        } ${isWrapped ? 'whitespace-pre-wrap break-words' : 'truncate'}`}
         data-testid="log-line-content"
       >
-        <div className={isWrapped ? 'whitespace-pre-wrap break-words' : 'line-clamp-3 truncate'}>
-          {log.parsed?.content || log.data}
-        </div>
+        {/* Logger class name prefix */}
+        {loggerInfo && (
+          <span className="font-bold">
+            {loggerInfo.className}
+            {loggerInfo.lineNumber && (
+              <span className={isErrorOrWarn ? '' : 'text-green-600 font-normal'}>
+                :{loggerInfo.lineNumber}
+              </span>
+            )}
+            {': '}
+          </span>
+        )}
+
+        {/* Content */}
+        {log.parsed?.content || log.data}
+
         {/* API call info */}
         {log.parsed?.apiCall && (
           <div className="mt-1 text-cyan-600 text-xs" data-testid="log-line-api">
@@ -203,23 +193,8 @@ function LogLineComponent({
           </div>
         )}
       </div>
-
-      {/* Wrap toggle button */}
-      <div className="w-8 flex-shrink-0 flex items-center justify-center">
-        <button
-          onClick={handleWrapButtonClick}
-          className={`p-1 rounded hover:bg-gray-200 ${
-            isWrapped ? 'text-blue-500' : 'text-gray-400'
-          }`}
-          title={isWrapped ? 'Collapse text' : 'Expand text'}
-          data-testid="log-line-wrap-btn"
-        >
-          <WrapText className="w-4 h-4" />
-        </button>
-      </div>
     </div>
   )
 }
 
-// Memoize to prevent unnecessary re-renders
 export const LogLine = memo(LogLineComponent)

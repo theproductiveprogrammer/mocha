@@ -1,6 +1,6 @@
-export { LogLine, getServiceName } from './LogLine'
-export type { LogLineProps } from './LogLine'
+export { getServiceName } from './LogLine'
 
+// Virtualized React LogViewer
 export { LogViewer } from './LogViewer'
 export type { LogViewerProps } from './LogViewer'
 

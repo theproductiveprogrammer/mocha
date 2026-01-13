@@ -59,14 +59,13 @@ export async function readFile(path: string, offset: number = 0): Promise<FileRe
  * @returns Array of RecentFile objects, sorted by lastOpened (newest first)
  */
 export async function getRecentFiles(): Promise<RecentFile[]> {
-  if (!isTauri()) {
-    return [];
-  }
+  if (!isTauri()) return [];
 
   try {
     const files = await invoke<RecentFile[]>('get_recent_files');
     return Array.isArray(files) ? files : [];
-  } catch {
+  } catch (err) {
+    console.error('getRecentFiles error:', err);
     return [];
   }
 }
@@ -87,7 +86,7 @@ export async function addRecentFile(path: string): Promise<void> {
 
   try {
     await invoke('add_recent_file', { path });
-  } catch {
-    // Silently fail - recent files are not critical
+  } catch (err) {
+    console.error('addRecentFile error:', err);
   }
 }

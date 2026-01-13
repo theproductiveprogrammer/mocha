@@ -1,4 +1,5 @@
-import { useEffect, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import type { LogEntry } from '../types'
 import { useLogViewerStore, useSelectionStore, filterLogs } from '../store'
 import { LogLine } from './LogLine'
@@ -8,16 +9,7 @@ export interface LogViewerProps {
 }
 
 /**
- * LogViewer component - Main log display with filtering, selection, and keyboard shortcuts.
- *
- * Features:
- * - Applies service filter (inactiveNames) from store
- * - Applies text/regex filters from store
- * - Excludes deleted hashes
- * - Reverses logs for newest-first display
- * - Renders LogLine for each visible log
- * - Keyboard shortcuts: Ctrl+A (select all), Ctrl+C (copy), Delete (hide), Escape (clear)
- * - Clipboard copy of selected lines
+ * LogViewer component - Virtualized log display with filtering, selection, and keyboard shortcuts.
  */
 export function LogViewer({ logs }: LogViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -56,7 +48,6 @@ export function LogViewer({ logs }: LogViewerProps) {
   // Filter and reverse logs (newest-first)
   const filteredLogs = useMemo(() => {
     const filtered = filterLogs(logs, filters, inactiveNames, deletedHashes)
-    // Reverse for newest-first display
     return [...filtered].reverse()
   }, [logs, filters, inactiveNames, deletedHashes])
 
@@ -65,28 +56,39 @@ export function LogViewer({ logs }: LogViewerProps) {
     return filteredLogs.map((log) => log.hash).filter((h): h is string => !!h)
   }, [filteredLogs])
 
+  // Use ref for allHashes to keep callback stable
+  const allHashesRef = useRef(allHashes)
+  useLayoutEffect(() => {
+    allHashesRef.current = allHashes
+  }, [allHashes])
+
+  // Virtualizer with dynamic measurement (needed for expanded rows)
+  const virtualizer = useVirtualizer({
+    count: filteredLogs.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => 44, // Default collapsed row height
+    overscan: 10,
+    measureElement: (element) => element.getBoundingClientRect().height,
+  })
+
   // Handle log entry click for selection
   const handleLogClick = useCallback(
     (hash: string, event: React.MouseEvent) => {
       if (event.shiftKey && lastSelectedHash) {
-        // Shift+Click: range selection
-        selectRange(lastSelectedHash, hash, allHashes)
+        selectRange(lastSelectedHash, hash, allHashesRef.current)
       } else if (event.ctrlKey || event.metaKey) {
-        // Ctrl/Cmd+Click: add to selection
         toggleSelection(hash)
       } else {
-        // Regular click: toggle single selection
         toggleSelection(hash)
       }
     },
-    [lastSelectedHash, allHashes, selectRange, toggleSelection]
+    [lastSelectedHash, selectRange, toggleSelection]
   )
 
   // Copy selected logs to clipboard
   const copySelectedToClipboard = useCallback(async () => {
     if (selectedHashes.size === 0) return
 
-    // Get selected logs in display order
     const selectedLogs = filteredLogs
       .filter((log) => log.hash && selectedHashes.has(log.hash))
       .map((log) => log.data)
@@ -102,7 +104,6 @@ export function LogViewer({ logs }: LogViewerProps) {
   // Keyboard shortcuts handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle if focus is on this container or body (not in input fields)
       const activeElement = document.activeElement
       if (
         activeElement instanceof HTMLInputElement ||
@@ -112,14 +113,12 @@ export function LogViewer({ logs }: LogViewerProps) {
         return
       }
 
-      // Ctrl+A: Select all visible logs
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         e.preventDefault()
         selectAll(allHashes)
         return
       }
 
-      // Ctrl+C: Copy selected logs to clipboard
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         if (selectedHashes.size > 0) {
           e.preventDefault()
@@ -128,7 +127,6 @@ export function LogViewer({ logs }: LogViewerProps) {
         return
       }
 
-      // Delete or Backspace: Hide selected logs
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedHashes.size > 0) {
           e.preventDefault()
@@ -137,7 +135,6 @@ export function LogViewer({ logs }: LogViewerProps) {
         return
       }
 
-      // Escape: Clear selection
       if (e.key === 'Escape') {
         e.preventDefault()
         clearSelection()
@@ -149,10 +146,12 @@ export function LogViewer({ logs }: LogViewerProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [allHashes, selectedHashes, selectAll, deleteSelected, clearSelection, copySelectedToClipboard])
 
+  const virtualItems = virtualizer.getVirtualItems()
+
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-auto bg-white"
+      className="flex-1 overflow-auto bg-[#FAFAFA] font-['Fira_Code',monospace]"
       tabIndex={0}
       data-testid="log-viewer"
     >
@@ -171,20 +170,71 @@ export function LogViewer({ logs }: LogViewerProps) {
           )}
         </div>
       ) : (
-        <div className="divide-y divide-gray-100">
-          {filteredLogs.map((log) => {
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {virtualItems.map((virtualItem) => {
+            const log = filteredLogs[virtualItem.index]
+            const prev = virtualItem.index > 0 ? filteredLogs[virtualItem.index - 1] : null
             const isSelected = log.hash ? selectedHashes.has(log.hash) : false
             const isWrapped = log.hash ? wrappedHashes.has(log.hash) : false
 
+            // Determine if this is a continuation of the previous line
+            const content = log.parsed?.content || log.data
+            const isStackTraceLine = /^\s*at\s/.test(content) || /Exception|Error:/.test(content)
+            const hasNoLogger = !log.parsed?.logger
+            const prevHasLogger = !!prev?.parsed?.logger
+
+            // Check if timestamps are within 100ms
+            const timestampWithin100ms = prev?.timestamp && log.timestamp &&
+              Math.abs(prev.timestamp - log.timestamp) <= 100
+
+            // Same logger check (both must have logger and be the same)
+            const sameLogger = log.parsed?.logger && prev?.parsed?.logger &&
+              log.parsed.logger === prev.parsed.logger
+
+            // A line is a continuation if:
+            // 1. It's a stack trace line (starts with "at " or contains Exception)
+            // 2. Within 100ms AND same logger (grouped log output)
+            // 3. Line with no logger following a line with logger
+            // 4. Both lines have no logger (likely related plain lines)
+            const isContinuation = !!(prev && (
+              // Stack trace lines are always continuations
+              isStackTraceLine ||
+              // Within 100ms + same logger = grouped output
+              (timestampWithin100ms && sameLogger) ||
+              // Line with no logger following a line with logger
+              (hasNoLogger && prevHasLogger) ||
+              // Both have no logger (likely related plain lines)
+              (hasNoLogger && !prev.parsed?.logger)
+            ))
+
             return (
-              <LogLine
-                key={log.hash || log.data}
-                log={log}
-                isSelected={isSelected}
-                isWrapped={isWrapped}
-                onSelect={handleLogClick}
-                onToggleWrap={toggleWrap}
-              />
+              <div
+                key={virtualItem.key}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                <LogLine
+                  log={log}
+                  isSelected={isSelected}
+                  isWrapped={isWrapped}
+                  isContinuation={isContinuation}
+                  onSelect={handleLogClick}
+                  onToggleWrap={toggleWrap}
+                />
+              </div>
             )
           })}
         </div>

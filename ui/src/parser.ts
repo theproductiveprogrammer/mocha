@@ -75,6 +75,54 @@ export function isContinuationLine(line: string): boolean {
 // ============================================================================
 
 const patterns: LogPattern[] = [
+  // 0. SalesBox Core Format (dual timestamp - ISO + human readable)
+  // 2025-12-19T09:53:23.333Z 2025-12-19 09:53:23.110 [default-nioEventLoopGroup-1-5] INFO c.s.c.c.bizlogic.MCPController [MCPController.java:466] [default] - message
+  {
+    name: 'salesbox-core',
+    parse: (line: string): ParsedLogLine | null => {
+      // Full format with [context]
+      let match = line.match(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+\[[^\]]*\]\s+-\s*(.*)$/i
+      );
+      if (match) {
+        return {
+          timestamp: match[1],
+          level: normalizeLevel(match[3]),
+          logger: `${match[4]}:${match[5].split(':')[1]}`,
+          content: match[6],
+        };
+      }
+
+      // Simpler format without [context]
+      match = line.match(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+-\s*(.*)$/i
+      );
+      if (match) {
+        return {
+          timestamp: match[1],
+          level: normalizeLevel(match[3]),
+          logger: `${match[4]}:${match[5].split(':')[1]}`,
+          content: match[6],
+        };
+      }
+
+      // Even simpler - dual timestamp with just level and logger
+      match = line.match(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+-\s*(.*)$/i
+      );
+      if (match) {
+        return {
+          timestamp: match[1],
+          level: normalizeLevel(match[3]),
+          logger: match[4],
+          content: match[5],
+        };
+      }
+
+      return null;
+    },
+  },
+
   // 1. SalesBox App Format
   // 2025-12-19 05:32:17,405 33667971 [thread] INFO com.r2.util.SQSUtil - message
   // Note: There may be extra spaces before/after the level (e.g., "INFO  " with double space)
@@ -311,6 +359,29 @@ const patterns: LogPattern[] = [
       };
     },
   },
+
+  // 12. Single ISO timestamp (for stack traces, simple logs)
+  // 2025-12-19T09:53:52.155Z java.net.SocketTimeoutException: timeout
+  // 2025-12-19T09:53:52.155Z at okio.SocketAsyncTimeout.newTimeoutException(JvmOkio.kt:147)
+  {
+    name: 'iso-timestamp',
+    parse: (line: string): ParsedLogLine | null => {
+      const match = line.match(
+        /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?)\s+(.+)$/
+      );
+      if (!match) return null;
+
+      const content = match[2];
+      // Detect if it's an exception/stack trace
+      const isException = /Exception|Error|^\s*at\s/.test(content);
+
+      return {
+        timestamp: match[1],
+        level: isException ? 'ERROR' : undefined,
+        content: content,
+      };
+    },
+  },
 ];
 
 // ============================================================================
@@ -535,19 +606,49 @@ function generateHash(
 }
 
 /**
+ * Get the last N lines from content efficiently
+ * Avoids splitting the entire file into an array
+ */
+function getLastNLines(content: string, n: number): { lines: string[]; totalLines: number; truncated: boolean } {
+  // Count total lines by counting newlines (fast)
+  let totalLines = 1;
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === '\n') totalLines++;
+  }
+
+  if (totalLines <= n) {
+    return { lines: content.split('\n'), totalLines, truncated: false };
+  }
+
+  // Find the start position for last N lines by scanning from the end
+  let newlineCount = 0;
+  let startPos = content.length;
+  for (let i = content.length - 1; i >= 0; i--) {
+    if (content[i] === '\n') {
+      newlineCount++;
+      if (newlineCount === n) {
+        startPos = i + 1;
+        break;
+      }
+    }
+  }
+
+  return {
+    lines: content.slice(startPos).split('\n'),
+    totalLines,
+    truncated: true,
+  };
+}
+
+/**
  * Parse raw file lines into LogEntry array
  */
 function parseFileLines(
   content: string,
   fileName: string
 ): { logs: LogEntry[]; totalLines: number; truncated: boolean } {
-  const lines = content.split('\n');
-  const totalLines = lines.length;
   const maxLines = 2000;
-  const truncated = totalLines > maxLines;
-
-  // Keep only last maxLines if truncated
-  const linesToProcess = truncated ? lines.slice(-maxLines) : lines;
+  const { lines: linesToProcess, totalLines, truncated } = getLastNLines(content, maxLines);
 
   const logs: LogEntry[] = [];
   const existingHashes = new Set<string>();
@@ -615,11 +716,9 @@ function parseFileLines(
 export function parseLogFile(content: string, fileName: string): ParsedLogFileResult {
   const { logs: rawLogs, totalLines, truncated } = parseFileLines(content, fileName);
   const normalized = normalize(rawLogs);
-
   const logs = normalized.map((log) => ({
     ...log,
     parsed: parseLogLine(log.data),
   }));
-
   return { logs, totalLines, truncated };
 }

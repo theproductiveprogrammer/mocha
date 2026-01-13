@@ -1,16 +1,21 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { FileText } from 'lucide-react'
-import type { ParsedLogFileResult } from './types'
+import { open as openFileDialog } from '@tauri-apps/plugin-dialog'
+import type { LogEntry } from './types'
 import './types'
-import { isWebUI, waitForConnection, readFile, getRecentFiles, addRecentFile } from './api'
+import { isTauri, waitForConnection, readFile, getRecentFiles, addRecentFile } from './api'
 import { parseLogFile } from './parser'
 import { useLogViewerStore, useSelectionStore, useFileStore, filterLogs } from './store'
-import { LogViewer, Sidebar, Toolbar, DropZone, getServiceName } from './components'
+import { Sidebar, Toolbar, DropZone, LogViewer, getServiceName } from './components'
 
 function App() {
+  // Logs state - now in React state for virtualized LogViewer
+  const [logs, setLogs] = useState<LogEntry[]>([])
+  const [serviceNames, setServiceNames] = useState<string[]>([])
+
   // Log viewer store
   const {
-    inactiveNames,
+    inactiveNames: rawInactiveNames,
     filters,
     input,
     toggleName,
@@ -19,6 +24,12 @@ function App() {
     clearFilters,
     setInput,
   } = useLogViewerStore()
+
+  // Ensure inactiveNames is a Set (handles hydration race condition)
+  const inactiveNames = useMemo(
+    () => (rawInactiveNames instanceof Set ? rawInactiveNames : new Set(Array.isArray(rawInactiveNames) ? rawInactiveNames : [])),
+    [rawInactiveNames]
+  )
 
   // Selection store
   const {
@@ -38,9 +49,6 @@ function App() {
     setError,
   } = useFileStore()
 
-  // Parsed logs state
-  const [parseResult, setParseResult] = useState<ParsedLogFileResult | null>(null)
-
   // Watching/polling state
   const [isWatching, setIsWatching] = useState(false)
   const pollIntervalRef = useRef<number | null>(null)
@@ -49,27 +57,12 @@ function App() {
   // File input ref
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Get unique service names from parsed logs (using logger if available, otherwise filename)
-  const serviceNames = useMemo(() => {
-    if (!parseResult) return []
-    const names = new Set(parseResult.logs.map((log) => getServiceName(log)))
-    return Array.from(names).sort()
-  }, [parseResult])
-
-  // Filter logs using the store state (including deleted hashes)
-  const filteredLogs = useMemo(() => {
-    if (!parseResult) return []
-    return filterLogs(parseResult.logs, filters, inactiveNames, deletedHashes)
-  }, [parseResult, filters, inactiveNames, deletedHashes])
-
   // Load recent files on mount
   useEffect(() => {
     const loadRecentFiles = async () => {
-      if (!isWebUI()) return
-
+      if (!isTauri()) return
       const connected = await waitForConnection(5000)
       if (!connected) return
-
       try {
         const recent = await getRecentFiles()
         setRecentFiles(recent)
@@ -77,15 +70,13 @@ function App() {
         console.error('Failed to load recent files:', err)
       }
     }
-
     loadRecentFiles()
   }, [setRecentFiles])
 
-  // Handle opening a file (either by path or via file dialog)
+  // Handle opening a file
   const handleOpenFile = useCallback(async (path?: string) => {
     if (path) {
-      // Opening a file by path (from recent files or WebUI)
-      if (!isWebUI()) {
+      if (!isTauri()) {
         setError('Cannot open files by path in browser mode')
         return
       }
@@ -94,7 +85,10 @@ function App() {
       setError(null)
 
       try {
+        console.time('total')
+        console.time('read')
         const result = await readFile(path, 0)
+        console.timeEnd('read')
 
         if (!result.success) {
           setError(result.error || 'Failed to read file')
@@ -102,36 +96,35 @@ function App() {
           return
         }
 
-        // Extract values with defaults
         const fileContent = result.content ?? ''
         const filePath = result.path ?? path
         const fileName = result.name ?? path.split('/').pop() ?? 'unknown'
         const fileSize = result.size ?? 0
 
-        // Parse the file content
+        console.time('parse')
         const parsed = parseLogFile(fileContent, fileName)
-        setParseResult(parsed)
+        console.timeEnd('parse')
 
-        // Update current file
-        setCurrentFile({
-          path: filePath,
-          name: fileName,
-          size: fileSize,
-        })
+        console.log(`${parsed.logs.length} logs`)
 
-        // Track file size for polling
+        // Update state
+        console.time('setState')
+        setLogs(parsed.logs)
+        setServiceNames(Array.from(new Set(parsed.logs.map(getServiceName))).sort())
+        setCurrentFile({ path: filePath, name: fileName, size: fileSize })
         fileSizeRef.current = fileSize
+        console.timeEnd('setState')
 
-        // Add to recent files
-        await addRecentFile(filePath)
+        console.timeEnd('total')
 
-        // Refresh recent files list
-        const recent = await getRecentFiles()
-        setRecentFiles(recent)
-
-        // Clear filters and stale selection state for new file
-        clearFilters()
-        cleanupInvalidHashes(parsed.logs.map(l => l.hash).filter((h): h is string => !!h))
+        // Background updates
+        setTimeout(() => {
+          addRecentFile(filePath)
+          const newRecentFile = { path: filePath, name: fileName, lastOpened: Date.now() }
+          setRecentFiles([newRecentFile, ...recentFiles.filter(f => f.path !== filePath).slice(0, 19)])
+          clearFilters()
+          cleanupInvalidHashes(parsed.logs.map(l => l.hash).filter((h): h is string => !!h))
+        }, 0)
 
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to open file')
@@ -139,10 +132,23 @@ function App() {
         setLoading(false)
       }
     } else {
-      // Trigger file dialog
-      fileInputRef.current?.click()
+      if (isTauri()) {
+        try {
+          const selected = await openFileDialog({
+            multiple: false,
+            filters: [{ name: 'Log Files', extensions: ['log', 'txt'] }],
+          })
+          if (selected) {
+            handleOpenFile(selected)
+          }
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to open file dialog')
+        }
+      } else {
+        fileInputRef.current?.click()
+      }
     }
-  }, [setLoading, setError, setCurrentFile, setRecentFiles, clearFilters, cleanupInvalidHashes])
+  }, [setLoading, setError, setCurrentFile, setRecentFiles, recentFiles, clearFilters, cleanupInvalidHashes])
 
   // Handle file selection from browser file input
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,30 +162,24 @@ function App() {
     reader.onload = (evt) => {
       try {
         const content = evt.target?.result as string
-        const result = parseLogFile(content, file.name)
-        setParseResult(result)
+        const parsed = parseLogFile(content, file.name)
 
-        // Update current file (browser mode - path is just filename)
-        setCurrentFile({
-          path: file.name,
-          name: file.name,
-          size: content.length,
-        })
+        setLogs(parsed.logs)
+        setServiceNames(Array.from(new Set(parsed.logs.map(getServiceName))).sort())
 
-        // Add to recent files (browser mode - uses filename as path)
-        const now = Date.now()
-        setRecentFiles([
-          { path: file.name, name: file.name, lastOpened: now },
-          ...recentFiles.filter(f => f.path !== file.name).slice(0, 19),
-        ])
-
-        // Clear filters and stale selection state for new file
-        clearFilters()
-        cleanupInvalidHashes(result.logs.map(l => l.hash).filter((h): h is string => !!h))
+        setTimeout(() => {
+          setCurrentFile({ path: file.name, name: file.name, size: content.length })
+          const now = Date.now()
+          setRecentFiles([
+            { path: file.name, name: file.name, lastOpened: now },
+            ...recentFiles.filter(f => f.path !== file.name).slice(0, 19),
+          ])
+          clearFilters()
+          cleanupInvalidHashes(parsed.logs.map(l => l.hash).filter((h): h is string => !!h))
+        }, 0)
 
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to parse file')
-        setParseResult(null)
       } finally {
         setLoading(false)
       }
@@ -189,60 +189,48 @@ function App() {
       setLoading(false)
     }
     reader.readAsText(file)
-
-    // Reset input so same file can be selected again
     e.target.value = ''
   }, [setLoading, setError, setCurrentFile, setRecentFiles, recentFiles, clearFilters, cleanupInvalidHashes])
 
-  // Handle file drop from DropZone
+  // Handle file drop
   const handleFileDrop = useCallback((content: string, fileName: string) => {
     try {
-      const result = parseLogFile(content, fileName)
-      setParseResult(result)
+      const parsed = parseLogFile(content, fileName)
+      setLogs(parsed.logs)
+      setServiceNames(Array.from(new Set(parsed.logs.map(getServiceName))).sort())
       setError(null)
 
-      // Update current file
-      setCurrentFile({
-        path: fileName,
-        name: fileName,
-        size: content.length,
-      })
-
-      // Add to recent files
-      const now = Date.now()
-      setRecentFiles([
-        { path: fileName, name: fileName, lastOpened: now },
-        ...recentFiles.filter(f => f.path !== fileName).slice(0, 19),
-      ])
-
-      // Clear filters and stale selection state for new file
-      clearFilters()
-      cleanupInvalidHashes(result.logs.map(l => l.hash).filter((h): h is string => !!h))
+      setTimeout(() => {
+        setCurrentFile({ path: fileName, name: fileName, size: content.length })
+        const now = Date.now()
+        setRecentFiles([
+          { path: fileName, name: fileName, lastOpened: now },
+          ...recentFiles.filter(f => f.path !== fileName).slice(0, 19),
+        ])
+        clearFilters()
+        cleanupInvalidHashes(parsed.logs.map(l => l.hash).filter((h): h is string => !!h))
+      }, 0)
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to parse file')
-      setParseResult(null)
     }
   }, [setCurrentFile, setRecentFiles, recentFiles, clearFilters, cleanupInvalidHashes, setError])
 
-  // Handle file selection from sidebar
   const handleSelectFile = useCallback((path?: string) => {
     handleOpenFile(path)
   }, [handleOpenFile])
 
-  // Handle clearing recent files
   const handleClearRecent = useCallback(() => {
     setRecentFiles([])
   }, [setRecentFiles])
 
-  // Handle watch toggle
   const handleToggleWatch = useCallback(() => {
     setIsWatching(prev => !prev)
   }, [])
 
-  // Polling effect for file updates
+  // Polling effect
   useEffect(() => {
-    if (!isWatching || !currentFile?.path || !isWebUI()) {
+    if (!isWatching || !currentFile?.path || !isTauri()) {
       if (pollIntervalRef.current) {
         window.clearInterval(pollIntervalRef.current)
         pollIntervalRef.current = null
@@ -250,31 +238,15 @@ function App() {
       return
     }
 
-    // Start polling
     pollIntervalRef.current = window.setInterval(async () => {
       try {
         const result = await readFile(currentFile.path, fileSizeRef.current)
-
         if (!result.success) return
-
         const newSize = result.size ?? 0
 
-        // If file has new content
         if (result.content && newSize > fileSizeRef.current) {
-          // Parse new lines
           const newLines = parseLogFile(result.content, currentFile.name)
-
-          // Append to existing logs
-          setParseResult(prev => {
-            if (!prev) return newLines
-            return {
-              logs: [...prev.logs, ...newLines.logs],
-              totalLines: prev.totalLines + newLines.totalLines,
-              truncated: prev.truncated,
-            }
-          })
-
-          // Update tracked size
+          setLogs(prev => [...prev, ...newLines.logs])
           fileSizeRef.current = newSize
         }
       } catch (err) {
@@ -290,9 +262,15 @@ function App() {
     }
   }, [isWatching, currentFile])
 
+  // Compute visible count from current filters
+  const visibleCount = (() => {
+    if (logs.length === 0) return 0
+    const safeDeletedHashes = deletedHashes instanceof Set ? deletedHashes : new Set<string>()
+    return filterLogs(logs, filters, inactiveNames, safeDeletedHashes).length
+  })()
+
   return (
     <div className="h-screen flex bg-gray-50">
-      {/* Hidden file input */}
       <input
         type="file"
         ref={fileInputRef}
@@ -302,7 +280,6 @@ function App() {
         data-testid="file-input"
       />
 
-      {/* Sidebar */}
       <Sidebar
         recentFiles={recentFiles}
         currentFile={currentFile}
@@ -310,9 +287,7 @@ function App() {
         onClearRecent={handleClearRecent}
       />
 
-      {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Toolbar */}
         <Toolbar
           serviceNames={serviceNames}
           inactiveNames={inactiveNames}
@@ -324,40 +299,32 @@ function App() {
           onRemoveFilter={removeFilter}
           onFilterInputChange={setInput}
           onToggleWatch={handleToggleWatch}
-          totalLines={parseResult?.totalLines ?? 0}
-          truncated={parseResult?.truncated ?? false}
-          visibleCount={filteredLogs.length}
+          totalLines={logs.length}
+          truncated={false}
+          visibleCount={visibleCount}
           isWatching={isWatching}
         />
 
-        {/* Main content with DropZone */}
         <DropZone onFileDrop={handleFileDrop}>
           <div className="flex-1 flex flex-col overflow-hidden h-full">
-            {/* Error display */}
             {error && (
               <div className="bg-red-50 border-b border-red-200 px-4 py-2 text-red-700 text-sm flex items-center justify-between">
                 <span>{error}</span>
-                <button
-                  onClick={() => setError(null)}
-                  className="text-red-500 hover:text-red-700"
-                >
+                <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
                   Dismiss
                 </button>
               </div>
             )}
 
-            {/* Loading indicator */}
             {isLoading && (
               <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 text-blue-700 text-sm">
                 Loading file...
               </div>
             )}
 
-            {/* Log viewer or empty state */}
-            {parseResult ? (
-              <div className="flex-1 overflow-hidden">
-                <LogViewer logs={parseResult.logs} />
-              </div>
+            {/* Virtualized Log viewer */}
+            {logs.length > 0 ? (
+              <LogViewer logs={logs} />
             ) : (
               <div className="flex-1 flex items-center justify-center bg-gray-100">
                 <div className="text-center text-gray-500">
