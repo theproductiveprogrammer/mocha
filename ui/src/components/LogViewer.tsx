@@ -45,10 +45,39 @@ export function LogViewer({ logs }: LogViewerProps) {
     [rawWrappedHashes]
   )
 
-  // Filter and reverse logs (newest-first)
+  // Filter and reverse logs (newest-first), but keep chronological order within groups
   const filteredLogs = useMemo(() => {
     const filtered = filterLogs(logs, filters, inactiveNames, deletedHashes)
-    return [...filtered].reverse()
+    const reversed = [...filtered].reverse()
+
+    // Helper to check if two logs belong to same group (within 100ms + same logger)
+    const isSameGroup = (a: LogEntry, b: LogEntry) => {
+      const within100ms = a.timestamp && b.timestamp && Math.abs(a.timestamp - b.timestamp) <= 100
+      const sameLogger = a.parsed?.logger && b.parsed?.logger && a.parsed.logger === b.parsed.logger
+      return within100ms && sameLogger
+    }
+
+    // Group consecutive logs, then reverse within each group for chronological order
+    const result: LogEntry[] = []
+    let currentGroup: LogEntry[] = []
+
+    for (const log of reversed) {
+      if (currentGroup.length === 0) {
+        currentGroup.push(log)
+      } else if (isSameGroup(currentGroup[currentGroup.length - 1], log)) {
+        currentGroup.push(log)
+      } else {
+        // Flush current group (reversed for chronological order within group)
+        result.push(...currentGroup.reverse())
+        currentGroup = [log]
+      }
+    }
+    // Flush last group
+    if (currentGroup.length > 0) {
+      result.push(...currentGroup.reverse())
+    }
+
+    return result
   }, [logs, filters, inactiveNames, deletedHashes])
 
   // Get all hashes for selection operations
@@ -180,38 +209,34 @@ export function LogViewer({ logs }: LogViewerProps) {
           {virtualItems.map((virtualItem) => {
             const log = filteredLogs[virtualItem.index]
             const prev = virtualItem.index > 0 ? filteredLogs[virtualItem.index - 1] : null
+            const next = virtualItem.index < filteredLogs.length - 1 ? filteredLogs[virtualItem.index + 1] : null
             const isSelected = log.hash ? selectedHashes.has(log.hash) : false
             const isWrapped = log.hash ? wrappedHashes.has(log.hash) : false
 
-            // Determine if this is a continuation of the previous line
-            const content = log.parsed?.content || log.data
-            const isStackTraceLine = /^\s*at\s/.test(content) || /Exception|Error:/.test(content)
-            const hasNoLogger = !log.parsed?.logger
-            const prevHasLogger = !!prev?.parsed?.logger
+            // Helper to check if b is a continuation of a
+            const checkContinuation = (a: LogEntry | null, b: LogEntry) => {
+              if (!a) return false
+              const content = b.parsed?.content || b.data
+              const isStackTraceLine = /^\s*at\s/.test(content) || /Exception|Error:/.test(content)
+              const hasNoLogger = !b.parsed?.logger
+              const prevHasLogger = !!a.parsed?.logger
+              const within100ms = a.timestamp && b.timestamp && Math.abs(a.timestamp - b.timestamp) <= 100
+              const sameLogger = a.parsed?.logger && b.parsed?.logger && a.parsed.logger === b.parsed.logger
 
-            // Check if timestamps are within 100ms
-            const timestampWithin100ms = prev?.timestamp && log.timestamp &&
-              Math.abs(prev.timestamp - log.timestamp) <= 100
+              return !!(
+                isStackTraceLine ||
+                (within100ms && sameLogger) ||
+                (hasNoLogger && prevHasLogger) ||
+                (hasNoLogger && !a.parsed?.logger)
+              )
+            }
 
-            // Same logger check (both must have logger and be the same)
-            const sameLogger = log.parsed?.logger && prev?.parsed?.logger &&
-              log.parsed.logger === prev.parsed.logger
-
-            // A line is a continuation if:
-            // 1. It's a stack trace line (starts with "at " or contains Exception)
-            // 2. Within 100ms AND same logger (grouped log output)
-            // 3. Line with no logger following a line with logger
-            // 4. Both lines have no logger (likely related plain lines)
-            const isContinuation = !!(prev && (
-              // Stack trace lines are always continuations
-              isStackTraceLine ||
-              // Within 100ms + same logger = grouped output
-              (timestampWithin100ms && sameLogger) ||
-              // Line with no logger following a line with logger
-              (hasNoLogger && prevHasLogger) ||
-              // Both have no logger (likely related plain lines)
-              (hasNoLogger && !prev.parsed?.logger)
-            ))
+            // Is this line a continuation of the previous?
+            const isContinuation = checkContinuation(prev, log)
+            // Is the next line a continuation of this one? (determines if we show bottom border)
+            const nextIsContinuation = next ? checkContinuation(log, next) : false
+            // Show border at bottom of group (when next is NOT a continuation)
+            const isLastInGroup = !nextIsContinuation
 
             return (
               <div
@@ -231,6 +256,7 @@ export function LogViewer({ logs }: LogViewerProps) {
                   isSelected={isSelected}
                   isWrapped={isWrapped}
                   isContinuation={isContinuation}
+                  isLastInGroup={isLastInGroup}
                   onSelect={handleLogClick}
                   onToggleWrap={toggleWrap}
                 />

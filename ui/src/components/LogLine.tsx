@@ -66,6 +66,7 @@ export interface LogLineProps {
   isSelected: boolean
   isWrapped: boolean
   isContinuation: boolean
+  isLastInGroup: boolean
   onSelect: (hash: string, event: React.MouseEvent) => void
   onToggleWrap: (hash: string) => void
 }
@@ -75,6 +76,7 @@ function LogLineComponent({
   isSelected,
   isWrapped,
   isContinuation,
+  isLastInGroup,
   onSelect,
   onToggleWrap,
 }: LogLineProps) {
@@ -115,7 +117,7 @@ function LogLineComponent({
 
   return (
     <div
-      className={`flex ${isContinuation ? '' : 'border-b border-gray-200'} ${rowStyle.bg} ${
+      className={`flex ${isLastInGroup ? 'border-b border-gray-200' : ''} ${rowStyle.bg} ${
         isSelected ? 'ring-2 ring-inset ring-blue-400' : ''
       }`}
       data-testid="log-line"
@@ -166,8 +168,8 @@ function LogLineComponent({
         } ${isWrapped ? 'whitespace-pre-wrap break-words' : 'truncate'}`}
         data-testid="log-line-content"
       >
-        {/* Logger class name prefix */}
-        {loggerInfo && (
+        {/* Logger class name prefix (only show on first line of group) */}
+        {loggerInfo && !isContinuation && (
           <span className="font-bold">
             {loggerInfo.className}
             {loggerInfo.lineNumber && (

@@ -173,7 +173,25 @@ const virtualizer = useVirtualizer({
 ```typescript
 const filteredLogs = useMemo(() => {
   const filtered = filterLogs(logs, filters, inactiveNames, deletedHashes)
-  return [...filtered].reverse()  // Newest-first display
+  const reversed = [...filtered].reverse()  // Newest-first display
+
+  // Group consecutive logs, then reverse within each group for chronological order
+  // This keeps overall newest-first, but entries within a group are chronological
+  const result: LogEntry[] = []
+  let currentGroup: LogEntry[] = []
+
+  for (const log of reversed) {
+    if (currentGroup.length === 0 || isSameGroup(currentGroup[currentGroup.length - 1], log)) {
+      currentGroup.push(log)
+    } else {
+      result.push(...currentGroup.reverse())
+      currentGroup = [log]
+    }
+  }
+  if (currentGroup.length > 0) {
+    result.push(...currentGroup.reverse())
+  }
+  return result
 }, [logs, filters, inactiveNames, deletedHashes])
 ```
 
@@ -181,6 +199,7 @@ const filteredLogs = useMemo(() => {
 2. Apply text/regex filters
 3. Exclude deleted hashes
 4. Reverse array for newest-first ordering
+5. Group consecutive logs (within 100ms + same logger), reverse within each group for chronological order
 
 ---
 
@@ -261,6 +280,7 @@ interface LogLineProps {
   isSelected: boolean;
   isWrapped: boolean;
   isContinuation: boolean;  // Hide timestamp/badge when true
+  isLastInGroup: boolean;   // Show bottom border when true (end of group)
   onSelect: (hash: string, event: React.MouseEvent) => void;
   onToggleWrap: (hash: string) => void;
 }
@@ -274,11 +294,14 @@ interface LogLineProps {
 ┌────────┬─────────────┬──────────────────────────────────────────────────────┐
 │ Gutter │ Left Column │ Right Column (Content)                               │
 ├────────┼─────────────┼──────────────────────────────────────────────────────┤
-│   ○    │ 11:33:24    │ LeadController:466: /save <- {"id":123,"name":"..."} │
-│        │ LeadCtrl    │                                                       │
+│   ○    │ 04:48:45    │ ActivityScheduler: Starting batch processing...      │
+│        │ ActivitySch │ ← header row with timestamp, badge, and logger prefix│
 ├────────┼─────────────┼──────────────────────────────────────────────────────┤
-│   ○    │             │ at com.example.Service.method(Service.java:42)       │
-│        │ (empty)     │ ← continuation row, no timestamp/badge               │
+│   ○    │             │ Processing batch #1 with limit 50                    │
+│        │ (empty)     │ ← continuation: no timestamp/badge/logger prefix     │
+├────────┼─────────────┼──────────────────────────────────────────────────────┤
+│   ○    │             │ Found 2 activities in batch #1                       │
+│        │ (empty)     │ ← continuation: content only                         │
 └────────┴─────────────┴──────────────────────────────────────────────────────┘
 ```
 
@@ -330,7 +353,10 @@ function getServiceName(log: LogEntry): string {
 ```typescript
 const loggerInfo = parseLogger(log.parsed?.logger)
 // Displays: "LeadController:466: " in bold before content
+// Only shown on first line of group (header), hidden on continuation lines
 ```
+
+**Continuation Lines**: Show only the content without the logger prefix, since the logger is already displayed in the header row's badge and content prefix.
 
 **Line Number Coloring**:
 - Normal logs: Line number in `text-green-600`
@@ -429,9 +455,11 @@ Example: `← POST /api/leads [200] (45ms)`
 
 #### Borders
 
-- Normal rows: `border-b border-gray-200` (bottom border)
-- Continuation rows: No bottom border (visually grouped with previous)
+- Last row in group (`isLastInGroup`): `border-b border-gray-200` (bottom border)
+- Other rows: No bottom border (visually grouped with next row)
 - Left column: `border-r border-gray-200` (right border separator)
+
+**Group Border Logic**: Border appears at the END of a group (after the last continuation line), not at the beginning. This visually connects the header with its continuations.
 
 ---
 
@@ -589,11 +617,11 @@ interface FileState {
 
 ### Visual Hierarchy
 
-1. **Row separation**: Bottom border on normal rows, no border on continuation rows
+1. **Row separation**: Bottom border on last row of each group (connects header with continuations)
 2. **Column separation**: Right border on left column
 3. **Selection indicator**: Blue ring around selected rows
 4. **Error/Warning**: Background tint + text color change
-5. **Continuation grouping**: Compact padding + no timestamp/badge
+5. **Continuation grouping**: Compact padding + no timestamp/badge, chronological order within group
 
 ### Responsive
 
