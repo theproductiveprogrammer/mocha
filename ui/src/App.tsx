@@ -51,7 +51,7 @@ function App() {
 
   // Ensure openedFiles is a Map (handles hydration)
   const safeOpenedFiles = useMemo(
-    () => (openedFiles instanceof Map ? openedFiles : new Map()),
+    () => (openedFiles instanceof Map ? openedFiles : new Map<string, OpenedFileWithLogs>()),
     [openedFiles]
   )
 

@@ -55,18 +55,20 @@ function isTimestampOnlyLine(line: string): boolean {
  */
 export function isContinuationLine(line: string): boolean {
   if (!line) return false;
-  // Don't treat timestamp-only lines as continuations - they should be skipped
+  // Don't treat timestamp-only lines as continuations - they should be skipped entirely
+  // Check BEFORE stripping indentation since these lines may start with tabs
   if (isTimestampOnlyLine(line)) return false;
-  // Indented lines (but not timestamp-only lines starting with tab)
+  // Check if line starts with date pattern (after trimming) - these are standalone log lines
+  const trimmed = line.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return false;
+  // Indented lines
   if (line.startsWith(' ') || line.startsWith('\t')) {
-    // Skip if it's just a timestamp after the tab
-    if (isTimestampOnlyLine(line)) return false;
     return true;
   }
   // ASCII art lines
   if (isAsciiArt(line)) return true;
   // Short lines without timestamp prefix
-  if (line.length < 20 && !/^\d{4}-\d{2}-\d{2}/.test(line) && !/^\[/.test(line)) return true;
+  if (line.length < 20 && !/^\[/.test(line)) return true;
   return false;
 }
 
@@ -558,8 +560,11 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
  * Parse a single log line using all patterns
  */
 export function parseLogLine(data: string): ParsedLogLine {
+  // Strip trailing whitespace including \r (Windows line endings)
+  const cleanData = data.replace(/\s+$/, '');
+
   for (const pattern of patterns) {
-    const result = pattern.parse(data);
+    const result = pattern.parse(cleanData);
     if (result) {
       // Try to detect API call info
       result.apiCall = parseApiCall(result.content);
@@ -567,7 +572,7 @@ export function parseLogLine(data: string): ParsedLogLine {
     }
   }
   // Fallback: return raw content
-  return { content: data };
+  return { content: cleanData };
 }
 
 /**
@@ -680,14 +685,25 @@ function parseFileLines(
       else if (/^\d{4}-\d{2}-\d{2}/.test(tabParts[0].trim())) {
         // Try parsing as date
         const dateStr = tabParts[0].trim();
-        const parsed = Date.parse(dateStr.replace(' ', 'T'));
+        // Replace space with T for ISO format, and comma with dot for milliseconds
+        const parsed = Date.parse(dateStr.replace(' ', 'T').replace(',', '.'));
         if (!isNaN(parsed)) {
-          timestamp = parsed;
+          const remainder = tabParts.slice(1).join('\t').trim();
+          // Skip if remaining line is empty (timestamp-only metadata line)
+          if (!remainder) continue;
+          // Check if remainder looks like a log entry continuation (starts with digits + space)
+          // If so, the tab was likely within a log line - keep original and just extract timestamp
+          if (/^\d+\s+\[/.test(remainder)) {
+            // Log line has tab between date and thread ID - keep original line
+            timestamp = parsed;
+            // Don't modify line - keep it intact for pattern matching
+          } else {
+            // Metadata timestamp followed by actual content
+            timestamp = parsed;
+            line = remainder;
+          }
         }
-        // Take the rest as the actual log line
-        line = tabParts.slice(1).join('\t').trim();
-        // Skip if remaining line is empty
-        if (!line) continue;
+        // If parsing failed, keep the original line intact
       }
     }
 
@@ -712,6 +728,35 @@ function parseFileLines(
 }
 
 /**
+ * Convert a parsed timestamp string to epoch milliseconds
+ * Handles formats:
+ * - "2025-12-19 09:53:23.110" (date + space + time)
+ * - "2025-12-19 05:32:17,405" (comma for ms separator)
+ * - "2025-12-19T09:53:52.155Z" (ISO format)
+ * - "04:48:45,406" (time only - uses today's date)
+ */
+function parseTimestampToEpoch(timestamp: string): number | null {
+  if (!timestamp) return null;
+
+  // Normalize: comma → dot for milliseconds
+  let normalized = timestamp.replace(',', '.');
+
+  // If it's time-only (no date), prepend today's date
+  if (/^\d{2}:\d{2}:\d{2}/.test(normalized) && !normalized.includes('-')) {
+    const today = new Date().toISOString().split('T')[0];
+    normalized = `${today} ${normalized}`;
+  }
+
+  // Normalize: space → T for ISO format if needed
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/.test(normalized)) {
+    normalized = normalized.replace(/\s+/, 'T');
+  }
+
+  const parsed = Date.parse(normalized);
+  return isNaN(parsed) ? null : parsed;
+}
+
+/**
  * Parse a complete log file into structured log entries
  * @param content - The file content
  * @param fileName - The filename (used for display)
@@ -722,9 +767,15 @@ export function parseLogFile(content: string, fileName: string, filePath?: strin
   const hashKey = filePath || fileName;
   const { logs: rawLogs, totalLines, truncated } = parseFileLines(content, fileName, hashKey);
   const normalized = normalize(rawLogs);
-  const logs = normalized.map((log) => ({
-    ...log,
-    parsed: parseLogLine(log.data),
-  }));
+  const logs = normalized.map((log) => {
+    const parsed = parseLogLine(log.data);
+    // Use parsed timestamp if available, otherwise keep the original
+    const parsedEpoch = parsed.timestamp ? parseTimestampToEpoch(parsed.timestamp) : null;
+    return {
+      ...log,
+      parsed,
+      timestamp: parsedEpoch ?? log.timestamp,
+    };
+  });
   return { logs, totalLines, truncated };
 }
