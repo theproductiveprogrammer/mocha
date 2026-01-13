@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react'
-import { FileText, Upload } from 'lucide-react'
+import { Coffee, Upload, Sparkles } from 'lucide-react'
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import type { LogEntry, OpenedFileWithLogs } from './types'
@@ -345,7 +345,7 @@ function App() {
   }, [mergedLogs, filters, inactiveNames, deletedHashes])
 
   return (
-    <div className="h-screen flex bg-gray-50">
+    <div className="h-screen flex" style={{ background: 'var(--mocha-bg)' }}>
       <input
         type="file"
         ref={fileInputRef}
@@ -378,17 +378,38 @@ function App() {
         />
 
         <div className="relative flex-1 flex flex-col overflow-hidden h-full">
+          {/* Error banner */}
           {error && (
-            <div className="bg-red-50 border-b border-red-200 px-4 py-2 text-red-700 text-sm flex items-center justify-between">
+            <div
+              className="animate-fade-in px-4 py-3 text-sm flex items-center justify-between"
+              style={{
+                background: 'var(--mocha-error-bg)',
+                borderBottom: '1px solid var(--mocha-error-border)',
+                color: 'var(--mocha-error)'
+              }}
+            >
               <span>{error}</span>
-              <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
+              <button
+                onClick={() => setError(null)}
+                className="px-2 py-1 rounded text-xs font-medium hover:opacity-80"
+                style={{ background: 'var(--mocha-error)', color: 'var(--mocha-bg)' }}
+              >
                 Dismiss
               </button>
             </div>
           )}
 
+          {/* Loading banner */}
           {isLoading && (
-            <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 text-blue-700 text-sm">
+            <div
+              className="animate-fade-in px-4 py-3 text-sm flex items-center gap-2"
+              style={{
+                background: 'var(--mocha-surface-raised)',
+                borderBottom: '1px solid var(--mocha-border)',
+                color: 'var(--mocha-accent)'
+              }}
+            >
+              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
               Loading file...
             </div>
           )}
@@ -397,33 +418,127 @@ function App() {
           {mergedLogs.length > 0 ? (
             <LogViewer logs={mergedLogs} />
           ) : (
-            <div className="flex-1 flex items-center justify-center bg-gray-100">
-              <div className="text-center text-gray-500">
-                <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <h2 className="text-xl font-medium mb-2">No log file open</h2>
-                <p className="text-sm mb-4">
-                  Click "Open File" in the sidebar, drag and drop a file here,<br />
-                  or select from recent files
+            <div
+              className="flex-1 flex items-center justify-center"
+              style={{ background: 'var(--mocha-bg)' }}
+            >
+              <div className="text-center max-w-md px-8">
+                {/* Decorative coffee cup */}
+                <div className="relative mb-8">
+                  <div
+                    className="w-24 h-24 mx-auto rounded-2xl flex items-center justify-center"
+                    style={{
+                      background: 'linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface) 100%)',
+                      border: '1px solid var(--mocha-border)'
+                    }}
+                  >
+                    <Coffee
+                      className="w-12 h-12"
+                      style={{ color: 'var(--mocha-accent)' }}
+                      strokeWidth={1.5}
+                    />
+                  </div>
+                  {/* Steam animation */}
+                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex gap-1">
+                    <div
+                      className="w-1 h-6 rounded-full animate-pulse-subtle"
+                      style={{
+                        background: 'linear-gradient(to top, var(--mocha-accent-muted), transparent)',
+                        animationDelay: '0s'
+                      }}
+                    />
+                    <div
+                      className="w-1 h-8 rounded-full animate-pulse-subtle"
+                      style={{
+                        background: 'linear-gradient(to top, var(--mocha-accent-muted), transparent)',
+                        animationDelay: '0.3s'
+                      }}
+                    />
+                    <div
+                      className="w-1 h-5 rounded-full animate-pulse-subtle"
+                      style={{
+                        background: 'linear-gradient(to top, var(--mocha-accent-muted), transparent)',
+                        animationDelay: '0.6s'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <h2
+                  className="text-2xl font-semibold mb-3"
+                  style={{
+                    fontFamily: "'Space Grotesk', sans-serif",
+                    color: 'var(--mocha-text)'
+                  }}
+                >
+                  Ready to brew some logs
+                </h2>
+                <p
+                  className="text-sm mb-8 leading-relaxed"
+                  style={{ color: 'var(--mocha-text-secondary)' }}
+                >
+                  Drop a log file here, click the button below,<br />
+                  or pick from your recent files in the sidebar.
                 </p>
                 <button
                   onClick={() => handleOpenFile()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="group px-6 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 mx-auto transition-all hover:scale-105"
+                  style={{
+                    background: 'linear-gradient(135deg, var(--mocha-accent) 0%, var(--mocha-accent-hover) 100%)',
+                    color: 'var(--mocha-bg)',
+                    boxShadow: '0 4px 20px rgba(196, 167, 125, 0.3)'
+                  }}
                   data-testid="open-file-btn"
                 >
-                  Open File
+                  <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                  Open Log File
                 </button>
+
+                {/* Keyboard shortcut hint */}
+                <p
+                  className="mt-6 text-xs"
+                  style={{ color: 'var(--mocha-text-muted)' }}
+                >
+                  Pro tip: Drag &amp; drop works too
+                </p>
               </div>
             </div>
           )}
 
           {/* Drag overlay */}
           {isDragging && (
-            <div className="absolute inset-0 bg-blue-500/20 border-2 border-dashed border-blue-500 flex items-center justify-center z-50 pointer-events-none">
-              <div className="bg-blue-600 text-white px-6 py-4 rounded-lg flex items-center gap-3 shadow-lg">
-                <Upload className="w-8 h-8" />
+            <div
+              className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none animate-fade-in"
+              style={{
+                background: 'rgba(20, 18, 16, 0.9)',
+                backdropFilter: 'blur(8px)'
+              }}
+            >
+              <div
+                className="px-8 py-6 rounded-2xl flex items-center gap-4"
+                style={{
+                  background: 'var(--mocha-surface-raised)',
+                  border: '2px dashed var(--mocha-accent)',
+                  boxShadow: '0 0 40px rgba(196, 167, 125, 0.2)'
+                }}
+              >
+                <Upload className="w-10 h-10" style={{ color: 'var(--mocha-accent)' }} />
                 <div>
-                  <div className="font-semibold text-lg">Drop log file here</div>
-                  <div className="text-sm text-blue-200">Accepts .log and .txt files</div>
+                  <div
+                    className="font-semibold text-lg"
+                    style={{
+                      fontFamily: "'Space Grotesk', sans-serif",
+                      color: 'var(--mocha-text)'
+                    }}
+                  >
+                    Drop your log file
+                  </div>
+                  <div
+                    className="text-sm"
+                    style={{ color: 'var(--mocha-text-secondary)' }}
+                  >
+                    Accepts .log and .txt files
+                  </div>
                 </div>
               </div>
             </div>

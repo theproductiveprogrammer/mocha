@@ -1,9 +1,9 @@
 import { memo, useState, useCallback } from 'react'
-import { X, Eye, EyeOff, FileText, Files, AlertTriangle } from 'lucide-react'
+import { X, Eye, EyeOff, FileText, Files, AlertTriangle, Search, Hash, MinusCircle } from 'lucide-react'
 import type { ToolbarProps, ParsedFilter } from '../types'
 
 /**
- * Filter chip component
+ * Filter chip component with refined styling
  */
 interface FilterChipProps {
   filter: ParsedFilter
@@ -16,23 +16,54 @@ const FilterChip = memo(function FilterChip({
   index,
   onRemove,
 }: FilterChipProps) {
-  const bgColor = filter.type === 'exclude'
-    ? 'bg-red-100 text-red-700 border-red-200'
-    : filter.type === 'regex'
-    ? 'bg-purple-100 text-purple-700 border-purple-200'
-    : 'bg-blue-100 text-blue-700 border-blue-200'
+  // Style based on filter type
+  const getChipStyle = () => {
+    switch (filter.type) {
+      case 'exclude':
+        return {
+          bg: 'var(--mocha-error-bg)',
+          border: 'var(--mocha-error-border)',
+          text: 'var(--mocha-error)',
+          icon: MinusCircle,
+        }
+      case 'regex':
+        return {
+          bg: 'rgba(139, 143, 209, 0.15)',
+          border: 'rgba(139, 143, 209, 0.3)',
+          text: 'var(--badge-verify)',
+          icon: Hash,
+        }
+      default:
+        return {
+          bg: 'var(--mocha-selection)',
+          border: 'var(--mocha-selection-border)',
+          text: 'var(--mocha-accent)',
+          icon: Search,
+        }
+    }
+  }
+
+  const style = getChipStyle()
+  const Icon = style.icon
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${bgColor}`}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all animate-fade-in"
+      style={{
+        background: style.bg,
+        border: `1px solid ${style.border}`,
+        color: style.text,
+      }}
       data-testid={`filter-chip-${index}`}
     >
+      <Icon className="w-3 h-3 opacity-70" />
       <span className="max-w-32 truncate" title={filter.text}>
         {filter.text}
       </span>
       <button
         onClick={onRemove}
-        className="hover:bg-black/10 rounded p-0.5 transition-colors"
+        className="p-0.5 rounded transition-all hover:opacity-70"
+        style={{ color: style.text }}
         title="Remove filter"
         data-testid={`remove-filter-${index}`}
       >
@@ -44,7 +75,6 @@ const FilterChip = memo(function FilterChip({
 
 /**
  * Parse a filter input string into a ParsedFilter object.
- * Duplicated from store.ts to avoid circular dependencies.
  */
 function parseFilterInput(input: string): ParsedFilter | null {
   const trimmed = input.trim()
@@ -87,7 +117,7 @@ function parseFilterInput(input: string): ParsedFilter | null {
 }
 
 /**
- * Extended Toolbar props with additional display info
+ * Extended Toolbar props
  */
 interface ExtendedToolbarProps extends ToolbarProps {
   truncated?: boolean
@@ -97,12 +127,6 @@ interface ExtendedToolbarProps extends ToolbarProps {
 
 /**
  * Toolbar component for log filtering and file controls
- *
- * Features:
- * - File info display (file count, line count, truncation)
- * - Active filter chips (removable)
- * - Filter input (supports /regex/, -exclude, text)
- * - Watch/polling toggle
  */
 export const Toolbar = memo(function Toolbar({
   filters,
@@ -118,6 +142,7 @@ export const Toolbar = memo(function Toolbar({
   isWatching = false,
 }: ExtendedToolbarProps) {
   const [localInput, setLocalInput] = useState(filterInput)
+  const [isFocused, setIsFocused] = useState(false)
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -138,38 +163,61 @@ export const Toolbar = memo(function Toolbar({
 
   return (
     <div
-      className="h-12 bg-white border-b border-gray-200 flex items-center gap-4 px-4"
+      className="h-14 flex items-center gap-4 px-4"
+      style={{
+        background: 'var(--mocha-surface)',
+        borderBottom: '1px solid var(--mocha-border-subtle)',
+      }}
       data-testid="toolbar"
     >
       {/* File info section */}
-      <div className="flex items-center gap-2 min-w-0 shrink-0">
-        {activeFileCount > 1 ? (
-          <Files className="w-4 h-4 text-gray-400" />
-        ) : (
-          <FileText className="w-4 h-4 text-gray-400" />
-        )}
+      <div className="flex items-center gap-3 min-w-0 shrink-0">
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{
+            background: 'var(--mocha-surface-raised)',
+            border: '1px solid var(--mocha-border)',
+          }}
+        >
+          {activeFileCount > 1 ? (
+            <Files className="w-4 h-4" style={{ color: 'var(--mocha-text-secondary)' }} />
+          ) : (
+            <FileText className="w-4 h-4" style={{ color: 'var(--mocha-text-secondary)' }} />
+          )}
+        </div>
+
         {activeFileCount > 0 ? (
           <div className="flex items-center gap-2">
             <span
-              className="font-medium text-sm text-gray-800"
+              className="font-medium text-sm"
+              style={{ color: 'var(--mocha-text)' }}
               data-testid="file-info"
             >
               {activeFileCount} {activeFileCount === 1 ? 'file' : 'files'}
             </span>
             {totalLines > 0 && (
               <span
-                className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs"
+                className="px-2 py-0.5 rounded-md text-xs font-medium"
+                style={{
+                  background: 'var(--mocha-surface-raised)',
+                  color: 'var(--mocha-text-secondary)',
+                }}
                 data-testid="line-count"
               >
                 {visibleCount !== undefined && visibleCount !== totalLines
-                  ? `${visibleCount.toLocaleString()}/${totalLines.toLocaleString()}`
+                  ? `${visibleCount.toLocaleString()} / ${totalLines.toLocaleString()}`
                   : totalLines.toLocaleString()
-                } lines
+                }
               </span>
             )}
             {truncated && (
               <span
-                className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs"
+                className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium"
+                style={{
+                  background: 'var(--mocha-warning-bg)',
+                  border: '1px solid var(--mocha-warning-border)',
+                  color: 'var(--mocha-warning)',
+                }}
                 title="File truncated to last 2000 lines"
                 data-testid="truncated-badge"
               >
@@ -179,7 +227,11 @@ export const Toolbar = memo(function Toolbar({
             )}
           </div>
         ) : (
-          <span className="text-sm text-gray-400" data-testid="no-file">
+          <span
+            className="text-sm"
+            style={{ color: 'var(--mocha-text-muted)' }}
+            data-testid="no-file"
+          >
             No file open
           </span>
         )}
@@ -187,12 +239,15 @@ export const Toolbar = memo(function Toolbar({
 
       {/* Divider */}
       {filters.length > 0 && (
-        <div className="h-6 w-px bg-gray-200" />
+        <div
+          className="h-6 w-px"
+          style={{ background: 'var(--mocha-border)' }}
+        />
       )}
 
       {/* Active filters section */}
       {filters.length > 0 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto" data-testid="active-filters">
+        <div className="flex items-center gap-2 overflow-x-auto" data-testid="active-filters">
           {filters.map((filter, index) => (
             <FilterChip
               key={`${filter.type}-${filter.text}-${index}`}
@@ -209,26 +264,60 @@ export const Toolbar = memo(function Toolbar({
 
       {/* Filter input */}
       <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={localInput}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Filter..."
-          className="w-48 px-3 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          title="Press Enter to add filter. Use /regex/ or -exclude"
-          data-testid="filter-input"
-        />
+        <div
+          className="relative flex items-center transition-all"
+          style={{
+            width: isFocused ? '240px' : '180px',
+          }}
+        >
+          <Search
+            className="absolute left-3 w-4 h-4 pointer-events-none transition-colors"
+            style={{
+              color: isFocused ? 'var(--mocha-accent)' : 'var(--mocha-text-muted)',
+            }}
+          />
+          <input
+            type="text"
+            value={localInput}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder="Filter logs..."
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg focus:outline-none"
+            style={{
+              background: 'var(--mocha-surface-raised)',
+              border: `1px solid ${isFocused ? 'var(--mocha-accent)' : 'var(--mocha-border)'}`,
+              color: 'var(--mocha-text)',
+              boxShadow: isFocused ? '0 0 0 3px rgba(196, 167, 125, 0.1)' : 'none',
+            }}
+            title="Press Enter to add filter. Use /regex/ or -exclude"
+            data-testid="filter-input"
+          />
+        </div>
       </div>
 
       {/* Watch toggle */}
       <button
         onClick={onToggleWatch}
-        className={`p-2 rounded transition-colors ${
-          isWatching
-            ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
-            : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-        }`}
+        className="p-2.5 rounded-lg transition-all"
+        style={{
+          background: isWatching ? 'var(--mocha-selection)' : 'transparent',
+          border: `1px solid ${isWatching ? 'var(--mocha-selection-border)' : 'transparent'}`,
+          color: isWatching ? 'var(--mocha-accent)' : 'var(--mocha-text-muted)',
+        }}
+        onMouseEnter={(e) => {
+          if (!isWatching) {
+            e.currentTarget.style.background = 'var(--mocha-surface-hover)'
+            e.currentTarget.style.color = 'var(--mocha-text-secondary)'
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isWatching) {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = 'var(--mocha-text-muted)'
+          }
+        }}
         title={isWatching ? 'Disable auto-refresh' : 'Enable auto-refresh'}
         data-testid="watch-toggle"
       >

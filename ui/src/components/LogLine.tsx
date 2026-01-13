@@ -1,32 +1,57 @@
 import { memo, useCallback } from 'react'
+import { Check, Circle } from 'lucide-react'
 import type { LogEntry } from '../types'
 
-// Service colors for consistent badge coloring
-const SERVICE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  core: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300' },
-  app: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300' },
-  platform: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300' },
-  runner: { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-300' },
-  iwf: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300' },
-  rag: { bg: 'bg-cyan-100', text: 'text-cyan-700', border: 'border-cyan-300' },
-  transcriber: { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-300' },
-  tracker: { bg: 'bg-yellow-100', text: 'text-yellow-700', border: 'border-yellow-300' },
-  verify: { bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-300' },
-  pixel: { bg: 'bg-teal-100', text: 'text-teal-700', border: 'border-teal-300' },
+// Service colors - vibrant but not overwhelming
+const SERVICE_COLORS: Record<string, string> = {
+  core: 'var(--badge-core)',
+  app: 'var(--badge-app)',
+  platform: 'var(--badge-platform)',
+  runner: 'var(--badge-runner)',
+  iwf: 'var(--badge-iwf)',
+  rag: 'var(--badge-rag)',
+  transcriber: 'var(--badge-transcriber)',
+  tracker: 'var(--badge-tracker)',
+  verify: 'var(--badge-verify)',
+  pixel: 'var(--badge-pixel)',
 }
 
-function getServiceColor(name: string) {
+function getServiceColor(name: string): string {
   const lowerName = name.toLowerCase()
-  for (const [key, colors] of Object.entries(SERVICE_COLORS)) {
-    if (lowerName.includes(key)) return colors
+  for (const [key, color] of Object.entries(SERVICE_COLORS)) {
+    if (lowerName.includes(key)) return color
   }
-  return { bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-slate-300' }
+  return 'var(--badge-default)'
 }
 
-function getRowStyle(log: LogEntry): { bg: string; text: string } {
-  const errStyle = { bg: 'bg-red-50', text: 'text-red-700' }
-  const warnStyle = { bg: 'bg-amber-50', text: 'text-amber-800' }
-  const normStyle = { bg: 'bg-white', text: 'text-gray-800' }
+function getRowStyle(log: LogEntry): {
+  bg: string
+  bgHover: string
+  text: string
+  accent: string
+  border: string
+} {
+  const errStyle = {
+    bg: 'var(--mocha-error-bg)',
+    bgHover: 'rgba(58, 32, 32, 0.8)',
+    text: 'var(--mocha-error)',
+    accent: 'var(--mocha-error)',
+    border: 'var(--mocha-error-border)',
+  }
+  const warnStyle = {
+    bg: 'var(--mocha-warning-bg)',
+    bgHover: 'rgba(58, 48, 32, 0.8)',
+    text: 'var(--mocha-warning)',
+    accent: 'var(--mocha-warning)',
+    border: 'var(--mocha-warning-border)',
+  }
+  const normStyle = {
+    bg: 'var(--mocha-bg)',
+    bgHover: 'var(--mocha-surface)',
+    text: 'var(--mocha-text)',
+    accent: 'var(--mocha-text-secondary)',
+    border: 'var(--mocha-border-subtle)',
+  }
 
   if (log.parsed?.level === 'ERROR') return errStyle
   if (log.parsed?.level === 'WARN') return warnStyle
@@ -38,16 +63,12 @@ function getRowStyle(log: LogEntry): { bg: string; text: string } {
 }
 
 // Parse logger into class name and line number
-// Handles formats like:
-//   "c.s.c.MCPController:466" -> { className: "MCPController", lineNumber: "466" }
-//   "c.s.c.MCPController [MCPController.java:466]" -> { className: "MCPController", lineNumber: "466" }
 function parseLogger(logger?: string): { className: string; lineNumber?: string } | undefined {
   if (!logger) return undefined
 
   // Extract line number from "[Source.java:line]" suffix if present
   const sourceMatch = logger.match(/\[([^\]]+)\.java:(\d+)\]$/)
   if (sourceMatch) {
-    // Use the source file name as class name and extracted line number
     const cleanLogger = logger.replace(/\s*\[[^\]]+\.java:\d+\]$/, '')
     const className = cleanLogger.split('.').pop() || cleanLogger
     return { className, lineNumber: sourceMatch[2] }
@@ -61,23 +82,12 @@ function parseLogger(logger?: string): { className: string; lineNumber?: string 
 
 /**
  * Get short service name from log entry.
- * Extracts class name from logger path.
- * Examples:
- *   "c.s.c.MCPController:466" -> "MCPController"
- *   "c.s.c.MCPController [MCPController.java:466]" -> "MCPController"
- *   "i.i.w.u.StateWaitForLeads [StateWaitForLeads.java:133]" -> "StateWaitForLeads"
  */
 export function getServiceName(log: LogEntry): string {
   if (log.parsed?.logger) {
     let logger = log.parsed.logger
-
-    // Remove "[Source.java:line]" suffix if present
     logger = logger.replace(/\s*\[[^\]]+\.java:\d+\]$/, '')
-
-    // Remove line number suffix if present (e.g., ":466")
     const withoutLineNum = logger.split(':')[0]
-
-    // Get last segment after dots
     const parts = withoutLineNum.split('.')
     return parts[parts.length - 1] || withoutLineNum
   }
@@ -140,9 +150,12 @@ function LogLineComponent({
 
   return (
     <div
-      className={`flex ${isLastInGroup ? 'border-b border-gray-200' : ''} ${rowStyle.bg} ${
-        isSelected ? 'ring-2 ring-inset ring-blue-400' : ''
-      }`}
+      className="flex group transition-colors"
+      style={{
+        background: isSelected ? 'var(--mocha-selection)' : rowStyle.bg,
+        borderBottom: isLastInGroup ? `1px solid ${rowStyle.border}` : 'none',
+        boxShadow: isSelected ? 'inset 0 0 0 1px var(--mocha-selection-border)' : 'none',
+      }}
       data-testid="log-line"
       data-hash={log.hash}
       data-selected={isSelected}
@@ -150,30 +163,53 @@ function LogLineComponent({
       {/* Selection gutter */}
       <div
         onClick={handleGutterClick}
-        className={`w-6 shrink-0 cursor-pointer self-stretch flex items-center justify-center ${
-          isSelected ? 'bg-blue-500' : 'bg-gray-50'
-        }`}
+        className="w-8 shrink-0 cursor-pointer self-stretch flex items-center justify-center transition-all"
+        style={{
+          background: isSelected
+            ? 'var(--mocha-accent)'
+            : 'transparent',
+          borderRight: `1px solid ${isSelected ? 'var(--mocha-accent)' : 'var(--mocha-border-subtle)'}`,
+        }}
         title={isSelected ? 'Deselect line (Shift+click for range)' : 'Select line (Shift+click for range)'}
         data-testid="log-line-gutter"
       >
         {isSelected ? (
-          <span className="text-white text-xs">✓</span>
+          <Check className="w-3.5 h-3.5" style={{ color: 'var(--mocha-bg)' }} />
         ) : (
-          <span className="text-gray-300 text-xs">○</span>
+          <Circle
+            className="w-2 h-2 opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ color: 'var(--mocha-text-muted)' }}
+          />
         )}
       </div>
 
-      {/* Left column: timestamp + service badge (hidden for continuation rows) */}
-      <div className={`w-28 shrink-0 px-2 border-r border-gray-200 flex flex-col justify-center items-start gap-0.5 ${isContinuation ? 'py-0.5' : 'py-2 min-h-[40px]'}`}>
+      {/* Left column: timestamp + service badge */}
+      <div
+        className={`w-32 shrink-0 px-3 flex flex-col justify-center items-start gap-1 ${
+          isContinuation ? 'py-0.5' : 'py-2 min-h-[44px]'
+        }`}
+        style={{
+          borderRight: `1px solid var(--mocha-border-subtle)`,
+        }}
+      >
         {!isContinuation && (
           <>
             {displayTimestamp && (
-              <span className="text-xs text-gray-400 font-mono" data-testid="log-line-timestamp">
+              <span
+                className="text-[11px] font-mono tabular-nums"
+                style={{ color: 'var(--mocha-text-muted)' }}
+                data-testid="log-line-timestamp"
+              >
                 {displayTimestamp}
               </span>
             )}
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded border font-medium max-w-full truncate ${serviceColor.bg} ${serviceColor.text} ${serviceColor.border}`}
+              className="text-[10px] px-2 py-0.5 rounded-md font-medium max-w-full truncate transition-all"
+              style={{
+                background: `color-mix(in srgb, ${serviceColor} 15%, transparent)`,
+                color: serviceColor,
+                border: `1px solid color-mix(in srgb, ${serviceColor} 25%, transparent)`,
+              }}
               title={log.parsed?.logger || log.name}
               data-testid="log-line-service"
             >
@@ -186,35 +222,76 @@ function LogLineComponent({
       {/* Right column: log content */}
       <div
         onClick={handleLineClick}
-        className={`flex-1 px-3 cursor-pointer font-mono text-[13px] leading-tight ${rowStyle.text} ${
-          isContinuation ? 'py-0.5' : 'py-2 min-h-[40px]'
+        className={`flex-1 px-4 cursor-pointer font-mono text-[13px] leading-relaxed ${
+          isContinuation ? 'py-0.5' : 'py-2 min-h-[44px]'
         } ${isWrapped ? 'whitespace-pre-wrap break-words' : 'truncate'}`}
+        style={{ color: rowStyle.text }}
         data-testid="log-line-content"
       >
         {/* Logger class name prefix (only show on first line of group) */}
         {loggerInfo && !isContinuation && (
-          <span className="font-bold">
+          <span className="font-semibold">
             {loggerInfo.className}
             {loggerInfo.lineNumber && (
-              <span className={isErrorOrWarn ? '' : 'text-green-600 font-normal'}>
+              <span
+                style={{
+                  color: isErrorOrWarn ? rowStyle.accent : 'var(--mocha-info)',
+                  fontWeight: 'normal',
+                }}
+              >
                 :{loggerInfo.lineNumber}
               </span>
             )}
-            {': '}
+            <span style={{ color: 'var(--mocha-text-muted)' }}>{' → '}</span>
           </span>
         )}
 
         {/* Content */}
-        {log.parsed?.content || log.data}
+        <span style={{ color: rowStyle.text }}>
+          {log.parsed?.content || log.data}
+        </span>
 
         {/* API call info */}
         {log.parsed?.apiCall && (
-          <div className="mt-1 text-cyan-600 text-xs" data-testid="log-line-api">
-            {log.parsed.apiCall.direction === 'outgoing' ? '→' : '←'}{' '}
-            {log.parsed.apiCall.method && `${log.parsed.apiCall.method} `}
-            {log.parsed.apiCall.endpoint}
-            {log.parsed.apiCall.status && ` [${log.parsed.apiCall.status}]`}
-            {log.parsed.apiCall.timing && ` (${log.parsed.apiCall.timing}ms)`}
+          <div
+            className="mt-1.5 text-xs flex items-center gap-2"
+            data-testid="log-line-api"
+          >
+            <span
+              className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style={{
+                background: 'color-mix(in srgb, var(--mocha-info) 15%, transparent)',
+                color: 'var(--mocha-info)',
+              }}
+            >
+              {log.parsed.apiCall.direction === 'outgoing' ? '→ OUT' : '← IN'}
+            </span>
+            <span style={{ color: 'var(--mocha-info)' }}>
+              {log.parsed.apiCall.method && (
+                <span className="font-medium">{log.parsed.apiCall.method} </span>
+              )}
+              {log.parsed.apiCall.endpoint}
+              {log.parsed.apiCall.status && (
+                <span
+                  className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                  style={{
+                    background: log.parsed.apiCall.status >= 400
+                      ? 'var(--mocha-error-bg)'
+                      : 'color-mix(in srgb, var(--mocha-success) 15%, transparent)',
+                    color: log.parsed.apiCall.status >= 400
+                      ? 'var(--mocha-error)'
+                      : 'var(--mocha-success)',
+                  }}
+                >
+                  {log.parsed.apiCall.status}
+                </span>
+              )}
+              {log.parsed.apiCall.timing && (
+                <span style={{ color: 'var(--mocha-text-muted)' }}>
+                  {' '}({log.parsed.apiCall.timing}ms)
+                </span>
+              )}
+            </span>
           </div>
         )}
       </div>

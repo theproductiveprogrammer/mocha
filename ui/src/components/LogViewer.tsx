@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { Search, FilterX } from 'lucide-react'
 import type { LogEntry } from '../types'
 import { useLogViewerStore, useSelectionStore, filterLogs } from '../store'
 import { LogLine, getServiceName } from './LogLine'
@@ -46,12 +47,10 @@ export function LogViewer({ logs }: LogViewerProps) {
   )
 
   // Check if two logs belong to same group (within 300ms + same service/class)
-  // Used for grouping during sort AND for continuation display during render
   const isSameGroup = useCallback((a: LogEntry | null, b: LogEntry): boolean => {
     if (!a) return false
     if (!a.timestamp || !b.timestamp) return false
     const within300ms = Math.abs(a.timestamp - b.timestamp) <= 300
-    // Compare by service name (class name) not full logger (which includes line numbers)
     const sameService = getServiceName(a) === getServiceName(b)
     return within300ms && sameService
   }, [])
@@ -73,7 +72,7 @@ export function LogViewer({ logs }: LogViewerProps) {
       } else if (isSameGroup(currentGroup[currentGroup.length - 1], log)) {
         currentGroup.push(log)
       } else {
-        // Flush current group (reverse for chronological order within group since sorted is newest-first)
+        // Flush current group (reverse for chronological order within group)
         result.push(...currentGroup.reverse())
         currentGroup = [log]
       }
@@ -97,11 +96,11 @@ export function LogViewer({ logs }: LogViewerProps) {
     allHashesRef.current = allHashes
   }, [allHashes])
 
-  // Virtualizer with dynamic measurement (needed for expanded rows)
+  // Virtualizer with dynamic measurement
   const virtualizer = useVirtualizer({
     count: filteredLogs.length,
     getScrollElement: () => containerRef.current,
-    estimateSize: () => 44, // Default collapsed row height
+    estimateSize: () => 44,
     overscan: 10,
     measureElement: (element) => element.getBoundingClientRect().height,
   })
@@ -186,21 +185,63 @@ export function LogViewer({ logs }: LogViewerProps) {
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-auto bg-[#FAFAFA] font-['Fira_Code',monospace]"
+      className="flex-1 overflow-auto"
+      style={{ background: 'var(--mocha-bg)' }}
       tabIndex={0}
       data-testid="log-viewer"
     >
       {filteredLogs.length === 0 ? (
-        <div className="flex items-center justify-center h-full text-gray-500">
+        <div
+          className="flex items-center justify-center h-full animate-fade-in"
+          style={{ color: 'var(--mocha-text-secondary)' }}
+        >
           {logs.length === 0 ? (
             <div className="text-center">
-              <p className="text-lg font-medium">No logs loaded</p>
-              <p className="text-sm">Upload a log file to get started</p>
+              <div
+                className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
+                style={{
+                  background: 'var(--mocha-surface)',
+                  border: '1px solid var(--mocha-border-subtle)',
+                }}
+              >
+                <Search className="w-7 h-7" style={{ color: 'var(--mocha-text-muted)' }} />
+              </div>
+              <p
+                className="text-lg font-medium mb-1"
+                style={{
+                  fontFamily: "'Space Grotesk', sans-serif",
+                  color: 'var(--mocha-text)',
+                }}
+              >
+                No logs loaded
+              </p>
+              <p className="text-sm" style={{ color: 'var(--mocha-text-muted)' }}>
+                Upload a log file to get started
+              </p>
             </div>
           ) : (
             <div className="text-center">
-              <p className="text-lg font-medium">No logs match filters</p>
-              <p className="text-sm">Try adjusting your filters</p>
+              <div
+                className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
+                style={{
+                  background: 'var(--mocha-surface)',
+                  border: '1px solid var(--mocha-border-subtle)',
+                }}
+              >
+                <FilterX className="w-7 h-7" style={{ color: 'var(--mocha-text-muted)' }} />
+              </div>
+              <p
+                className="text-lg font-medium mb-1"
+                style={{
+                  fontFamily: "'Space Grotesk', sans-serif",
+                  color: 'var(--mocha-text)',
+                }}
+              >
+                No logs match filters
+              </p>
+              <p className="text-sm" style={{ color: 'var(--mocha-text-muted)' }}>
+                Try adjusting your filters
+              </p>
             </div>
           )}
         </div>
@@ -219,11 +260,11 @@ export function LogViewer({ logs }: LogViewerProps) {
             const isSelected = log.hash ? selectedHashes.has(log.hash) : false
             const isWrapped = log.hash ? wrappedHashes.has(log.hash) : false
 
-            // Is this line a continuation of the previous? (uses isSameGroup from above)
+            // Is this line a continuation of the previous?
             const isContinuation = isSameGroup(prev, log)
-            // Is the next line a continuation of this one? (determines if we show bottom border)
+            // Is the next line a continuation of this one?
             const nextIsContinuation = next ? isSameGroup(log, next) : false
-            // Show border at bottom of group (when next is NOT a continuation)
+            // Show border at bottom of group
             const isLastInGroup = !nextIsContinuation
 
             return (
