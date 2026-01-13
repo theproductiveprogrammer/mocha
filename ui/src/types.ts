@@ -84,6 +84,16 @@ export interface OpenedFile {
 }
 
 /**
+ * An opened file with its parsed logs and active state.
+ * Used for multi-file viewing where multiple files can be open simultaneously.
+ */
+export interface OpenedFileWithLogs extends OpenedFile {
+  logs: LogEntry[];       // Parsed log entries from this file
+  isActive: boolean;      // Whether logs are shown in merged view
+  lastModified: number;   // For polling - last known file size
+}
+
+/**
  * A file in the recent files list
  */
 export interface RecentFile {
@@ -166,16 +176,20 @@ export interface SelectionState {
 }
 
 /**
- * File store state for current file and recent files
+ * File store state for opened files and recent files.
+ * Supports multi-file viewing with interleaved logs.
  */
 export interface FileState {
-  currentFile: OpenedFile | null;
+  openedFiles: Map<string, OpenedFileWithLogs>;  // path -> file data with logs
   recentFiles: RecentFile[];
   isLoading: boolean;
   error: string | null;
 
   // Actions
-  setCurrentFile: (file: OpenedFile | null) => void;
+  openFile: (file: OpenedFileWithLogs) => void;
+  toggleFileActive: (path: string) => void;
+  updateFileLogs: (path: string, logs: LogEntry[]) => void;
+  appendFileLogs: (path: string, newLogs: LogEntry[]) => void;
   setRecentFiles: (files: RecentFile[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -190,8 +204,9 @@ export interface FileState {
  */
 export interface SidebarProps {
   recentFiles: RecentFile[];
-  currentFile: OpenedFile | null;
+  openedFiles: Map<string, OpenedFileWithLogs>;
   onSelectFile: (path?: string) => void;
+  onToggleFile: (path: string) => void;
   onClearRecent: () => void;
 }
 
@@ -203,7 +218,8 @@ export interface ToolbarProps {
   inactiveNames: Set<string>;
   filters: ParsedFilter[];
   filterInput: string;
-  currentFile: OpenedFile | null;
+  activeFileCount: number;
+  totalLines: number;
   onToggleService: (name: string) => void;
   onAddFilter: (filter: ParsedFilter) => void;
   onRemoveFilter: (index: number) => void;
@@ -216,9 +232,6 @@ export interface ToolbarProps {
  */
 export interface LogViewerProps {
   logs: LogEntry[];
-  currentFile: OpenedFile | null;
-  onOpenFile: (path?: string) => void;
-  onToggleWatch: () => void;
 }
 
 /**

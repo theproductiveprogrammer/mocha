@@ -645,7 +645,8 @@ function getLastNLines(content: string, n: number): { lines: string[]; totalLine
  */
 function parseFileLines(
   content: string,
-  fileName: string
+  fileName: string,
+  hashKey: string
 ): { logs: LogEntry[]; totalLines: number; truncated: boolean } {
   const maxLines = 2000;
   const { lines: linesToProcess, totalLines, truncated } = getLastNLines(content, maxLines);
@@ -695,7 +696,7 @@ function parseFileLines(
       timestamp = Date.now() - (linesToProcess.length - i) * 1000;
     }
 
-    const hash = generateHash(fileName, line, i, existingHashes);
+    const hash = generateHash(hashKey, line, i, existingHashes);
     existingHashes.add(hash);
 
     logs.push({
@@ -712,9 +713,14 @@ function parseFileLines(
 
 /**
  * Parse a complete log file into structured log entries
+ * @param content - The file content
+ * @param fileName - The filename (used for display)
+ * @param filePath - Optional full file path (used for hash uniqueness in multi-file mode)
  */
-export function parseLogFile(content: string, fileName: string): ParsedLogFileResult {
-  const { logs: rawLogs, totalLines, truncated } = parseFileLines(content, fileName);
+export function parseLogFile(content: string, fileName: string, filePath?: string): ParsedLogFileResult {
+  // Use filePath for hash generation to ensure uniqueness across files
+  const hashKey = filePath || fileName;
+  const { logs: rawLogs, totalLines, truncated } = parseFileLines(content, fileName, hashKey);
   const normalized = normalize(rawLogs);
   const logs = normalized.map((log) => ({
     ...log,

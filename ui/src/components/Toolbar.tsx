@@ -1,5 +1,5 @@
 import { memo, useState, useCallback } from 'react'
-import { X, Eye, EyeOff, FileText, AlertTriangle } from 'lucide-react'
+import { X, Eye, EyeOff, FileText, Files, AlertTriangle } from 'lucide-react'
 import type { ToolbarProps, ParsedFilter } from '../types'
 
 /**
@@ -149,7 +149,6 @@ function parseFilterInput(input: string): ParsedFilter | null {
  * Extended Toolbar props with additional display info
  */
 interface ExtendedToolbarProps extends ToolbarProps {
-  totalLines?: number
   truncated?: boolean
   visibleCount?: number
   isWatching?: boolean
@@ -159,7 +158,7 @@ interface ExtendedToolbarProps extends ToolbarProps {
  * Toolbar component for log filtering and file controls
  *
  * Features:
- * - File info display (name, line count, truncation)
+ * - File info display (file count, line count, truncation)
  * - Service badges (clickable to filter)
  * - Active filter chips (removable)
  * - Filter input (supports /regex/, -exclude, text)
@@ -170,13 +169,13 @@ export const Toolbar = memo(function Toolbar({
   inactiveNames,
   filters,
   filterInput,
-  currentFile,
+  activeFileCount,
+  totalLines,
   onToggleService,
   onAddFilter,
   onRemoveFilter,
   onFilterInputChange,
   onToggleWatch,
-  totalLines = 0,
   truncated = false,
   visibleCount,
   isWatching = false,
@@ -207,15 +206,18 @@ export const Toolbar = memo(function Toolbar({
     >
       {/* File info section */}
       <div className="flex items-center gap-2 min-w-0 shrink-0">
-        <FileText className="w-4 h-4 text-gray-400" />
-        {currentFile ? (
+        {activeFileCount > 1 ? (
+          <Files className="w-4 h-4 text-gray-400" />
+        ) : (
+          <FileText className="w-4 h-4 text-gray-400" />
+        )}
+        {activeFileCount > 0 ? (
           <div className="flex items-center gap-2">
             <span
-              className="font-medium text-sm text-gray-800 truncate max-w-40"
-              title={currentFile.path}
-              data-testid="file-name"
+              className="font-medium text-sm text-gray-800"
+              data-testid="file-info"
             >
-              {currentFile.name}
+              {activeFileCount} {activeFileCount === 1 ? 'file' : 'files'}
             </span>
             {totalLines > 0 && (
               <span
@@ -223,7 +225,7 @@ export const Toolbar = memo(function Toolbar({
                 data-testid="line-count"
               >
                 {visibleCount !== undefined && visibleCount !== totalLines
-                  ? `${visibleCount}/${totalLines}`
+                  ? `${visibleCount.toLocaleString()}/${totalLines.toLocaleString()}`
                   : totalLines.toLocaleString()
                 } lines
               </span>

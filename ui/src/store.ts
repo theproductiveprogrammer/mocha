@@ -7,7 +7,7 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { LogViewerState, SelectionState, FileState, ParsedFilter, OpenedFile, RecentFile, LogEntry } from './types'
+import type { LogViewerState, SelectionState, FileState, ParsedFilter, RecentFile, LogEntry, OpenedFileWithLogs } from './types'
 
 /**
  * Get short service name from log entry.
@@ -407,20 +407,22 @@ export const useSelectionStore = create<SelectionState>()(
 )
 
 // ============================================================================
-// useFileStore - File and loading state
+// useFileStore - Multi-file viewing state
 // ============================================================================
 
 /**
- * Store for managing file state including current file, recent files, and loading state.
+ * Store for managing multi-file state.
  *
  * Features:
- * - currentFile: Currently opened file info
+ * - openedFiles: Map of path -> OpenedFileWithLogs for loaded files
  * - recentFiles: Array of recently opened files
  * - isLoading: Loading indicator
  * - error: Error message from file operations
  *
  * Only recentFiles is persisted to localStorage (as a fallback for browser mode).
+ * openedFiles are not persisted - they reload on app start.
  */
+
 /**
  * Merge function for File store - deduplicates recentFiles by path
  */
@@ -449,15 +451,68 @@ const mergeFileState = (
 
 export const useFileStore = create<FileState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // State
-      currentFile: null,
+      openedFiles: new Map<string, OpenedFileWithLogs>(),
       recentFiles: [],
       isLoading: false,
       error: null,
 
       // Actions
-      setCurrentFile: (file: OpenedFile | null) => set({ currentFile: file, error: null }),
+
+      /**
+       * Open a file (add to map or update if exists).
+       * New files default to isActive: true.
+       */
+      openFile: (file: OpenedFileWithLogs) => {
+        const { openedFiles } = get()
+        const newMap = new Map(openedFiles)
+        newMap.set(file.path, file)
+        set({ openedFiles: newMap, error: null })
+      },
+
+      /**
+       * Toggle a file's active state (visible/hidden in merged view).
+       */
+      toggleFileActive: (path: string) => {
+        const { openedFiles } = get()
+        const file = openedFiles.get(path)
+        if (!file) return
+
+        const newMap = new Map(openedFiles)
+        newMap.set(path, { ...file, isActive: !file.isActive })
+        set({ openedFiles: newMap })
+      },
+
+      /**
+       * Replace all logs for a file (used for reload).
+       */
+      updateFileLogs: (path: string, logs: LogEntry[]) => {
+        const { openedFiles } = get()
+        const file = openedFiles.get(path)
+        if (!file) return
+
+        const newMap = new Map(openedFiles)
+        newMap.set(path, { ...file, logs })
+        set({ openedFiles: newMap })
+      },
+
+      /**
+       * Append new logs to a file (used for polling/watching).
+       */
+      appendFileLogs: (path: string, newLogs: LogEntry[]) => {
+        const { openedFiles } = get()
+        const file = openedFiles.get(path)
+        if (!file) return
+
+        const newMap = new Map(openedFiles)
+        newMap.set(path, {
+          ...file,
+          logs: [...file.logs, ...newLogs],
+          lastModified: file.lastModified + newLogs.length, // Approximate, will be updated properly
+        })
+        set({ openedFiles: newMap })
+      },
 
       // Deduplicate when setting recent files to prevent duplicates from race conditions
       setRecentFiles: (files: RecentFile[]) => {
@@ -478,7 +533,7 @@ export const useFileStore = create<FileState>()(
       name: 'mocha-file-state',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        // Only persist recentFiles - currentFile and loading state should reset on load
+        // Only persist recentFiles - openedFiles should reload on app start
         recentFiles: state.recentFiles,
       }),
       merge: mergeFileState,

@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useRef, useCallback, useMemo } from 'react'
 import { FileText } from 'lucide-react'
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog'
-import type { LogEntry } from './types'
+import type { LogEntry, OpenedFileWithLogs } from './types'
 import './types'
 import { isTauri, waitForConnection, readFile, getRecentFiles, addRecentFile } from './api'
 import { parseLogFile } from './parser'
@@ -9,10 +9,6 @@ import { useLogViewerStore, useSelectionStore, useFileStore, filterLogs } from '
 import { Sidebar, Toolbar, DropZone, LogViewer, getServiceName } from './components'
 
 function App() {
-  // Logs state - now in React state for virtualized LogViewer
-  const [logs, setLogs] = useState<LogEntry[]>([])
-  const [serviceNames, setServiceNames] = useState<string[]>([])
-
   // Log viewer store
   const {
     inactiveNames: rawInactiveNames,
@@ -21,7 +17,6 @@ function App() {
     toggleName,
     addFilter,
     removeFilter,
-    clearFilters,
     setInput,
   } = useLogViewerStore()
 
@@ -37,25 +32,60 @@ function App() {
     cleanupInvalidHashes,
   } = useSelectionStore()
 
-  // File store
+  // File store - now with multi-file support
   const {
-    currentFile,
+    openedFiles,
     recentFiles,
     isLoading,
     error,
-    setCurrentFile,
+    openFile,
+    toggleFileActive,
+    appendFileLogs,
     setRecentFiles,
     setLoading,
     setError,
   } = useFileStore()
 
-  // Watching/polling state
-  const [isWatching, setIsWatching] = useState(false)
-  const pollIntervalRef = useRef<number | null>(null)
-  const fileSizeRef = useRef<number>(0)
-
-  // File input ref
+  // File input ref (for browser mode)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Ensure openedFiles is a Map (handles hydration)
+  const safeOpenedFiles = useMemo(
+    () => (openedFiles instanceof Map ? openedFiles : new Map()),
+    [openedFiles]
+  )
+
+  // Merged logs from all active files, sorted by timestamp
+  const mergedLogs = useMemo(() => {
+    const allLogs: LogEntry[] = []
+    safeOpenedFiles.forEach((file) => {
+      if (file.isActive) {
+        allLogs.push(...file.logs)
+      }
+    })
+    // Sort by timestamp (ascending - LogViewer will reverse for newest-first)
+    return allLogs.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
+  }, [safeOpenedFiles])
+
+  // Service names from all active files
+  const serviceNames = useMemo(() => {
+    const names = new Set<string>()
+    safeOpenedFiles.forEach((file) => {
+      if (file.isActive) {
+        file.logs.forEach((log) => names.add(getServiceName(log)))
+      }
+    })
+    return Array.from(names).sort()
+  }, [safeOpenedFiles])
+
+  // Count of active files
+  const activeFileCount = useMemo(() => {
+    let count = 0
+    safeOpenedFiles.forEach((file) => {
+      if (file.isActive) count++
+    })
+    return count
+  }, [safeOpenedFiles])
 
   // Load recent files on mount
   useEffect(() => {
@@ -73,9 +103,19 @@ function App() {
     loadRecentFiles()
   }, [setRecentFiles])
 
-  // Handle opening a file
+  // Handle opening a file (adds to view, doesn't replace)
   const handleOpenFile = useCallback(async (path?: string) => {
     if (path) {
+      // Check if file is already opened
+      const existing = safeOpenedFiles.get(path)
+      if (existing) {
+        // File already open - just ensure it's active
+        if (!existing.isActive) {
+          toggleFileActive(path)
+        }
+        return
+      }
+
       if (!isTauri()) {
         setError('Cannot open files by path in browser mode')
         return
@@ -102,18 +142,21 @@ function App() {
         const fileSize = result.size ?? 0
 
         console.time('parse')
-        const parsed = parseLogFile(fileContent, fileName)
+        const parsed = parseLogFile(fileContent, fileName, filePath)
         console.timeEnd('parse')
 
-        console.log(`${parsed.logs.length} logs`)
+        console.log(`${parsed.logs.length} logs from ${fileName}`)
 
-        // Update state
-        console.time('setState')
-        setLogs(parsed.logs)
-        setServiceNames(Array.from(new Set(parsed.logs.map(getServiceName))).sort())
-        setCurrentFile({ path: filePath, name: fileName, size: fileSize })
-        fileSizeRef.current = fileSize
-        console.timeEnd('setState')
+        // Add file to opened files map
+        const newFile: OpenedFileWithLogs = {
+          path: filePath,
+          name: fileName,
+          size: fileSize,
+          logs: parsed.logs,
+          isActive: true,
+          lastModified: fileSize,
+        }
+        openFile(newFile)
 
         console.timeEnd('total')
 
@@ -122,7 +165,7 @@ function App() {
           addRecentFile(filePath)
           const newRecentFile = { path: filePath, name: fileName, lastOpened: Date.now() }
           setRecentFiles([newRecentFile, ...recentFiles.filter(f => f.path !== filePath).slice(0, 19)])
-          clearFilters()
+          // Don't clear filters when adding a file - user may want to keep their filter
           cleanupInvalidHashes(parsed.logs.map(l => l.hash).filter((h): h is string => !!h))
         }, 0)
 
@@ -148,12 +191,22 @@ function App() {
         fileInputRef.current?.click()
       }
     }
-  }, [setLoading, setError, setCurrentFile, setRecentFiles, recentFiles, clearFilters, cleanupInvalidHashes])
+  }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, setRecentFiles, recentFiles, cleanupInvalidHashes])
 
   // Handle file selection from browser file input
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Check if file is already opened
+    const existing = safeOpenedFiles.get(file.name)
+    if (existing) {
+      if (!existing.isActive) {
+        toggleFileActive(file.name)
+      }
+      e.target.value = ''
+      return
+    }
 
     setLoading(true)
     setError(null)
@@ -162,19 +215,24 @@ function App() {
     reader.onload = (evt) => {
       try {
         const content = evt.target?.result as string
-        const parsed = parseLogFile(content, file.name)
+        const parsed = parseLogFile(content, file.name, file.name)
 
-        setLogs(parsed.logs)
-        setServiceNames(Array.from(new Set(parsed.logs.map(getServiceName))).sort())
+        const newFile: OpenedFileWithLogs = {
+          path: file.name,
+          name: file.name,
+          size: content.length,
+          logs: parsed.logs,
+          isActive: true,
+          lastModified: content.length,
+        }
+        openFile(newFile)
 
         setTimeout(() => {
-          setCurrentFile({ path: file.name, name: file.name, size: content.length })
           const now = Date.now()
           setRecentFiles([
             { path: file.name, name: file.name, lastOpened: now },
             ...recentFiles.filter(f => f.path !== file.name).slice(0, 19),
           ])
-          clearFilters()
           cleanupInvalidHashes(parsed.logs.map(l => l.hash).filter((h): h is string => !!h))
         }, 0)
 
@@ -190,84 +248,115 @@ function App() {
     }
     reader.readAsText(file)
     e.target.value = ''
-  }, [setLoading, setError, setCurrentFile, setRecentFiles, recentFiles, clearFilters, cleanupInvalidHashes])
+  }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, setRecentFiles, recentFiles, cleanupInvalidHashes])
 
   // Handle file drop
   const handleFileDrop = useCallback((content: string, fileName: string) => {
+    // Check if file is already opened
+    const existing = safeOpenedFiles.get(fileName)
+    if (existing) {
+      if (!existing.isActive) {
+        toggleFileActive(fileName)
+      }
+      return
+    }
+
     try {
-      const parsed = parseLogFile(content, fileName)
-      setLogs(parsed.logs)
-      setServiceNames(Array.from(new Set(parsed.logs.map(getServiceName))).sort())
+      const parsed = parseLogFile(content, fileName, fileName)
       setError(null)
 
+      const newFile: OpenedFileWithLogs = {
+        path: fileName,
+        name: fileName,
+        size: content.length,
+        logs: parsed.logs,
+        isActive: true,
+        lastModified: content.length,
+      }
+      openFile(newFile)
+
       setTimeout(() => {
-        setCurrentFile({ path: fileName, name: fileName, size: content.length })
         const now = Date.now()
         setRecentFiles([
           { path: fileName, name: fileName, lastOpened: now },
           ...recentFiles.filter(f => f.path !== fileName).slice(0, 19),
         ])
-        clearFilters()
         cleanupInvalidHashes(parsed.logs.map(l => l.hash).filter((h): h is string => !!h))
       }, 0)
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to parse file')
     }
-  }, [setCurrentFile, setRecentFiles, recentFiles, clearFilters, cleanupInvalidHashes, setError])
+  }, [safeOpenedFiles, openFile, toggleFileActive, setRecentFiles, recentFiles, cleanupInvalidHashes, setError])
 
+  // Handle clicking a file in sidebar - toggle if open, open if not
   const handleSelectFile = useCallback((path?: string) => {
-    handleOpenFile(path)
-  }, [handleOpenFile])
+    if (!path) {
+      handleOpenFile()
+      return
+    }
+
+    const existing = safeOpenedFiles.get(path)
+    if (existing) {
+      // File is already opened - toggle its active state
+      toggleFileActive(path)
+    } else {
+      // File not opened - open it
+      handleOpenFile(path)
+    }
+  }, [safeOpenedFiles, handleOpenFile, toggleFileActive])
+
+  // Toggle a file's active state (called from sidebar)
+  const handleToggleFile = useCallback((path: string) => {
+    toggleFileActive(path)
+  }, [toggleFileActive])
 
   const handleClearRecent = useCallback(() => {
     setRecentFiles([])
   }, [setRecentFiles])
 
   const handleToggleWatch = useCallback(() => {
-    setIsWatching(prev => !prev)
+    // For now, watching is disabled with multi-file - would need more complex logic
+    // TODO: Implement multi-file watching
   }, [])
 
-  // Polling effect
+  // Polling effect for all active files
   useEffect(() => {
-    if (!isWatching || !currentFile?.path || !isTauri()) {
-      if (pollIntervalRef.current) {
-        window.clearInterval(pollIntervalRef.current)
-        pollIntervalRef.current = null
-      }
-      return
-    }
+    if (!isTauri()) return
 
-    pollIntervalRef.current = window.setInterval(async () => {
-      try {
-        const result = await readFile(currentFile.path, fileSizeRef.current)
-        if (!result.success) return
-        const newSize = result.size ?? 0
+    // Get active files with Tauri paths (not browser files)
+    const activeFiles = Array.from(safeOpenedFiles.values()).filter(
+      f => f.isActive && f.path.startsWith('/')
+    )
 
-        if (result.content && newSize > fileSizeRef.current) {
-          const newLines = parseLogFile(result.content, currentFile.name)
-          setLogs(prev => [...prev, ...newLines.logs])
-          fileSizeRef.current = newSize
+    if (activeFiles.length === 0) return
+
+    const pollInterval = window.setInterval(async () => {
+      for (const file of activeFiles) {
+        try {
+          const result = await readFile(file.path, file.lastModified)
+          if (!result.success) continue
+          const newSize = result.size ?? 0
+
+          if (result.content && newSize > file.lastModified) {
+            const newLines = parseLogFile(result.content, file.name, file.path)
+            appendFileLogs(file.path, newLines.logs)
+          }
+        } catch (err) {
+          console.error(`Polling error for ${file.name}:`, err)
         }
-      } catch (err) {
-        console.error('Polling error:', err)
       }
-    }, 3000)
+    }, 5000) // Poll every 5 seconds
 
-    return () => {
-      if (pollIntervalRef.current) {
-        window.clearInterval(pollIntervalRef.current)
-        pollIntervalRef.current = null
-      }
-    }
-  }, [isWatching, currentFile])
+    return () => window.clearInterval(pollInterval)
+  }, [safeOpenedFiles, appendFileLogs])
 
   // Compute visible count from current filters
-  const visibleCount = (() => {
-    if (logs.length === 0) return 0
+  const visibleCount = useMemo(() => {
+    if (mergedLogs.length === 0) return 0
     const safeDeletedHashes = deletedHashes instanceof Set ? deletedHashes : new Set<string>()
-    return filterLogs(logs, filters, inactiveNames, safeDeletedHashes).length
-  })()
+    return filterLogs(mergedLogs, filters, inactiveNames, safeDeletedHashes).length
+  }, [mergedLogs, filters, inactiveNames, deletedHashes])
 
   return (
     <div className="h-screen flex bg-gray-50">
@@ -282,8 +371,9 @@ function App() {
 
       <Sidebar
         recentFiles={recentFiles}
-        currentFile={currentFile}
+        openedFiles={safeOpenedFiles}
         onSelectFile={handleSelectFile}
+        onToggleFile={handleToggleFile}
         onClearRecent={handleClearRecent}
       />
 
@@ -293,16 +383,15 @@ function App() {
           inactiveNames={inactiveNames}
           filters={filters}
           filterInput={input}
-          currentFile={currentFile}
+          activeFileCount={activeFileCount}
+          totalLines={mergedLogs.length}
           onToggleService={(name) => toggleName(serviceNames, name)}
           onAddFilter={addFilter}
           onRemoveFilter={removeFilter}
           onFilterInputChange={setInput}
           onToggleWatch={handleToggleWatch}
-          totalLines={logs.length}
-          truncated={false}
           visibleCount={visibleCount}
-          isWatching={isWatching}
+          isWatching={false}
         />
 
         <DropZone onFileDrop={handleFileDrop}>
@@ -323,8 +412,8 @@ function App() {
             )}
 
             {/* Virtualized Log viewer */}
-            {logs.length > 0 ? (
-              <LogViewer logs={logs} />
+            {mergedLogs.length > 0 ? (
+              <LogViewer logs={mergedLogs} />
             ) : (
               <div className="flex-1 flex items-center justify-center bg-gray-100">
                 <div className="text-center text-gray-500">

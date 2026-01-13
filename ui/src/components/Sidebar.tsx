@@ -1,6 +1,6 @@
 import { memo } from 'react'
-import { FolderOpen, FileText, Clock, Trash2 } from 'lucide-react'
-import type { SidebarProps, RecentFile } from '../types'
+import { FolderOpen, FileText, Clock, Trash2, Check, Square } from 'lucide-react'
+import type { SidebarProps, RecentFile, OpenedFileWithLogs } from '../types'
 
 /**
  * Format a timestamp as relative time (e.g., "2 hours ago")
@@ -27,37 +27,78 @@ function formatRelativeTime(timestamp: number): string {
 }
 
 /**
- * Recent file item component
+ * Recent file item component with multi-file toggle support
  */
 interface RecentFileItemProps {
   file: RecentFile
-  isActive: boolean
+  openedFile?: OpenedFileWithLogs  // If file is in openedFiles map
   onClick: () => void
 }
 
 const RecentFileItem = memo(function RecentFileItem({
   file,
-  isActive,
+  openedFile,
   onClick,
 }: RecentFileItemProps) {
+  const isOpened = !!openedFile
+  const isActive = openedFile?.isActive ?? false
+
+  // Determine styling based on state
+  const bgClass = isActive
+    ? 'bg-blue-100'
+    : isOpened
+      ? 'bg-gray-100'
+      : 'hover:bg-gray-100'
+
+  const textClass = isActive
+    ? 'text-blue-700'
+    : isOpened
+      ? 'text-gray-600'
+      : 'text-gray-700'
+
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left px-3 py-2 rounded transition-colors flex items-start gap-2 ${
-        isActive
-          ? 'bg-blue-100 text-blue-700'
-          : 'hover:bg-gray-100 text-gray-700'
-      }`}
+      className={`w-full text-left px-3 py-2 rounded transition-colors flex items-start gap-2 ${bgClass} ${textClass}`}
       data-testid={`recent-file-${file.name}`}
+      title={isOpened
+        ? (isActive ? 'Click to hide logs from this file' : 'Click to show logs from this file')
+        : 'Click to open this file'
+      }
     >
-      <FileText className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
+      {/* Toggle indicator for opened files */}
+      {isOpened ? (
+        <div className={`w-4 h-4 mt-0.5 flex-shrink-0 rounded border flex items-center justify-center ${
+          isActive
+            ? 'bg-blue-600 border-blue-600'
+            : 'border-gray-300 bg-white'
+        }`}>
+          {isActive && <Check className="w-3 h-3 text-white" />}
+        </div>
+      ) : (
+        <FileText className="w-4 h-4 mt-0.5 flex-shrink-0 text-gray-400" />
+      )}
+
       <div className="min-w-0 flex-1">
-        <div className={`font-medium text-sm truncate ${isActive ? 'text-blue-700' : 'text-gray-800'}`}>
+        <div className={`font-medium text-sm truncate ${
+          isActive ? 'text-blue-700' : isOpened ? 'text-gray-600' : 'text-gray-800'
+        }`}>
           {file.name}
         </div>
-        <div className={`text-xs flex items-center gap-1 ${isActive ? 'text-blue-500' : 'text-gray-400'}`}>
-          <Clock className="w-3 h-3" />
-          {formatRelativeTime(file.lastOpened)}
+        <div className={`text-xs flex items-center gap-1 ${
+          isActive ? 'text-blue-500' : 'text-gray-400'
+        }`}>
+          {isOpened ? (
+            <>
+              <Square className="w-3 h-3" />
+              {openedFile?.logs.length ?? 0} lines
+            </>
+          ) : (
+            <>
+              <Clock className="w-3 h-3" />
+              {formatRelativeTime(file.lastOpened)}
+            </>
+          )}
         </div>
       </div>
     </button>
@@ -69,16 +110,21 @@ const RecentFileItem = memo(function RecentFileItem({
  *
  * Features:
  * - "Open File..." button to trigger file input
- * - Recent files list with relative timestamps
- * - Active indicator for current file
- * - Clear button to remove recent files
+ * - Recent files list with toggle capability
+ * - Checkmark indicator for active (visible) files
+ * - Files can be toggled on/off to show/hide their logs
  */
 export const Sidebar = memo(function Sidebar({
   recentFiles,
-  currentFile,
+  openedFiles,
   onSelectFile,
+  onToggleFile,
   onClearRecent,
 }: SidebarProps) {
+  // Count active files
+  const activeCount = Array.from(openedFiles.values()).filter(f => f.isActive).length
+  const openedCount = openedFiles.size
+
   return (
     <aside
       className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col h-full"
@@ -118,14 +164,25 @@ export const Sidebar = memo(function Sidebar({
         <div className="flex-1 overflow-y-auto px-2 pb-4" data-testid="recent-files-list">
           {recentFiles.length > 0 ? (
             <div className="space-y-1">
-              {recentFiles.map((file) => (
-                <RecentFileItem
-                  key={file.path}
-                  file={file}
-                  isActive={currentFile?.path === file.path}
-                  onClick={() => onSelectFile(file.path)}
-                />
-              ))}
+              {recentFiles.map((file) => {
+                const openedFile = openedFiles.get(file.path)
+                return (
+                  <RecentFileItem
+                    key={file.path}
+                    file={file}
+                    openedFile={openedFile}
+                    onClick={() => {
+                      if (openedFile) {
+                        // File is opened - toggle its active state
+                        onToggleFile(file.path)
+                      } else {
+                        // File not opened - open it
+                        onSelectFile(file.path)
+                      }
+                    }}
+                  />
+                )
+              })}
             </div>
           ) : (
             <div className="text-center py-8 text-gray-400 text-sm" data-testid="empty-recent">
@@ -140,11 +197,15 @@ export const Sidebar = memo(function Sidebar({
       </div>
 
       {/* Footer with file count */}
-      {recentFiles.length > 0 && (
-        <div className="px-4 py-2 border-t border-gray-200 text-xs text-gray-400 text-center">
-          {recentFiles.length} recent {recentFiles.length === 1 ? 'file' : 'files'}
-        </div>
-      )}
+      <div className="px-4 py-2 border-t border-gray-200 text-xs text-gray-400 text-center">
+        {openedCount > 0 ? (
+          <span>
+            {activeCount} of {openedCount} {openedCount === 1 ? 'file' : 'files'} active
+          </span>
+        ) : recentFiles.length > 0 ? (
+          <span>{recentFiles.length} recent {recentFiles.length === 1 ? 'file' : 'files'}</span>
+        ) : null}
+      </div>
     </aside>
   )
 })
