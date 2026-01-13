@@ -3,65 +3,6 @@ import { X, Eye, EyeOff, FileText, Files, AlertTriangle } from 'lucide-react'
 import type { ToolbarProps, ParsedFilter } from '../types'
 
 /**
- * Get service badge colors based on service name
- */
-const SERVICE_COLORS: Record<string, { bg: string; text: string; activeBg: string }> = {
-  core: { bg: 'bg-blue-100', text: 'text-blue-700', activeBg: 'bg-blue-500' },
-  app: { bg: 'bg-purple-100', text: 'text-purple-700', activeBg: 'bg-purple-500' },
-  platform: { bg: 'bg-green-100', text: 'text-green-700', activeBg: 'bg-green-500' },
-  runner: { bg: 'bg-gray-100', text: 'text-gray-600', activeBg: 'bg-gray-500' },
-  iwf: { bg: 'bg-orange-100', text: 'text-orange-700', activeBg: 'bg-orange-500' },
-  rag: { bg: 'bg-cyan-100', text: 'text-cyan-700', activeBg: 'bg-cyan-500' },
-  transcriber: { bg: 'bg-pink-100', text: 'text-pink-700', activeBg: 'bg-pink-500' },
-  tracker: { bg: 'bg-yellow-100', text: 'text-yellow-700', activeBg: 'bg-yellow-500' },
-  verify: { bg: 'bg-indigo-100', text: 'text-indigo-700', activeBg: 'bg-indigo-500' },
-  pixel: { bg: 'bg-teal-100', text: 'text-teal-700', activeBg: 'bg-teal-500' },
-  default: { bg: 'bg-gray-100', text: 'text-gray-700', activeBg: 'bg-gray-500' },
-}
-
-function getServiceColors(serviceName: string): { bg: string; text: string; activeBg: string } {
-  const lowerName = serviceName.toLowerCase()
-  for (const key of Object.keys(SERVICE_COLORS)) {
-    if (lowerName.includes(key)) {
-      return SERVICE_COLORS[key]
-    }
-  }
-  return SERVICE_COLORS.default
-}
-
-/**
- * Service badge component
- */
-interface ServiceBadgeProps {
-  name: string
-  isActive: boolean
-  onClick: () => void
-}
-
-const ServiceBadge = memo(function ServiceBadge({
-  name,
-  isActive,
-  onClick,
-}: ServiceBadgeProps) {
-  const colors = getServiceColors(name)
-
-  return (
-    <button
-      onClick={onClick}
-      className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${
-        isActive
-          ? `${colors.bg} ${colors.text}`
-          : 'bg-gray-200 text-gray-400 opacity-50'
-      }`}
-      title={isActive ? `Click to hide ${name}` : `Click to show ${name}`}
-      data-testid={`service-badge-${name}`}
-    >
-      {name}
-    </button>
-  )
-})
-
-/**
  * Filter chip component
  */
 interface FilterChipProps {
@@ -159,19 +100,15 @@ interface ExtendedToolbarProps extends ToolbarProps {
  *
  * Features:
  * - File info display (file count, line count, truncation)
- * - Service badges (clickable to filter)
  * - Active filter chips (removable)
  * - Filter input (supports /regex/, -exclude, text)
  * - Watch/polling toggle
  */
 export const Toolbar = memo(function Toolbar({
-  serviceNames,
-  inactiveNames,
   filters,
   filterInput,
   activeFileCount,
   totalLines,
-  onToggleService,
   onAddFilter,
   onRemoveFilter,
   onFilterInputChange,
@@ -247,25 +184,6 @@ export const Toolbar = memo(function Toolbar({
           </span>
         )}
       </div>
-
-      {/* Divider */}
-      {serviceNames.length > 0 && (
-        <div className="h-6 w-px bg-gray-200" />
-      )}
-
-      {/* Service badges section */}
-      {serviceNames.length > 0 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto" data-testid="service-badges">
-          {serviceNames.map((name) => (
-            <ServiceBadge
-              key={name}
-              name={name}
-              isActive={!inactiveNames.has(name)}
-              onClick={() => onToggleService(name)}
-            />
-          ))}
-        </div>
-      )}
 
       {/* Divider */}
       {filters.length > 0 && (

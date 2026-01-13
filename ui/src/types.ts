@@ -214,13 +214,10 @@ export interface SidebarProps {
  * Props for the Toolbar component
  */
 export interface ToolbarProps {
-  serviceNames: string[];
-  inactiveNames: Set<string>;
   filters: ParsedFilter[];
   filterInput: string;
   activeFileCount: number;
   totalLines: number;
-  onToggleService: (name: string) => void;
   onAddFilter: (filter: ParsedFilter) => void;
   onRemoveFilter: (index: number) => void;
   onFilterInputChange: (value: string) => void;
@@ -243,14 +240,6 @@ export interface LogLineProps {
   isWrapped: boolean;
   onSelect: (hash: string, event: React.MouseEvent) => void;
   onToggleWrap: (hash: string) => void;
-}
-
-/**
- * Props for the DropZone component
- */
-export interface DropZoneProps {
-  onFileDrop: (content: string, fileName: string) => void;
-  children: React.ReactNode;
 }
 
 // Export empty object to make this a module

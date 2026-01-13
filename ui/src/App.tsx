@@ -7,7 +7,7 @@ import './types'
 import { isTauri, waitForConnection, readFile, getRecentFiles, addRecentFile } from './api'
 import { parseLogFile } from './parser'
 import { useLogViewerStore, useSelectionStore, useFileStore, filterLogs } from './store'
-import { Sidebar, Toolbar, LogViewer, getServiceName } from './components'
+import { Sidebar, Toolbar, LogViewer } from './components'
 
 function App() {
   // Log viewer store
@@ -15,7 +15,6 @@ function App() {
     inactiveNames: rawInactiveNames,
     filters,
     input,
-    toggleName,
     addFilter,
     removeFilter,
     setInput,
@@ -69,17 +68,6 @@ function App() {
     })
     // Sort by timestamp (ascending - LogViewer will reverse for newest-first)
     return allLogs.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
-  }, [safeOpenedFiles])
-
-  // Service names from all active files
-  const serviceNames = useMemo(() => {
-    const names = new Set<string>()
-    safeOpenedFiles.forEach((file) => {
-      if (file.isActive) {
-        file.logs.forEach((log) => names.add(getServiceName(log)))
-      }
-    })
-    return Array.from(names).sort()
   }, [safeOpenedFiles])
 
   // Count of active files
@@ -377,13 +365,10 @@ function App() {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <Toolbar
-          serviceNames={serviceNames}
-          inactiveNames={inactiveNames}
           filters={filters}
           filterInput={input}
           activeFileCount={activeFileCount}
           totalLines={mergedLogs.length}
-          onToggleService={(name) => toggleName(serviceNames, name)}
           onAddFilter={addFilter}
           onRemoveFilter={removeFilter}
           onFilterInputChange={setInput}
