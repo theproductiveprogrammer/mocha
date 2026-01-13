@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react'
-import { Check, Circle } from 'lucide-react'
+import { Check, Circle, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
 import type { LogEntry } from '../types'
 
 // Service colors - vibrant but not overwhelming
@@ -14,6 +14,16 @@ const SERVICE_COLORS: Record<string, string> = {
   tracker: 'var(--badge-tracker)',
   verify: 'var(--badge-verify)',
   pixel: 'var(--badge-pixel)',
+  api: 'var(--mocha-info)',
+  controller: 'var(--badge-core)',
+  service: 'var(--badge-app)',
+  helper: 'var(--badge-platform)',
+  scheduler: 'var(--badge-tracker)',
+  state: 'var(--badge-verify)',
+  notification: 'var(--badge-iwf)',
+  unipile: 'var(--badge-rag)',
+  openai: 'var(--badge-transcriber)',
+  mcp: 'var(--badge-pixel)',
 }
 
 function getServiceColor(name: string): string {
@@ -94,6 +104,64 @@ export function getServiceName(log: LogEntry): string {
   return log.name
 }
 
+/**
+ * Create a smart abbreviation for long service names
+ * e.g., "StateCollectNotifications" → "StateColl..." or extract meaningful part
+ * e.g., "NotificationSchedulerService" → "NotifSched"
+ */
+function getServiceAbbrev(name: string): string {
+  // If short enough, return as-is
+  if (name.length <= 12) return name
+
+  // Try to extract meaningful parts by splitting on camelCase
+  const parts = name.split(/(?=[A-Z])/).filter(p => p.length > 0)
+
+  // Common suffixes to remove
+  const suffixes = ['Service', 'Controller', 'Helper', 'Logic', 'Scheduler', 'Manager', 'Handler', 'Processor']
+  const cleanParts = parts.filter(p => !suffixes.includes(p))
+
+  if (cleanParts.length === 0) {
+    // If all parts were suffixes, just truncate
+    return name.slice(0, 10) + '…'
+  }
+
+  // Take first 2-3 parts and abbreviate
+  if (cleanParts.length === 1) {
+    return cleanParts[0].slice(0, 12) + (cleanParts[0].length > 12 ? '…' : '')
+  }
+
+  // Combine first parts, keeping it short
+  let result = ''
+  for (const part of cleanParts) {
+    if (result.length + part.length <= 12) {
+      result += part
+    } else {
+      break
+    }
+  }
+
+  return result || name.slice(0, 10) + '…'
+}
+
+/**
+ * Get HTTP method styling
+ */
+function getMethodStyle(method: string): { bg: string; text: string } {
+  switch (method.toUpperCase()) {
+    case 'GET':
+      return { bg: 'color-mix(in srgb, var(--mocha-info) 20%, transparent)', text: 'var(--mocha-info)' }
+    case 'POST':
+      return { bg: 'color-mix(in srgb, var(--mocha-success) 20%, transparent)', text: 'var(--mocha-success)' }
+    case 'PUT':
+    case 'PATCH':
+      return { bg: 'color-mix(in srgb, var(--mocha-warning) 20%, transparent)', text: 'var(--mocha-warning)' }
+    case 'DELETE':
+      return { bg: 'color-mix(in srgb, var(--mocha-error) 20%, transparent)', text: 'var(--mocha-error)' }
+    default:
+      return { bg: 'var(--mocha-surface-raised)', text: 'var(--mocha-text-secondary)' }
+  }
+}
+
 export interface LogLineProps {
   log: LogEntry
   isSelected: boolean
@@ -114,6 +182,7 @@ function LogLineComponent({
   onToggleWrap,
 }: LogLineProps) {
   const serviceName = getServiceName(log)
+  const serviceAbbrev = getServiceAbbrev(serviceName)
   const serviceColor = getServiceColor(serviceName)
   const rowStyle = getRowStyle(log)
 
@@ -144,9 +213,13 @@ function LogLineComponent({
       : log.parsed.timestamp.slice(0, 8)
     : null
 
-  // Parse logger for class name display
+  // Parse logger for line number only (class name shown in badge)
   const loggerInfo = parseLogger(log.parsed?.logger)
   const isErrorOrWarn = log.parsed?.level === 'ERROR' || log.parsed?.level === 'WARN'
+
+  // Check if this is an API-related log (has apiCall data)
+  const hasApiCall = !!log.parsed?.apiCall
+  const apiCall = log.parsed?.apiCall
 
   return (
     <div
@@ -203,18 +276,37 @@ function LogLineComponent({
                 {displayTimestamp}
               </span>
             )}
-            <span
-              className="text-[10px] px-2 py-0.5 rounded-md font-medium max-w-full truncate transition-all"
-              style={{
-                background: `color-mix(in srgb, ${serviceColor} 15%, transparent)`,
-                color: serviceColor,
-                border: `1px solid color-mix(in srgb, ${serviceColor} 25%, transparent)`,
-              }}
-              title={log.parsed?.logger || log.name}
-              data-testid="log-line-service"
-            >
-              {serviceName}
-            </span>
+            {/* Service badge with abbreviation */}
+            <div className="flex items-center gap-1.5 max-w-full">
+              {/* Direction indicator for API calls */}
+              {hasApiCall && (
+                <span
+                  className="flex items-center justify-center w-4 h-4 rounded"
+                  style={{
+                    background: apiCall?.direction === 'outgoing'
+                      ? 'color-mix(in srgb, var(--mocha-info) 25%, transparent)'
+                      : 'color-mix(in srgb, var(--mocha-success) 25%, transparent)',
+                  }}
+                >
+                  {apiCall?.direction === 'outgoing' ? (
+                    <ArrowUpRight className="w-3 h-3" style={{ color: 'var(--mocha-info)' }} />
+                  ) : (
+                    <ArrowDownLeft className="w-3 h-3" style={{ color: 'var(--mocha-success)' }} />
+                  )}
+                </span>
+              )}
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded font-medium truncate"
+                style={{
+                  background: `color-mix(in srgb, ${serviceColor} 15%, transparent)`,
+                  color: serviceColor,
+                }}
+                title={serviceName}
+                data-testid="log-line-service"
+              >
+                {serviceAbbrev}
+              </span>
+            </div>
           </>
         )}
       </div>
@@ -222,78 +314,75 @@ function LogLineComponent({
       {/* Right column: log content */}
       <div
         onClick={handleLineClick}
-        className={`flex-1 px-4 cursor-pointer font-mono text-[13px] leading-relaxed ${
+        className={`flex-1 px-4 cursor-pointer font-mono text-[13px] leading-relaxed flex items-start gap-2 ${
           isContinuation ? 'py-0.5' : 'py-2 min-h-[44px]'
-        } ${isWrapped ? 'whitespace-pre-wrap break-words' : 'truncate'}`}
+        }`}
         style={{ color: rowStyle.text }}
         data-testid="log-line-content"
       >
-        {/* Logger class name prefix (only show on first line of group) */}
-        {loggerInfo && !isContinuation && (
-          <span className="font-semibold">
-            {loggerInfo.className}
-            {loggerInfo.lineNumber && (
-              <span
-                style={{
-                  color: isErrorOrWarn ? rowStyle.accent : 'var(--mocha-info)',
-                  fontWeight: 'normal',
-                }}
-              >
-                :{loggerInfo.lineNumber}
-              </span>
-            )}
-            <span style={{ color: 'var(--mocha-text-muted)' }}>{' → '}</span>
-          </span>
-        )}
-
-        {/* Content */}
-        <span style={{ color: rowStyle.text }}>
-          {log.parsed?.content || log.data}
-        </span>
-
-        {/* API call info */}
-        {log.parsed?.apiCall && (
-          <div
-            className="mt-1.5 text-xs flex items-center gap-2"
-            data-testid="log-line-api"
-          >
+        <div className={`flex-1 ${isWrapped ? 'whitespace-pre-wrap break-words' : 'truncate'}`}>
+          {/* Line number prefix (only on first line of group) */}
+          {loggerInfo?.lineNumber && !isContinuation && (
             <span
-              className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+              className="font-medium mr-1"
               style={{
-                background: 'color-mix(in srgb, var(--mocha-info) 15%, transparent)',
-                color: 'var(--mocha-info)',
+                color: isErrorOrWarn ? rowStyle.accent : 'var(--mocha-info)',
               }}
             >
-              {log.parsed.apiCall.direction === 'outgoing' ? '→ OUT' : '← IN'}
+              :{loggerInfo.lineNumber}
             </span>
-            <span style={{ color: 'var(--mocha-info)' }}>
-              {log.parsed.apiCall.method && (
-                <span className="font-medium">{log.parsed.apiCall.method} </span>
-              )}
-              {log.parsed.apiCall.endpoint}
-              {log.parsed.apiCall.status && (
-                <span
-                  className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium"
-                  style={{
-                    background: log.parsed.apiCall.status >= 400
-                      ? 'var(--mocha-error-bg)'
-                      : 'color-mix(in srgb, var(--mocha-success) 15%, transparent)',
-                    color: log.parsed.apiCall.status >= 400
-                      ? 'var(--mocha-error)'
-                      : 'var(--mocha-success)',
-                  }}
-                >
-                  {log.parsed.apiCall.status}
-                </span>
-              )}
-              {log.parsed.apiCall.timing && (
-                <span style={{ color: 'var(--mocha-text-muted)' }}>
-                  {' '}({log.parsed.apiCall.timing}ms)
-                </span>
-              )}
+          )}
+
+          {/* API call inline visualization (integrated, not separate) */}
+          {hasApiCall && apiCall?.method && !isContinuation && (() => {
+            const methodStyle = getMethodStyle(apiCall.method)
+            return (
+              <span
+                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold mr-2"
+                style={{ background: methodStyle.bg, color: methodStyle.text }}
+              >
+                {apiCall.method}
+              </span>
+            )
+          })()}
+
+          {/* Status code badge (inline) */}
+          {hasApiCall && apiCall?.status && !isContinuation && (
+            <span
+              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium mr-2"
+              style={{
+                background: apiCall.status >= 400
+                  ? 'var(--mocha-error-bg)'
+                  : apiCall.status >= 300
+                    ? 'var(--mocha-warning-bg)'
+                    : 'color-mix(in srgb, var(--mocha-success) 20%, transparent)',
+                color: apiCall.status >= 400
+                  ? 'var(--mocha-error)'
+                  : apiCall.status >= 300
+                    ? 'var(--mocha-warning)'
+                    : 'var(--mocha-success)',
+              }}
+            >
+              {apiCall.status}
             </span>
-          </div>
-        )}
+          )}
+
+          {/* Timing badge (inline) */}
+          {hasApiCall && apiCall?.timing && !isContinuation && (
+            <span
+              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] mr-2"
+              style={{
+                background: 'var(--mocha-surface-raised)',
+                color: 'var(--mocha-text-muted)',
+              }}
+            >
+              {apiCall.timing}
+            </span>
+          )}
+
+          {/* Main content */}
+          <span>{log.parsed?.content || log.data}</span>
+        </div>
       </div>
     </div>
   )
