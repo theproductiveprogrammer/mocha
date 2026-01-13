@@ -1,12 +1,13 @@
-import { useEffect, useRef, useCallback, useMemo } from 'react'
-import { FileText } from 'lucide-react'
+import { useEffect, useRef, useCallback, useMemo, useState } from 'react'
+import { FileText, Upload } from 'lucide-react'
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
 import type { LogEntry, OpenedFileWithLogs } from './types'
 import './types'
 import { isTauri, waitForConnection, readFile, getRecentFiles, addRecentFile } from './api'
 import { parseLogFile } from './parser'
 import { useLogViewerStore, useSelectionStore, useFileStore, filterLogs } from './store'
-import { Sidebar, Toolbar, DropZone, LogViewer, getServiceName } from './components'
+import { Sidebar, Toolbar, LogViewer, getServiceName } from './components'
 
 function App() {
   // Log viewer store
@@ -48,6 +49,9 @@ function App() {
 
   // File input ref (for browser mode)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Drag/drop hover state
+  const [isDragging, setIsDragging] = useState(false)
 
   // Ensure openedFiles is a Map (handles hydration)
   const safeOpenedFiles = useMemo(
@@ -250,44 +254,38 @@ function App() {
     e.target.value = ''
   }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, setRecentFiles, recentFiles, cleanupInvalidHashes])
 
-  // Handle file drop
-  const handleFileDrop = useCallback((content: string, fileName: string) => {
-    // Check if file is already opened
-    const existing = safeOpenedFiles.get(fileName)
-    if (existing) {
-      if (!existing.isActive) {
-        toggleFileActive(fileName)
+  // Tauri drag/drop event listener - uses native file paths for recent files persistence
+  useEffect(() => {
+    if (!isTauri()) return
+
+    let unlisten: (() => void) | undefined
+
+    getCurrentWebview().onDragDropEvent((event) => {
+      if (event.payload.type === 'over') {
+        setIsDragging(true)
+      } else if (event.payload.type === 'drop') {
+        setIsDragging(false)
+        // Open each dropped file using the same path as "Open File"
+        const paths = event.payload.paths as string[]
+        for (const path of paths) {
+          // Filter to only .log and .txt files
+          const lowerPath = path.toLowerCase()
+          if (lowerPath.endsWith('.log') || lowerPath.endsWith('.txt')) {
+            handleOpenFile(path)
+          }
+        }
+      } else {
+        // cancel
+        setIsDragging(false)
       }
-      return
+    }).then((fn) => {
+      unlisten = fn
+    })
+
+    return () => {
+      unlisten?.()
     }
-
-    try {
-      const parsed = parseLogFile(content, fileName, fileName)
-      setError(null)
-
-      const newFile: OpenedFileWithLogs = {
-        path: fileName,
-        name: fileName,
-        size: content.length,
-        logs: parsed.logs,
-        isActive: true,
-        lastModified: content.length,
-      }
-      openFile(newFile)
-
-      setTimeout(() => {
-        const now = Date.now()
-        setRecentFiles([
-          { path: fileName, name: fileName, lastOpened: now },
-          ...recentFiles.filter(f => f.path !== fileName).slice(0, 19),
-        ])
-        cleanupInvalidHashes(parsed.logs.map(l => l.hash).filter((h): h is string => !!h))
-      }, 0)
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to parse file')
-    }
-  }, [safeOpenedFiles, openFile, toggleFileActive, setRecentFiles, recentFiles, cleanupInvalidHashes, setError])
+  }, [handleOpenFile])
 
   // Handle clicking a file in sidebar - toggle if open, open if not
   const handleSelectFile = useCallback((path?: string) => {
@@ -394,47 +392,58 @@ function App() {
           isWatching={false}
         />
 
-        <DropZone onFileDrop={handleFileDrop}>
-          <div className="flex-1 flex flex-col overflow-hidden h-full">
-            {error && (
-              <div className="bg-red-50 border-b border-red-200 px-4 py-2 text-red-700 text-sm flex items-center justify-between">
-                <span>{error}</span>
-                <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
-                  Dismiss
+        <div className="relative flex-1 flex flex-col overflow-hidden h-full">
+          {error && (
+            <div className="bg-red-50 border-b border-red-200 px-4 py-2 text-red-700 text-sm flex items-center justify-between">
+              <span>{error}</span>
+              <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 text-blue-700 text-sm">
+              Loading file...
+            </div>
+          )}
+
+          {/* Virtualized Log viewer */}
+          {mergedLogs.length > 0 ? (
+            <LogViewer logs={mergedLogs} />
+          ) : (
+            <div className="flex-1 flex items-center justify-center bg-gray-100">
+              <div className="text-center text-gray-500">
+                <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <h2 className="text-xl font-medium mb-2">No log file open</h2>
+                <p className="text-sm mb-4">
+                  Click "Open File" in the sidebar, drag and drop a file here,<br />
+                  or select from recent files
+                </p>
+                <button
+                  onClick={() => handleOpenFile()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  data-testid="open-file-btn"
+                >
+                  Open File
                 </button>
               </div>
-            )}
+            </div>
+          )}
 
-            {isLoading && (
-              <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 text-blue-700 text-sm">
-                Loading file...
-              </div>
-            )}
-
-            {/* Virtualized Log viewer */}
-            {mergedLogs.length > 0 ? (
-              <LogViewer logs={mergedLogs} />
-            ) : (
-              <div className="flex-1 flex items-center justify-center bg-gray-100">
-                <div className="text-center text-gray-500">
-                  <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <h2 className="text-xl font-medium mb-2">No log file open</h2>
-                  <p className="text-sm mb-4">
-                    Click "Open File" in the sidebar, drag and drop a file here,<br />
-                    or select from recent files
-                  </p>
-                  <button
-                    onClick={() => handleOpenFile()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    data-testid="open-file-btn"
-                  >
-                    Open File
-                  </button>
+          {/* Drag overlay */}
+          {isDragging && (
+            <div className="absolute inset-0 bg-blue-500/20 border-2 border-dashed border-blue-500 flex items-center justify-center z-50 pointer-events-none">
+              <div className="bg-blue-600 text-white px-6 py-4 rounded-lg flex items-center gap-3 shadow-lg">
+                <Upload className="w-8 h-8" />
+                <div>
+                  <div className="font-semibold text-lg">Drop log file here</div>
+                  <div className="text-sm text-blue-200">Accepts .log and .txt files</div>
                 </div>
               </div>
-            )}
-          </div>
-        </DropZone>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

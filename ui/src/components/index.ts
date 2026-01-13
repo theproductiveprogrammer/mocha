@@ -9,5 +9,3 @@ export type { SidebarProps } from './Sidebar'
 
 export { Toolbar } from './Toolbar'
 export type { ToolbarProps } from './Toolbar'
-
-export { DropZone } from './DropZone'
