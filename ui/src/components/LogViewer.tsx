@@ -2,7 +2,7 @@ import { useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { LogEntry } from '../types'
 import { useLogViewerStore, useSelectionStore, filterLogs } from '../store'
-import { LogLine } from './LogLine'
+import { LogLine, getServiceName } from './LogLine'
 
 export interface LogViewerProps {
   logs: LogEntry[]
@@ -45,19 +45,23 @@ export function LogViewer({ logs }: LogViewerProps) {
     [rawWrappedHashes]
   )
 
+  // Check if two logs belong to same group (within 300ms + same service/class)
+  // Used for grouping during sort AND for continuation display during render
+  const isSameGroup = useCallback((a: LogEntry | null, b: LogEntry): boolean => {
+    if (!a) return false
+    if (!a.timestamp || !b.timestamp) return false
+    const within300ms = Math.abs(a.timestamp - b.timestamp) <= 300
+    // Compare by service name (class name) not full logger (which includes line numbers)
+    const sameService = getServiceName(a) === getServiceName(b)
+    return within300ms && sameService
+  }, [])
+
   // Filter and sort logs by timestamp (newest-first), then group related entries
   const filteredLogs = useMemo(() => {
     const filtered = filterLogs(logs, filters, inactiveNames, deletedHashes)
 
     // Sort by timestamp descending (newest first)
     const sorted = [...filtered].sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
-
-    // Helper to check if two logs belong to same group (within 100ms + same logger)
-    const isSameGroup = (a: LogEntry, b: LogEntry) => {
-      const within100ms = a.timestamp && b.timestamp && Math.abs(a.timestamp - b.timestamp) <= 100
-      const sameLogger = a.parsed?.logger && b.parsed?.logger && a.parsed.logger === b.parsed.logger
-      return within100ms && sameLogger
-    }
 
     // Group consecutive logs, keeping chronological order within groups
     const result: LogEntry[] = []
@@ -80,7 +84,7 @@ export function LogViewer({ logs }: LogViewerProps) {
     }
 
     return result
-  }, [logs, filters, inactiveNames, deletedHashes])
+  }, [logs, filters, inactiveNames, deletedHashes, isSameGroup])
 
   // Get all hashes for selection operations
   const allHashes = useMemo(() => {
@@ -215,28 +219,10 @@ export function LogViewer({ logs }: LogViewerProps) {
             const isSelected = log.hash ? selectedHashes.has(log.hash) : false
             const isWrapped = log.hash ? wrappedHashes.has(log.hash) : false
 
-            // Helper to check if b is a continuation of a
-            const checkContinuation = (a: LogEntry | null, b: LogEntry) => {
-              if (!a) return false
-              const content = b.parsed?.content || b.data
-              const isStackTraceLine = /^\s*at\s/.test(content) || /Exception|Error:/.test(content)
-              const hasNoLogger = !b.parsed?.logger
-              const prevHasLogger = !!a.parsed?.logger
-              const within100ms = a.timestamp && b.timestamp && Math.abs(a.timestamp - b.timestamp) <= 100
-              const sameLogger = a.parsed?.logger && b.parsed?.logger && a.parsed.logger === b.parsed.logger
-
-              return !!(
-                isStackTraceLine ||
-                (within100ms && sameLogger) ||
-                (hasNoLogger && prevHasLogger) ||
-                (hasNoLogger && !a.parsed?.logger)
-              )
-            }
-
-            // Is this line a continuation of the previous?
-            const isContinuation = checkContinuation(prev, log)
+            // Is this line a continuation of the previous? (uses isSameGroup from above)
+            const isContinuation = isSameGroup(prev, log)
             // Is the next line a continuation of this one? (determines if we show bottom border)
-            const nextIsContinuation = next ? checkContinuation(log, next) : false
+            const nextIsContinuation = next ? isSameGroup(log, next) : false
             // Show border at bottom of group (when next is NOT a continuation)
             const isLastInGroup = !nextIsContinuation
 
