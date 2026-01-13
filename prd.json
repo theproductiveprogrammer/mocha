@@ -1,16 +1,16 @@
 [
   {
     "category": "setup",
-    "id": "setup-webui",
-    "description": "Set up WebUI C project with Makefile",
+    "id": "setup-tauri",
+    "description": "Set up Tauri Rust project with mise",
     "steps": [
-      "Download WebUI library (header + static lib)",
-      "Create src/ directory with main.c skeleton",
-      "Create Makefile that compiles main.c and links WebUI",
-      "Test compilation produces mocha binary"
+      "Create mise.toml with node and rust tool versions",
+      "Run cargo tauri init to initialize Tauri project",
+      "Configure tauri.conf.json with app metadata",
+      "Test cargo tauri dev launches window"
     ],
     "reference": "./spec/implementation-overview.md",
-    "passes": "2026-01-12"
+    "passes": "2026-01-13"
   },
   {
     "category": "setup",
@@ -43,15 +43,15 @@
   {
     "category": "setup",
     "id": "setup-hello",
-    "description": "Test WebUI hello world with React",
+    "description": "Test Tauri hello world with React",
     "steps": [
       "Build React frontend: npm run build",
-      "Add minimal main() in main.c that shows dist/index.html",
-      "Compile and run mocha binary",
-      "Browser window opens with React app"
+      "Configure frontendDist in tauri.conf.json",
+      "Run cargo tauri dev",
+      "Native window opens with React app"
     ],
-    "reference": "./spec/webui-bindings.md",
-    "passes": "2026-01-12"
+    "reference": "./spec/tauri-commands.md",
+    "passes": "2026-01-13"
   },
   {
     "category": "backend",
@@ -65,7 +65,7 @@
       "Return JSON with content, size, prevSize, path, name",
       "Handle errors (file not found, too large)"
     ],
-    "reference": "./spec/webui-bindings.md#binding-readfilepath-offset",
+    "reference": "./spec/tauri-commands.md#binding-readfilepath-offset",
     "passes": "2026-01-12"
   },
   {
@@ -78,7 +78,7 @@
       "Use escaped content in readFile response",
       "Test with log files containing special characters"
     ],
-    "reference": "./spec/webui-bindings.md",
+    "reference": "./spec/tauri-commands.md",
     "passes": "2026-01-12"
   },
   {
@@ -91,7 +91,7 @@
       "Return JSON array of {path, name, lastOpened}",
       "Handle read errors gracefully"
     ],
-    "reference": "./spec/webui-bindings.md#binding-getrecentfiles",
+    "reference": "./spec/tauri-commands.md#binding-getrecentfiles",
     "passes": "2026-01-12"
   },
   {
@@ -106,7 +106,7 @@
       "Limit array to 20 entries",
       "Write back to recent.json"
     ],
-    "reference": "./spec/webui-bindings.md#binding-addrecentfile",
+    "reference": "./spec/tauri-commands.md#binding-addrecentfile",
     "passes": "2026-01-12"
   },
   {
@@ -127,17 +127,17 @@
   {
     "category": "frontend",
     "id": "frontend-api",
-    "description": "Create WebUI API wrapper",
+    "description": "Create Tauri API wrapper",
     "steps": [
       "Create ui/src/api.ts",
-      "Declare window.webui global type",
-      "Implement isWebUI() check",
+      "Import invoke from @tauri-apps/api/core",
+      "Implement isTauri() check",
       "Implement readFile(path, offset) wrapper",
       "Implement getRecentFiles() wrapper",
       "Implement addRecentFile(path) wrapper"
     ],
-    "reference": "./spec/webui-bindings.md#frontend-api-wrapper",
-    "passes": "2026-01-12"
+    "reference": "./spec/tauri-commands.md#frontend-api-wrapper",
+    "passes": "2026-01-13"
   },
   {
     "category": "frontend",
@@ -349,7 +349,7 @@
       "Read file content with FileReader",
       "Parse and display selected file"
     ],
-    "reference": "./spec/webui-bindings.md#1-browser-file-input",
+    "reference": "./spec/tauri-commands.md#1-browser-file-input",
     "passes": "2026-01-12"
   },
   {
@@ -401,7 +401,7 @@
       "Display logs in LogViewer",
       "Update currentFile state"
     ],
-    "reference": "./spec/webui-bindings.md#3-recent-files-via-c-backend",
+    "reference": "./spec/tauri-commands.md#3-recent-files-via-c-backend",
     "passes": "2026-01-12"
   },
   {
@@ -417,7 +417,7 @@
       "Update tracked size from response",
       "Reset size when file changes"
     ],
-    "reference": "./spec/webui-bindings.md#polling-implementation",
+    "reference": "./spec/tauri-commands.md#polling-implementation",
     "passes": "2026-01-12"
   },
   {
@@ -477,24 +477,24 @@
     "steps": [
       "Configure Vite for production build",
       "Ensure dist/ contains index.html and assets",
-      "Compile C backend with release flags",
-      "Test mocha binary runs correctly",
-      "Verify file bindings work in production"
+      "Run cargo tauri build for release",
+      "Test Mocha.app runs correctly",
+      "Verify Tauri commands work in production"
     ],
-    "passes": ""
+    "passes": "2026-01-13"
   },
   {
     "category": "polish",
     "id": "polish-package",
     "description": "Create distribution package",
     "steps": [
-      "Create macOS .app bundle structure",
-      "Place binary and dist/ in bundle",
-      "Set appropriate Info.plist",
-      "Test app launches correctly",
-      "Consider DMG creation for distribution"
+      "Run cargo tauri build to create .app bundle",
+      "Verify Mocha.app in target/release/bundle/macos/",
+      "DMG installer created automatically",
+      "Test app launches with proper macOS integration",
+      "App appears in Cmd+Tab and has menubar"
     ],
-    "passes": ""
+    "passes": "2026-01-13"
   },
   {
     "category": "test",

@@ -4,12 +4,12 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         C Backend                               │
+│                       Rust Backend (Tauri)                      │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │  WebUI + 3 bindings: readFile, getRecent, addRecent       │  │
+│  │  3 commands: read_file, get_recent_files, add_recent_file │  │
 │  └───────────────────────────────────────────────────────────┘  │
 └──────────────────────────┬──────────────────────────────────────┘
-                           │ WebUI bindings (webui.js)
+                           │ Tauri IPC (invoke)
 ┌──────────────────────────┴──────────────────────────────────────┐
 │                      React Frontend                             │
 │  ┌───────────────┐  ┌───────────────┐  ┌────────────────────┐  │
@@ -25,12 +25,17 @@
 
 ```
 mocha/
+├── mise.toml                    # Tool versions & build tasks
 ├── prd.json                     # Task tracking
 ├── spec/                        # Specifications
-├── src/
-│   ├── main.c                   # C backend (single file)
-│   └── Makefile                 # Build script
-├── ui/
+├── src-tauri/                   # Rust backend
+│   ├── Cargo.toml               # Rust dependencies
+│   ├── tauri.conf.json          # Tauri configuration
+│   └── src/
+│       ├── main.rs              # Entry point
+│       ├── lib.rs               # Tauri setup
+│       └── commands.rs          # IPC command handlers
+├── ui/                          # React frontend
 │   ├── package.json
 │   ├── vite.config.ts
 │   ├── index.html
@@ -39,7 +44,7 @@ mocha/
 │       ├── App.tsx
 │       ├── types.ts
 │       ├── store.ts
-│       ├── api.ts               # WebUI binding wrappers
+│       ├── api.ts               # Tauri invoke wrappers
 │       ├── parser.ts            # Log parsing
 │       └── components/
 │           ├── LogViewer.tsx
@@ -48,47 +53,26 @@ mocha/
 └── dist/                        # Built React app
 ```
 
-## C Backend (Minimal)
+## Rust Backend (Minimal)
 
-The C backend is intentionally minimal. Only 3 bindings:
+The Rust backend is intentionally minimal. Only 3 commands:
 
-```c
-// main.c - approximately 150-200 lines total
+```rust
+// commands.rs
 
-#include "webui.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-// Binding 1: Read file contents
-void read_file(webui_event_t* e) {
-    const char* path = webui_get_string(e);
-    // Read file, return JSON: {content, size, path}
+#[tauri::command]
+pub fn read_file(path: String, offset: u64) -> FileResult {
+    // Read file, return JSON with content, size, path
 }
 
-// Binding 2: Get recent files
-void get_recent_files(webui_event_t* e) {
+#[tauri::command]
+pub fn get_recent_files() -> Vec<RecentFile> {
     // Read ~/.mocha/recent.json, return array
 }
 
-// Binding 3: Add to recent files
-void add_recent_file(webui_event_t* e) {
-    const char* path = webui_get_string(e);
+#[tauri::command]
+pub fn add_recent_file(path: String) -> bool {
     // Update ~/.mocha/recent.json
-}
-
-int main() {
-    size_t win = webui_new_window();
-
-    webui_bind(win, "readFile", read_file);
-    webui_bind(win, "getRecentFiles", get_recent_files);
-    webui_bind(win, "addRecentFile", add_recent_file);
-
-    webui_set_root_folder(win, "./dist");
-    webui_show(win, "index.html");
-    webui_wait();
-
-    return 0;
 }
 ```
 
@@ -109,41 +93,47 @@ The React frontend handles:
 ```
 User clicks "Open" → <input type="file"> dialog
 → File API reads content → parseLogFile()
-→ Display logs → webui.call('addRecentFile', path)
+→ Display logs → invoke('add_recent_file', { path })
 ```
 
 ### Opening a File (Drag-Drop)
 ```
 User drags file → DropZone onDrop
 → File API reads content → parseLogFile()
-→ Display logs → webui.call('addRecentFile', path)
+→ Display logs → invoke('add_recent_file', { path })
 ```
 
 ### Re-opening Recent File
 ```
-User clicks recent file → webui.call('readFile', path)
-→ C reads file → returns content
+User clicks recent file → invoke('read_file', { path, offset: 0 })
+→ Rust reads file → returns content
 → parseLogFile() → Display logs
 ```
 
 ### Polling for Updates (Differential)
 ```
-setInterval (every 2-3s) → webui.call('readFile', path, prevSize)
-→ C stats file → if size unchanged, return empty
-→ C seeks to prevSize, reads new bytes only
+setInterval (every 2-3s) → invoke('read_file', { path, offset: prevSize })
+→ Rust stats file → if size unchanged, return empty
+→ Rust seeks to prevSize, reads new bytes only
 → Frontend parses new lines → Appends to existing logs
 ```
 
 ## Dependencies
 
-### C Backend
-- WebUI library (header-only or static link)
-- Standard C library
+### Rust Backend (Cargo.toml)
+| Package | Purpose |
+|---------|---------|
+| tauri | Desktop app framework |
+| tauri-plugin-log | Logging |
+| serde, serde_json | Serialization |
+| dirs | Home directory access |
+| chrono | Timestamps |
 
-### React Frontend (npm)
+### React Frontend (package.json)
 | Package | Purpose |
 |---------|---------|
 | react, react-dom | UI framework |
+| @tauri-apps/api | Tauri IPC bindings |
 | tailwindcss | Styling |
 | zustand | State management |
 | lucide-react | Icons |
@@ -153,46 +143,45 @@ setInterval (every 2-3s) → webui.call('readFile', path, prevSize)
 ## Build Process
 
 ```bash
-# Build frontend
-cd ui && npm run build
+# Using mise (recommended)
+mise run setup          # Install dependencies
+mise run dev            # Development mode
+mise run build          # Production build
 
-# Build C backend (links WebUI, outputs single binary)
-cd src && make
-
-# Run
-./mocha
+# Or manually:
+cd ui && npm install    # Install frontend deps
+cargo tauri dev         # Development mode
+cargo tauri build       # Production build
 ```
 
 ## Packaging
 
 ### macOS
-- Create .app bundle with binary + dist/ folder
-- Or use `create-dmg` for distribution
+- Native .app bundle at `src-tauri/target/release/bundle/macos/Mocha.app`
+- DMG installer at `src-tauri/target/release/bundle/dmg/Mocha_*.dmg`
 
-### Linux
-- Single binary + dist/ folder
-- Or AppImage
+### Linux (future)
+- AppImage or .deb package
 
-### Windows
-- Single .exe + dist/ folder
-- Or use Inno Setup for installer
+### Windows (future)
+- .msi or .exe installer
 
 ## Implementation Phases
 
 ### Phase 1: Project Setup
-1. Set up WebUI C project with Makefile
-2. Initialize React/Vite/Tailwind
-3. Test basic "Hello World" binding
+1. Initialize Tauri project with `cargo tauri init`
+2. Configure mise.toml for tool management
+3. Test basic window opens
 
-### Phase 2: C Backend
-1. Implement readFile binding
+### Phase 2: Rust Backend
+1. Implement read_file command
 2. Implement recent files (get/add)
-3. Test bindings from browser console
+3. Test commands from devtools console
 
 ### Phase 3: Frontend Core
 1. Types and parser module
 2. Zustand stores
-3. API wrapper for bindings
+3. API wrapper using @tauri-apps/api
 
 ### Phase 4: UI Components
 1. Sidebar with recent files

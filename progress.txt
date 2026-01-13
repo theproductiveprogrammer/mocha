@@ -1326,3 +1326,69 @@
   - test-polling: Verify polling picks up new content
   - test-recent-persist: Verify recent files persist
 - Or proceed with polish tasks: polish-errors, polish-loading, polish-styling, polish-build, polish-package
+
+## 2026-01-13 - TAURI MIGRATION COMPLETE
+
+### What was done:
+- Migrated from WebUI/C backend to Tauri/Rust backend
+- This was done to fix critical UX issues with the WebUI approach:
+  - App now appears in Cmd+Tab (proper macOS window management)
+  - App shows "Mocha" in menubar (not iTerm2 or terminal app)
+  - Cmd+Q and Cmd+W work correctly
+  - Window management works as expected for native app
+
+### Technical changes:
+
+#### New files created:
+- mise.toml - Tool version management (node 22, rust 1.85) with build tasks
+- src-tauri/ - Tauri Rust backend directory
+  - Cargo.toml - Rust dependencies (tauri 2.x, serde, dirs, chrono)
+  - tauri.conf.json - App configuration (Mocha, com.mocha.logviewer)
+  - src/main.rs - Entry point
+  - src/lib.rs - Tauri builder setup
+  - src/commands.rs - IPC command handlers (read_file, get_recent_files, add_recent_file)
+
+#### Files modified:
+- ui/src/api.ts - Updated to use @tauri-apps/api/core invoke() instead of window.webui
+- ui/src/types.ts - Removed WebUI global type extension
+- ui/index.html - Removed webui.js script tag
+- ui/package.json - Added @tauri-apps/api dependency
+
+#### Files removed:
+- src/main.c - Old C backend
+- src/Makefile - Old build script
+- lib/webui.h, lib/webui.hpp, lib/libwebui-2-static.a - WebUI library files
+- mocha - Old compiled binary
+
+#### Spec files updated:
+- spec/README.md - Updated technology stack to Tauri/Rust
+- spec/implementation-overview.md - New architecture diagram with Tauri
+- spec/tauri-commands.md - Replaced webui-bindings.md with Tauri docs
+
+#### prd.json updated:
+- setup-webui → setup-tauri (passes: 2026-01-13)
+- setup-hello updated for Tauri (passes: 2026-01-13)
+- frontend-api updated for Tauri (passes: 2026-01-13)
+- polish-build marked complete (passes: 2026-01-13)
+- polish-package marked complete (passes: 2026-01-13)
+- All references to webui-bindings.md changed to tauri-commands.md
+
+### Build output:
+- Native .app bundle: src-tauri/target/debug/bundle/macos/Mocha.app
+- DMG installer: src-tauri/target/debug/bundle/dmg/Mocha_*.dmg
+
+### How to build:
+```bash
+mise run setup     # Install dependencies
+mise run dev       # Development mode
+mise run build     # Production build
+```
+
+### Verified:
+- App launches as native macOS app
+- Appears in Cmd+Tab switcher
+- Shows "Mocha" in menubar
+- Cmd+Q quits the app
+- Cmd+W closes the window
+- All file reading functionality works
+- Recent files persist correctly

@@ -8,10 +8,10 @@ Mocha is a desktop log viewer application for viewing and analyzing log files wi
 
 | Layer | Technology |
 |-------|------------|
-| Backend | C with WebUI library |
+| Backend | Rust with Tauri 2.x |
 | Frontend | React 19, Vite, Tailwind CSS 4.x, Zustand |
-| Desktop | WebUI (browser as GUI, native C library) |
-| Packaging | Single binary + bundled web assets |
+| Desktop | Tauri (native window + embedded webview) |
+| Packaging | macOS .app bundle / DMG |
 
 ## Design Principles
 
@@ -72,7 +72,7 @@ Mocha is a desktop log viewer application for viewing and analyzing log files wi
 | Document | Description |
 |----------|-------------|
 | [implementation-overview.md](./implementation-overview.md) | Architecture and implementation details |
-| [webui-bindings.md](./webui-bindings.md) | C backend binding specifications |
+| [tauri-commands.md](./tauri-commands.md) | Rust backend command specifications |
 | [log-parser.md](./log-parser.md) | Log format patterns (12 patterns) |
 | [ui-components.md](./ui-components.md) | React component specifications |
 | [testing.md](./testing.md) | E2E testing and verification |
