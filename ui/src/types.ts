@@ -93,7 +93,7 @@ export interface RecentFile {
 }
 
 /**
- * Result from readFile WebUI binding
+ * Result from readFile Tauri command
  */
 export interface FileResult {
   success: boolean;
@@ -238,19 +238,6 @@ export interface LogLineProps {
 export interface DropZoneProps {
   onFileDrop: (content: string, fileName: string) => void;
   children: React.ReactNode;
-}
-
-// ============================================================================
-// WebUI Global Type Extension
-// ============================================================================
-
-declare global {
-  interface Window {
-    webui?: {
-      call: (name: string, ...args: unknown[]) => Promise<string>;
-      isConnected?: () => boolean;
-    };
-  }
 }
 
 // Export empty object to make this a module

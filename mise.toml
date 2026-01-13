@@ -1,0 +1,80 @@
+[tools]
+node = "22"
+rust = "1.85"
+
+[env]
+_.path = ['./ui/node_modules/.bin']
+
+# ============================================================================
+# SETUP TASKS
+# ============================================================================
+
+[tasks.install]
+description = "Install frontend dependencies"
+dir = "ui"
+run = "npm install"
+sources = ['package.json', 'package-lock.json']
+outputs = ['node_modules']
+
+[tasks.install-tauri-cli]
+description = "Install Tauri CLI"
+run = "cargo install tauri-cli --version '^2.0'"
+
+[tasks.setup]
+description = "Complete development setup"
+depends = ["install", "install-tauri-cli"]
+
+# ============================================================================
+# DEVELOPMENT TASKS
+# ============================================================================
+
+[tasks.dev]
+description = "Start development mode (frontend + Tauri)"
+depends = ["install"]
+run = "cargo tauri dev"
+
+[tasks.dev-frontend]
+description = "Start frontend dev server only"
+dir = "ui"
+run = "npm run dev"
+
+# ============================================================================
+# BUILD TASKS
+# ============================================================================
+
+[tasks.build-frontend]
+description = "Build frontend for production"
+depends = ["install"]
+dir = "ui"
+run = "npm run build"
+sources = ['src/**/*', 'index.html', 'vite.config.ts']
+outputs = ['../dist']
+
+[tasks.build]
+description = "Build complete application"
+depends = ["build-frontend"]
+run = "cargo tauri build"
+
+[tasks.build-debug]
+description = "Build debug version (faster)"
+depends = ["build-frontend"]
+run = "cargo tauri build --debug"
+
+# ============================================================================
+# UTILITY TASKS
+# ============================================================================
+
+[tasks.clean]
+description = "Clean all build artifacts"
+run = '''
+#!/usr/bin/env bash
+echo "Cleaning build artifacts..."
+rm -rf dist 2>/dev/null || true
+rm -rf ui/node_modules 2>/dev/null || true
+rm -rf src-tauri/target 2>/dev/null || true
+echo "Clean completed!"
+'''
+
+[tasks.launch-mac]
+description = "Run the existing app"
+run = "open ./src-tauri/target/debug/bundle/macos/Mocha.app"

@@ -1,39 +1,34 @@
 /**
- * Mocha Log Viewer - WebUI API Wrapper
+ * Mocha Log Viewer - Tauri API Wrapper
  *
- * Provides a clean TypeScript interface to the C backend WebUI bindings.
- * All file operations go through these functions when running in WebUI context.
+ * Provides a clean TypeScript interface to the Rust backend via Tauri IPC.
+ * All file operations go through these functions when running in Tauri context.
  */
 
+import { invoke } from '@tauri-apps/api/core';
 import type { FileResult, RecentFile } from './types';
 
 /**
- * Check if running in WebUI context
- * Returns true when the app is served by the mocha binary
+ * Check if running in Tauri context
+ * Returns true when the app is running as a native Tauri app
  */
-export function isWebUI(): boolean {
-  return typeof window.webui !== 'undefined';
+export function isTauri(): boolean {
+  return '__TAURI_INTERNALS__' in window;
+}
+
+// Keep isWebUI as alias for backwards compatibility
+export const isWebUI = isTauri;
+
+/**
+ * Wait for Tauri to be ready (for compatibility with existing code)
+ * In Tauri, we're always ready once the window loads
+ */
+export async function waitForConnection(_timeoutMs: number = 5000): Promise<boolean> {
+  return isTauri();
 }
 
 /**
- * Wait for WebUI WebSocket connection to be established
- * Useful when app loads before the bridge is fully ready
- */
-export async function waitForConnection(timeoutMs: number = 5000): Promise<boolean> {
-  if (!isWebUI()) return false;
-
-  const startTime = Date.now();
-  while (Date.now() - startTime < timeoutMs) {
-    if (window.webui?.isConnected?.()) {
-      return true;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  return false;
-}
-
-/**
- * Read a file from the filesystem via the C backend
+ * Read a file from the filesystem via the Rust backend
  *
  * @param path - Full path to the file
  * @param offset - Byte offset to start reading from (0 for full file, >0 for differential/polling)
@@ -43,17 +38,17 @@ export async function waitForConnection(timeoutMs: number = 5000): Promise<boole
  * For polling updates, pass the previous file size as offset to only get new bytes.
  */
 export async function readFile(path: string, offset: number = 0): Promise<FileResult> {
-  if (!isWebUI()) {
-    return { success: false, error: 'Not running in WebUI context' };
+  if (!isTauri()) {
+    return { success: false, error: 'Not running in Tauri context' };
   }
 
   try {
-    const result = await window.webui!.call('readFile', path, offset);
-    return JSON.parse(result);
+    const result = await invoke<FileResult>('read_file', { path, offset });
+    return result;
   } catch (err) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : 'Unknown error reading file',
+      error: err instanceof Error ? err.message : String(err),
     };
   }
 }
@@ -64,13 +59,12 @@ export async function readFile(path: string, offset: number = 0): Promise<FileRe
  * @returns Array of RecentFile objects, sorted by lastOpened (newest first)
  */
 export async function getRecentFiles(): Promise<RecentFile[]> {
-  if (!isWebUI()) {
+  if (!isTauri()) {
     return [];
   }
 
   try {
-    const result = await window.webui!.call('getRecentFiles');
-    const files = JSON.parse(result);
+    const files = await invoke<RecentFile[]>('get_recent_files');
     return Array.isArray(files) ? files : [];
   } catch {
     return [];
@@ -82,17 +76,17 @@ export async function getRecentFiles(): Promise<RecentFile[]> {
  *
  * @param path - Full path to the file to add
  *
- * The C backend will:
+ * The Rust backend will:
  * - Create ~/.mocha/ directory if needed
  * - Add the file to the beginning of the list
  * - Remove duplicates if the path already exists
  * - Limit the list to 20 entries
  */
 export async function addRecentFile(path: string): Promise<void> {
-  if (!isWebUI()) return;
+  if (!isTauri()) return;
 
   try {
-    await window.webui!.call('addRecentFile', path);
+    await invoke('add_recent_file', { path });
   } catch {
     // Silently fail - recent files are not critical
   }
