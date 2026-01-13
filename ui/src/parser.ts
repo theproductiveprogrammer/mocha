@@ -646,6 +646,23 @@ function getLastNLines(content: string, n: number): { lines: string[]; totalLine
 }
 
 /**
+ * Check if a line is a Grafana/Loki export header (should be skipped)
+ * Header patterns:
+ * - : "330 lines displayed"
+ * - Total bytes processed: "4.34  MB"
+ * - Common labels: {"filename":"/var/log/..."}
+ */
+function isGrafanaHeader(line: string): boolean {
+  const trimmed = line.trim()
+  if (!trimmed) return false
+  return (
+    /^:\s*"[\d,]+\s+lines?\s+displayed"$/i.test(trimmed) ||
+    /^Total\s+bytes\s+processed:/i.test(trimmed) ||
+    /^Common\s+labels:/i.test(trimmed)
+  )
+}
+
+/**
  * Parse raw file lines into LogEntry array
  */
 function parseFileLines(
@@ -665,6 +682,9 @@ function parseFileLines(
     // Skip empty lines
     if (!line.trim()) continue;
 
+    // Skip Grafana/Loki export header lines
+    if (isGrafanaHeader(line)) continue;
+
     // Skip timestamp-only lines (metadata/sorting keys in some log formats)
     const trimmedLine = line.trim();
     if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d{3}\s*$/.test(trimmedLine)) continue;
@@ -676,8 +696,18 @@ function parseFileLines(
     let timestamp: number | undefined;
 
     if (tabParts.length >= 2) {
-      // Check if first part is epoch timestamp (10+ digits)
-      if (/^\d{10,}$/.test(tabParts[0].trim())) {
+      // Check for 3-part Grafana/Loki format: epoch \t ISO_timestamp \t actual_log_line
+      // Example: 1766138817990	2025-12-19T10:06:57.990Z	2025-12-19 10:06:57.799 [thread] INFO ...
+      if (
+        tabParts.length >= 3 &&
+        /^\d{10,}$/.test(tabParts[0].trim()) &&
+        /^\d{4}-\d{2}-\d{2}T/.test(tabParts[1].trim())
+      ) {
+        timestamp = parseInt(tabParts[0].trim(), 10);
+        line = tabParts.slice(2).join('\t'); // Skip both epoch and ISO prefix
+      }
+      // Check if first part is epoch timestamp (10+ digits) - 2-part format
+      else if (/^\d{10,}$/.test(tabParts[0].trim())) {
         timestamp = parseInt(tabParts[0].trim(), 10);
         line = tabParts.slice(1).join('\t');
       }

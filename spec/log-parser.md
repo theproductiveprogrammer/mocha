@@ -246,17 +246,40 @@ function isContinuationLine(line: string): boolean {
 
 ## File Parsing
 
-### Tab-Separated Format
+### Grafana/Loki Export Format
+
+Grafana exports logs with metadata headers and a 3-part tab-separated format:
+
+**Header lines** (skipped during parsing):
 ```
-1735123456789	2025-12-25T10:30:00Z	[INFO] Log message here
+: "330 lines displayed"
+Total bytes processed: "4.34  MB"
+Common labels: {"filename":"/var/log/sandbox_microservice_core.log","host":"sandbox",...}
+```
+
+**Log lines** (tab-separated with 3 parts):
+```
+1766138817990	2025-12-19T10:06:57.990Z	2025-12-19 10:06:57.799 [thread] INFO logger [Source.java:229] - message
+│              │                        │
+epoch_ms       ISO_timestamp            actual_log_line
+```
+
+The parser:
+1. Detects and skips header lines using `isGrafanaHeader()` helper
+2. Splits 3-part format: uses epoch for timestamp, strips ISO prefix, keeps actual log line
+3. Passes actual log line to pattern matching as normal
+
+### Tab-Separated Format (2-part)
+```
+1735123456789	[INFO] Log message here
 ```
 - Epoch timestamp (10+ digits)
-- ISO timestamp
 - Log line
 
 ### Plain Log File
 - Lines parsed individually
-- Fake timestamps assigned based on line order
+- Parsed timestamps converted to epoch when possible
+- Fake timestamps assigned based on line order as fallback
 - Last 2000 lines kept if file exceeds limit
 
 ## Level Normalization
