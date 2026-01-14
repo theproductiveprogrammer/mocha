@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Crosshair,
+  Command,
 } from "lucide-react";
 import { JsonView } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
@@ -553,7 +554,23 @@ export function StoryPane({
   const [searchQuery, setSearchQuery] = useState('');
   const [isRegex, setIsRegex] = useState(false);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [searchFocused, setSearchFocused] = useState(false);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Keyboard shortcut: Cmd/Ctrl+G to focus search when maximized
+  useEffect(() => {
+    if (!maximized) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'g') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [maximized]);
 
   // Find matches
   const searchMatches = useMemo(() => {
@@ -714,82 +731,132 @@ export function StoryPane({
           )}
         </div>
 
-        {/* Search (maximized only) */}
+        {/* Search (maximized only) - matching Toolbar style */}
         {!collapsed && maximized && (
           <div className="flex items-center gap-2 pb-1">
+            {/* Search input with animated width and glow */}
             <div
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
+              className="relative flex items-center transition-all duration-300"
               style={{
-                background: 'var(--mocha-surface-hover)',
-                border: '1px solid var(--mocha-border)',
+                width: searchFocused || searchQuery ? '260px' : '180px',
               }}
             >
-              <Search className="w-4 h-4" style={{ color: 'var(--mocha-text-muted)' }} />
+              <Search
+                className="absolute left-3 w-4 h-4 pointer-events-none transition-colors duration-200"
+                style={{
+                  color: searchFocused ? 'var(--mocha-accent)' : 'var(--mocha-text-muted)',
+                }}
+              />
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search..."
-                className="bg-transparent outline-none text-sm w-40 font-mono"
-                style={{ color: 'var(--mocha-text)' }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.shiftKey ? goToPrevMatch() : goToNextMatch();
                   }
+                  if (e.key === 'Escape') {
+                    setSearchQuery('');
+                    searchInputRef.current?.blur();
+                  }
                 }}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                placeholder="Search logbook..."
+                className="w-full pl-10 pr-10 py-2.5 text-sm rounded-xl font-mono"
+                style={{
+                  background: searchFocused ? 'var(--mocha-surface-raised)' : 'var(--mocha-surface-hover)',
+                  border: `1px solid ${searchFocused ? 'var(--mocha-accent)' : 'var(--mocha-border)'}`,
+                  color: 'var(--mocha-text)',
+                  boxShadow: searchFocused
+                    ? '0 0 0 3px var(--mocha-accent-muted), 0 4px 16px rgba(0,0,0,0.2)'
+                    : 'none',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+                title="Search logbook (⌘G). Enter for next, Shift+Enter for previous"
               />
-              {searchQuery && (
+
+              {/* Keyboard hint or clear button */}
+              {searchQuery ? (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="p-0.5 rounded hover:bg-[var(--mocha-surface-active)]"
+                  className="absolute right-3 p-1 rounded-md transition-all duration-150 hover:bg-[var(--mocha-surface-active)]"
                   style={{ color: 'var(--mocha-text-muted)' }}
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
+              ) : !searchFocused && (
+                <div
+                  className="absolute right-3 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                  style={{
+                    background: 'var(--mocha-surface-active)',
+                    color: 'var(--mocha-text-muted)',
+                  }}
+                >
+                  <Command className="w-2.5 h-2.5" />
+                  <span>G</span>
+                </div>
               )}
             </div>
 
+            {/* Regex toggle with gradient when active */}
             <button
               onClick={() => setIsRegex(!isRegex)}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors"
+              className="px-3 py-2.5 rounded-xl text-xs font-mono font-semibold transition-all duration-200"
               style={{
-                background: isRegex ? 'var(--mocha-accent)' : 'var(--mocha-surface-hover)',
+                background: isRegex
+                  ? 'linear-gradient(135deg, var(--mocha-accent) 0%, #d49544 100%)'
+                  : 'var(--mocha-surface-hover)',
+                border: `1px solid ${isRegex ? 'var(--mocha-accent)' : 'var(--mocha-border)'}`,
                 color: isRegex ? 'var(--mocha-bg)' : 'var(--mocha-text-muted)',
+                boxShadow: isRegex ? '0 2px 12px var(--mocha-accent-glow)' : 'none',
               }}
-              title="Toggle regex"
+              title="Toggle regex search"
             >
               .*
             </button>
 
-            {searchMatches.length > 0 && (
-              <div className="flex items-center gap-1">
+            {/* Match navigation pill */}
+            {searchQuery && (
+              <div
+                className="flex items-center gap-1 animate-scale-in"
+                style={{
+                  background: 'var(--mocha-surface-raised)',
+                  border: '1px solid var(--mocha-border)',
+                  borderRadius: '12px',
+                  padding: '4px',
+                }}
+              >
                 <button
                   onClick={goToPrevMatch}
-                  className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-colors"
-                  style={{ color: 'var(--mocha-text-secondary)' }}
+                  className="p-1.5 rounded-lg transition-all duration-150 hover:bg-[var(--mocha-surface-hover)]"
+                  style={{ color: searchMatches.length > 0 ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)' }}
+                  title="Previous match (Shift+Enter)"
+                  disabled={searchMatches.length === 0}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
+
                 <span
-                  className="text-xs tabular-nums px-1.5 font-mono"
-                  style={{ color: 'var(--mocha-text-secondary)' }}
+                  className="text-xs tabular-nums min-w-[3.5rem] text-center font-mono font-medium px-1"
+                  style={{
+                    color: searchMatches.length > 0 ? 'var(--mocha-text-secondary)' : 'var(--mocha-error)',
+                  }}
                 >
-                  {currentMatchIndex + 1}/{searchMatches.length}
+                  {searchMatches.length > 0 ? `${currentMatchIndex + 1}/${searchMatches.length}` : '0/0'}
                 </span>
+
                 <button
                   onClick={goToNextMatch}
-                  className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-colors"
-                  style={{ color: 'var(--mocha-text-secondary)' }}
+                  className="p-1.5 rounded-lg transition-all duration-150 hover:bg-[var(--mocha-surface-hover)]"
+                  style={{ color: searchMatches.length > 0 ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)' }}
+                  title="Next match (Enter)"
+                  disabled={searchMatches.length === 0}
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
-            )}
-
-            {searchQuery && searchMatches.length === 0 && (
-              <span className="text-xs" style={{ color: 'var(--mocha-error)' }}>
-                No matches
-              </span>
             )}
           </div>
         )}
