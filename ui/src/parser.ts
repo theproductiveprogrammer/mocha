@@ -769,6 +769,15 @@ function parseFileLines(
 }
 
 /**
+ * Check if a timestamp string includes a date component
+ */
+function timestampHasDate(timestamp: string): boolean {
+  if (!timestamp) return false;
+  // Has date if it contains YYYY-MM-DD pattern
+  return /\d{4}-\d{2}-\d{2}/.test(timestamp);
+}
+
+/**
  * Convert a parsed timestamp string to epoch milliseconds
  * Handles formats:
  * - "2025-12-19 09:53:23.110" (date + space + time)
@@ -813,14 +822,17 @@ export function parseLogFile(content: string, fileName: string, filePath?: strin
     // Determine final timestamp:
     // - If log.timestamp is a "real" epoch (extracted from file format like Grafana 3-part), keep it
     // - If log.timestamp is a "fake" epoch (generated from line order, close to now), use parsed timestamp
+    //   BUT only if the parsed timestamp includes a date (not time-only)
     // Fake timestamps are within 1 hour of now (line order × 1000ms)
     const now = Date.now();
     const isFakeTimestamp = log.timestamp && Math.abs(now - log.timestamp) < 3600000;
     const parsedEpoch = parsed.timestamp ? parseTimestampToEpoch(parsed.timestamp) : null;
+    // Only use parsed timestamp if it has a date - time-only timestamps break sorting across day boundaries
+    const parsedHasDate = parsed.timestamp ? timestampHasDate(parsed.timestamp) : false;
     return {
       ...log,
       parsed,
-      timestamp: isFakeTimestamp ? (parsedEpoch ?? log.timestamp) : log.timestamp,
+      timestamp: (isFakeTimestamp && parsedHasDate) ? (parsedEpoch ?? log.timestamp) : log.timestamp,
     };
   });
   return { logs, totalLines, truncated };
