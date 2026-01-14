@@ -94,8 +94,9 @@ const patterns: LogPattern[] = [
     name: 'salesbox-core',
     parse: (line: string): ParsedLogLine | null => {
       // Full format with [context]
+      // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
       let match = line.match(
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+\[[^\]]*\]\s+-\s*(.*)$/i
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+\[[^\]]*\]\s+[-–—]\s*(.*)$/i
       );
       if (match) {
         return {
@@ -108,7 +109,7 @@ const patterns: LogPattern[] = [
 
       // Simpler format without [context]
       match = line.match(
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+-\s*(.*)$/i
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+[-–—]\s*(.*)$/i
       );
       if (match) {
         return {
@@ -121,7 +122,7 @@ const patterns: LogPattern[] = [
 
       // Even simpler - dual timestamp with just level and logger
       match = line.match(
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+-\s*(.*)$/i
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+[-–—]\s*(.*)$/i
       );
       if (match) {
         return {
@@ -139,11 +140,12 @@ const patterns: LogPattern[] = [
   // 1. SalesBox App Format
   // 2025-12-19 05:32:17,405 33667971 [thread] INFO com.r2.util.SQSUtil - message
   // Note: There may be extra spaces before/after the level (e.g., "INFO  " with double space)
+  // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
   {
     name: 'salesbox-app',
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]\d+)\s+\d+\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+-\s*(.*)$/i
+        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]\d+)\s+\d+\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+[-–—]\s*(.*)$/i
       );
       if (!match) return null;
       return {
@@ -157,11 +159,12 @@ const patterns: LogPattern[] = [
 
   // 2. IWF/Spring Format
   // [http-nio-3004-exec-5] WARN i.i.w.u.StateWaitForLeads [StateWaitForLeads.java:133] [default] - message
+  // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
   {
     name: 'iwf-spring',
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+\[[^\]]*\]\s+-\s*(.*)$/i
+        /^\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+\[[^\]]*\]\s+[-–—]\s*(.*)$/i
       );
       if (!match) return null;
       return {
@@ -174,11 +177,12 @@ const patterns: LogPattern[] = [
 
   // 3. Logback with Source
   // 2025-12-18 08:21:56.203 [thread] LEVEL logger [Source.java:line] [context] - message
+  // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
   {
     name: 'logback-with-source',
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+\[[^\]]*\]\s+-\s*(.*)$/i
+        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+\[[^\]]*\]\s+[-–—]\s*(.*)$/i
       );
       if (!match) return null;
       return {
@@ -192,11 +196,12 @@ const patterns: LogPattern[] = [
 
   // 4. Logback Internal
   // 13:42:38,400 |-INFO in ch.qos.logback...AppenderAction - message
+  // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
   {
     name: 'logback-internal',
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^(\d{2}:\d{2}:\d{2}[,.]\d+)\s+\|-(ERROR|WARN|INFO|DEBUG|TRACE)\s+in\s+(\S+)\s+-\s*(.*)$/i
+        /^(\d{2}:\d{2}:\d{2}[,.]\d+)\s+\|-(ERROR|WARN|INFO|DEBUG|TRACE)\s+in\s+(\S+)\s+[-–—]\s*(.*)$/i
       );
       if (!match) return null;
       return {
@@ -313,11 +318,12 @@ const patterns: LogPattern[] = [
 
   // 9. Logback Time-Only
   // 13:15:39.047 [main] WARN c.s.platform.util.CryptKeyUtil - message
+  // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
   {
     name: 'logback-time-only',
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^(\d{2}:\d{2}:\d{2}[,.]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+-\s*(.*)$/i
+        /^(\d{2}:\d{2}:\d{2}[,.]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+[-–—]\s*(.*)$/i
       );
       if (!match) return null;
       return {

@@ -242,6 +242,7 @@ export interface FileState {
   setRecentFiles: (files: RecentFile[]) => void;
   addRecentFile: (file: RecentFile) => void;
   removeRecentFile: (path: string) => void;
+  clearOpenedFiles: () => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 }

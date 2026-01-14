@@ -67,6 +67,7 @@ function App() {
     setRecentFiles,
     addRecentFile: addRecentFileToStore,
     removeRecentFile,
+    clearOpenedFiles,
     setLoading,
     setError,
   } = useFileStore()
@@ -415,8 +416,9 @@ function App() {
 
   const handleClearRecent = useCallback(() => {
     setRecentFiles([])
+    clearOpenedFiles()  // Also clear opened files so logs disappear
     clearRecentFiles()  // Also clear Tauri's ~/.mocha/recent.json
-  }, [setRecentFiles])
+  }, [setRecentFiles, clearOpenedFiles])
 
   const handleRemoveFile = useCallback((path: string) => {
     removeRecentFile(path)
