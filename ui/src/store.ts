@@ -207,7 +207,17 @@ export const useStoryStore = create<StoryState>()(
       createStory: (name?: string) => {
         const id = generateStoryId()
         const { stories } = get()
-        const storyNumber = stories.length + 1
+        // Find the next available number by checking existing "Logbook N" names
+        const usedNumbers = new Set(
+          stories
+            .map(s => s.name.match(/^Logbook (\d+)$/))
+            .filter((m): m is RegExpMatchArray => m !== null)
+            .map(m => parseInt(m[1], 10))
+        )
+        let storyNumber = 1
+        while (usedNumbers.has(storyNumber)) {
+          storyNumber++
+        }
         const newStory: Story = {
           id,
           name: name || `Logbook ${storyNumber}`,
