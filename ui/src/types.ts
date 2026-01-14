@@ -240,6 +240,7 @@ export interface FileState {
   updateFileLogs: (path: string, logs: LogEntry[]) => void;
   appendFileLogs: (path: string, newLogs: LogEntry[], newSize?: number) => void;
   setRecentFiles: (files: RecentFile[]) => void;
+  addRecentFile: (file: RecentFile) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 }

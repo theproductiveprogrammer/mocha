@@ -490,6 +490,13 @@ export const useFileStore = create<FileState>()(
         set({ recentFiles: deduplicated })
       },
 
+      // Add a single recent file (uses current state to avoid race conditions with multiple drops)
+      addRecentFile: (file: RecentFile) => {
+        const { recentFiles } = get()
+        const filtered = recentFiles.filter(f => f.path !== file.path)
+        set({ recentFiles: [file, ...filtered].slice(0, 20) })
+      },
+
       setLoading: (loading: boolean) => set({ isLoading: loading }),
 
       setError: (error: string | null) => set({ error, isLoading: false }),

@@ -65,6 +65,7 @@ function App() {
     toggleFileActive,
     appendFileLogs,
     setRecentFiles,
+    addRecentFile: addRecentFileToStore,
     setLoading,
     setError,
   } = useFileStore()
@@ -274,11 +275,10 @@ function App() {
 
         console.timeEnd('total')
 
-        // Background updates
+        // Background updates - use store action to avoid race conditions with multiple drops
         setTimeout(() => {
-          addRecentFile(filePath)
-          const newRecentFile = { path: filePath, name: fileName, lastOpened: Date.now() }
-          setRecentFiles([newRecentFile, ...recentFiles.filter(f => f.path !== filePath).slice(0, 19)])
+          addRecentFile(filePath)  // Persist to Tauri backend
+          addRecentFileToStore({ path: filePath, name: fileName, lastOpened: Date.now() })
         }, 0)
 
       } catch (err) {
@@ -303,7 +303,7 @@ function App() {
         fileInputRef.current?.click()
       }
     }
-  }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, setRecentFiles, recentFiles])
+  }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, addRecentFileToStore])
 
   // Handle file selection from browser file input
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -340,11 +340,7 @@ function App() {
         openFile(newFile)
 
         setTimeout(() => {
-          const now = Date.now()
-          setRecentFiles([
-            { path: file.name, name: file.name, lastOpened: now },
-            ...recentFiles.filter(f => f.path !== file.name).slice(0, 19),
-          ])
+          addRecentFileToStore({ path: file.name, name: file.name, lastOpened: Date.now() })
         }, 0)
 
       } catch (err) {
@@ -359,7 +355,7 @@ function App() {
     }
     reader.readAsText(file)
     e.target.value = ''
-  }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, setRecentFiles, recentFiles])
+  }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, addRecentFileToStore])
 
   // Tauri drag/drop event listener - uses native file paths for recent files persistence
   useEffect(() => {
