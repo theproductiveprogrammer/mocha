@@ -90,3 +90,16 @@ export async function addRecentFile(path: string): Promise<void> {
     console.error('addRecentFile error:', err);
   }
 }
+
+/**
+ * Clear the recent files list in ~/.mocha/recent.json
+ */
+export async function clearRecentFiles(): Promise<void> {
+  if (!isTauri()) return;
+
+  try {
+    await invoke('clear_recent_files');
+  } catch (err) {
+    console.error('clearRecentFiles error:', err);
+  }
+}

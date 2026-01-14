@@ -1,5 +1,5 @@
-import { memo } from 'react'
-import { FolderOpen, FileText, Clock, Trash2, Check, Coffee } from 'lucide-react'
+import { memo, useCallback } from 'react'
+import { FolderOpen, FileText, Clock, Trash2, Check, Coffee, X } from 'lucide-react'
 import type { SidebarProps, RecentFile, OpenedFileWithLogs } from '../types'
 
 /**
@@ -33,6 +33,7 @@ interface RecentFileItemProps {
   file: RecentFile
   openedFile?: OpenedFileWithLogs
   onClick: () => void
+  onRemove: () => void
   index: number
 }
 
@@ -40,15 +41,22 @@ const RecentFileItem = memo(function RecentFileItem({
   file,
   openedFile,
   onClick,
+  onRemove,
   index,
 }: RecentFileItemProps) {
   const isOpened = !!openedFile
   const isActive = openedFile?.isActive ?? false
 
+  const handleRemove = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    onRemove()
+  }, [onRemove])
+
   return (
-    <button
-      onClick={onClick}
-      className="group w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 flex items-start gap-3 animate-slide-in"
+    <div className="group relative animate-slide-in" style={{ animationDelay: `${index * 30}ms` }}>
+      <button
+        onClick={onClick}
+        className="w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 flex items-start gap-3"
       style={{
         background: isActive
           ? 'var(--mocha-selection)'
@@ -58,7 +66,6 @@ const RecentFileItem = memo(function RecentFileItem({
         border: isActive
           ? '1px solid var(--mocha-selection-border)'
           : '1px solid transparent',
-        animationDelay: `${index * 30}ms`,
       }}
       onMouseEnter={(e) => {
         if (!isActive && !isOpened) {
@@ -138,7 +145,28 @@ const RecentFileItem = memo(function RecentFileItem({
           )}
         </div>
       </div>
-    </button>
+      </button>
+      {/* Remove button - appears on hover */}
+      <button
+        onClick={handleRemove}
+        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{
+          background: 'var(--mocha-surface-raised)',
+          color: 'var(--mocha-text-muted)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'var(--mocha-error-bg)'
+          e.currentTarget.style.color = 'var(--mocha-error)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'var(--mocha-surface-raised)'
+          e.currentTarget.style.color = 'var(--mocha-text-muted)'
+        }}
+        title="Remove from list"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
   )
 })
 
@@ -150,6 +178,7 @@ export const Sidebar = memo(function Sidebar({
   openedFiles,
   onSelectFile,
   onToggleFile,
+  onRemoveFile,
   onClearRecent,
 }: SidebarProps) {
   const activeCount = Array.from(openedFiles.values()).filter(f => f.isActive).length
@@ -263,6 +292,7 @@ export const Sidebar = memo(function Sidebar({
                         onSelectFile(file.path)
                       }
                     }}
+                    onRemove={() => onRemoveFile(file.path)}
                   />
                 )
               })}

@@ -497,6 +497,17 @@ export const useFileStore = create<FileState>()(
         set({ recentFiles: [file, ...filtered].slice(0, 20) })
       },
 
+      // Remove a single recent file by path
+      removeRecentFile: (path: string) => {
+        const { recentFiles, openedFiles } = get()
+        // Remove from recent files list
+        const filtered = recentFiles.filter(f => f.path !== path)
+        // Also remove from opened files if present
+        const newOpenedFiles = new Map(openedFiles)
+        newOpenedFiles.delete(path)
+        set({ recentFiles: filtered, openedFiles: newOpenedFiles })
+      },
+
       setLoading: (loading: boolean) => set({ isLoading: loading }),
 
       setError: (error: string | null) => set({ error, isLoading: false }),

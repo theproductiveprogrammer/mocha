@@ -4,7 +4,7 @@ import { open as openFileDialog } from '@tauri-apps/plugin-dialog'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import type { LogEntry, OpenedFileWithLogs } from './types'
 import './types'
-import { isTauri, waitForConnection, readFile, getRecentFiles, addRecentFile } from './api'
+import { isTauri, waitForConnection, readFile, getRecentFiles, addRecentFile, clearRecentFiles } from './api'
 import { parseLogFile } from './parser'
 import { useLogViewerStore, useStoryStore, useFileStore, filterLogs } from './store'
 import { Sidebar, Toolbar, LogViewer } from './components'
@@ -66,6 +66,7 @@ function App() {
     appendFileLogs,
     setRecentFiles,
     addRecentFile: addRecentFileToStore,
+    removeRecentFile,
     setLoading,
     setError,
   } = useFileStore()
@@ -414,7 +415,12 @@ function App() {
 
   const handleClearRecent = useCallback(() => {
     setRecentFiles([])
+    clearRecentFiles()  // Also clear Tauri's ~/.mocha/recent.json
   }, [setRecentFiles])
+
+  const handleRemoveFile = useCallback((path: string) => {
+    removeRecentFile(path)
+  }, [removeRecentFile])
 
   const handleToggleWatch = useCallback(() => {
     // For now, watching is disabled with multi-file - would need more complex logic
@@ -474,6 +480,7 @@ function App() {
         openedFiles={safeOpenedFiles}
         onSelectFile={handleSelectFile}
         onToggleFile={handleToggleFile}
+        onRemoveFile={handleRemoveFile}
         onClearRecent={handleClearRecent}
       />
 

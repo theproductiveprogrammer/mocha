@@ -241,6 +241,7 @@ export interface FileState {
   appendFileLogs: (path: string, newLogs: LogEntry[], newSize?: number) => void;
   setRecentFiles: (files: RecentFile[]) => void;
   addRecentFile: (file: RecentFile) => void;
+  removeRecentFile: (path: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 }
@@ -257,6 +258,7 @@ export interface SidebarProps {
   openedFiles: Map<string, OpenedFileWithLogs>;
   onSelectFile: (path?: string) => void;
   onToggleFile: (path: string) => void;
+  onRemoveFile: (path: string) => void;
   onClearRecent: () => void;
 }
 

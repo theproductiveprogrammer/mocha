@@ -253,3 +253,27 @@ pub fn add_recent_file(path: String) -> bool {
 
     file.write_all(json.as_bytes()).is_ok()
 }
+
+/// Clear the recent files list
+#[tauri::command]
+pub fn clear_recent_files() -> bool {
+    let recent_path = match get_recent_file_path() {
+        Some(p) => p,
+        None => return false,
+    };
+
+    // Write empty array to file
+    let json = "[]";
+
+    let mut file = match OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&recent_path)
+    {
+        Ok(f) => f,
+        Err(_) => return false,
+    };
+
+    file.write_all(json.as_bytes()).is_ok()
+}
