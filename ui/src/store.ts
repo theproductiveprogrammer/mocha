@@ -442,8 +442,9 @@ export const useFileStore = create<FileState>()(
 
       /**
        * Append new logs to a file (used for polling/watching).
+       * @param newSize - The actual new file size in bytes (for next poll offset)
        */
-      appendFileLogs: (path: string, newLogs: LogEntry[]) => {
+      appendFileLogs: (path: string, newLogs: LogEntry[], newSize?: number) => {
         const { openedFiles } = get()
         const file = openedFiles.get(path)
         if (!file) return
@@ -452,7 +453,7 @@ export const useFileStore = create<FileState>()(
         newMap.set(path, {
           ...file,
           logs: [...file.logs, ...newLogs],
-          lastModified: file.lastModified + newLogs.length, // Approximate, will be updated properly
+          lastModified: newSize ?? file.lastModified, // Use actual file size for next poll
         })
         set({ openedFiles: newMap })
       },

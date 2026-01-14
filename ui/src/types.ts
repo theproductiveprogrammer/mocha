@@ -234,7 +234,7 @@ export interface FileState {
   openFile: (file: OpenedFileWithLogs) => void;
   toggleFileActive: (path: string) => void;
   updateFileLogs: (path: string, logs: LogEntry[]) => void;
-  appendFileLogs: (path: string, newLogs: LogEntry[]) => void;
+  appendFileLogs: (path: string, newLogs: LogEntry[], newSize?: number) => void;
   setRecentFiles: (files: RecentFile[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;

@@ -361,7 +361,7 @@ function App() {
 
           if (result.content && newSize > file.lastModified) {
             const newLines = parseLogFile(result.content, file.name, file.path)
-            appendFileLogs(file.path, newLines.logs)
+            appendFileLogs(file.path, newLines.logs, newSize)
           }
         } catch (err) {
           console.error(`Polling error for ${file.name}:`, err)
