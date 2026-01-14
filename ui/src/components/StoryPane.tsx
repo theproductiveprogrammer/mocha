@@ -12,9 +12,28 @@ import {
   Pencil,
   Coffee,
 } from "lucide-react";
+import { JsonView } from "react-json-view-lite";
+import "react-json-view-lite/dist/index.css";
 import type { LogEntry, LogToken, Story } from "../types";
 import { tokenizeContent } from "../parser";
 import { getServiceName } from "./LogLine";
+
+// Custom styles matching logbook paper aesthetic
+const logbookJsonStyles = {
+  container: 'jv-logbook-container',
+  basicChildStyle: 'jv-logbook-child',
+  label: 'jv-logbook-label',
+  nullValue: 'jv-logbook-null',
+  undefinedValue: 'jv-logbook-null',
+  stringValue: 'jv-logbook-string',
+  booleanValue: 'jv-logbook-boolean',
+  numberValue: 'jv-logbook-number',
+  otherValue: 'jv-logbook-other',
+  punctuation: 'jv-logbook-punctuation',
+  collapseIcon: 'jv-logbook-collapse-icon',
+  expandIcon: 'jv-logbook-expand-icon',
+  collapsedContent: 'jv-logbook-collapsed',
+};
 
 interface StoryPaneProps {
   stories: Story[];
@@ -32,8 +51,6 @@ interface StoryPaneProps {
   onSetActiveStory: (id: string) => void;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
 }
-
-import { ArrowLeft, ArrowRight } from "lucide-react";
 
 /**
  * Render a single token with appropriate styling
@@ -65,179 +82,6 @@ function TokenSpan({ token }: { token: LogToken }) {
 }
 
 /**
- * Parse API call from log content
- */
-interface ApiCallParsed {
-  url: string;
-  direction: "in" | "out" | null;
-  body: string | null;
-  prefix: string | null; // text before the URL
-}
-
-function parseApiCall(content: string): ApiCallParsed | null {
-  // Match patterns like:
-  // "/user-token/get-access-token: <- {...}"
-  // "GET /api/users -> {...}"
-  // "c.s.platform.auth.TokenProvider - /user-token/get-access-token: <- {...}"
-
-  const urlMatch = content.match(/(\/[a-zA-Z0-9\-_\/]+)/);
-  if (!urlMatch) return null;
-
-  const url = urlMatch[1];
-  const urlIndex = content.indexOf(url);
-  const prefix = urlIndex > 0 ? content.slice(0, urlIndex).trim() : null;
-  const afterUrl = content.slice(urlIndex + url.length);
-
-  // Detect direction
-  let direction: "in" | "out" | null = null;
-  let bodyStart = 0;
-
-  if (afterUrl.includes("<-") || afterUrl.includes("←")) {
-    direction = "in";
-    bodyStart = Math.max(afterUrl.indexOf("<-"), afterUrl.indexOf("←")) + 2;
-  } else if (afterUrl.includes("->") || afterUrl.includes("→")) {
-    direction = "out";
-    bodyStart = Math.max(afterUrl.indexOf("->"), afterUrl.indexOf("→")) + 2;
-  }
-
-  // Extract body (everything after the direction arrow)
-  let body: string | null = null;
-  if (bodyStart > 0) {
-    body = afterUrl.slice(bodyStart).trim();
-    // Clean up the body - remove leading colon if present
-    if (body.startsWith(":")) body = body.slice(1).trim();
-  } else {
-    // No direction found, check for body after colon
-    const colonIndex = afterUrl.indexOf(":");
-    if (colonIndex >= 0) {
-      body = afterUrl.slice(colonIndex + 1).trim();
-    }
-  }
-
-  return { url, direction, body, prefix };
-}
-
-/**
- * Format JSON for display
- */
-function formatJsonBody(body: string): string {
-  try {
-    const parsed = JSON.parse(body);
-    return JSON.stringify(parsed, null, 2);
-  } catch {
-    return body;
-  }
-}
-
-/**
- * API Call display component
- */
-function ApiCallDisplay({ parsed }: { parsed: ApiCallParsed }) {
-  const [expanded, setExpanded] = useState(false);
-  const hasBody = parsed.body && parsed.body.length > 0;
-  const isJson =
-    hasBody && (parsed.body!.startsWith("{") || parsed.body!.startsWith("["));
-
-  return (
-    <div className="space-y-2">
-      {/* URL row */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Direction badge */}
-        {parsed.direction && (
-          <span
-            className={`
-              inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider
-              ${
-                parsed.direction === "in"
-                  ? "bg-emerald-100 text-emerald-700"
-                  : "bg-blue-100 text-blue-700"
-              }
-            `}
-          >
-            {parsed.direction === "in" ? (
-              <>
-                <ArrowLeft className="w-3 h-3" />
-                Response
-              </>
-            ) : (
-              <>
-                <ArrowRight className="w-3 h-3" />
-                Request
-              </>
-            )}
-          </span>
-        )}
-
-        {/* URL */}
-        <code
-          className="px-2 py-1 rounded text-[12px] font-semibold"
-          style={{
-            background: "rgba(107, 158, 206, 0.15)",
-            color: "#4a7ba8",
-            fontFamily: '"JetBrains Mono", monospace',
-          }}
-        >
-          {parsed.url}
-        </code>
-      </div>
-
-      {/* Body */}
-      {hasBody && (
-        <div
-          className="rounded overflow-hidden"
-          style={{
-            background: "rgba(0,0,0,0.03)",
-            border: "1px solid rgba(0,0,0,0.06)",
-          }}
-        >
-          {isJson ? (
-            <>
-              <button
-                onClick={() => setExpanded(!expanded)}
-                className="w-full px-3 py-1.5 text-left text-[10px] uppercase tracking-wide flex items-center gap-2 hover:bg-black/5 transition-colors"
-                style={{ color: "#8b8378" }}
-              >
-                {expanded ? (
-                  <ChevronUp className="w-3 h-3" />
-                ) : (
-                  <ChevronDown className="w-3 h-3" />
-                )}
-                JSON Body
-              </button>
-              <pre
-                className="px-3 py-2 text-[11px] leading-relaxed overflow-x-auto"
-                style={{
-                  color: "#5a544d",
-                  fontFamily: '"JetBrains Mono", monospace',
-                  maxHeight: expanded ? "300px" : "60px",
-                  overflow: expanded ? "auto" : "hidden",
-                }}
-              >
-                {expanded
-                  ? formatJsonBody(parsed.body!)
-                  : parsed.body!.slice(0, 100) +
-                    (parsed.body!.length > 100 ? "..." : "")}
-              </pre>
-            </>
-          ) : (
-            <div
-              className="px-3 py-2 text-[11px] leading-relaxed"
-              style={{
-                color: "#5a544d",
-                fontFamily: '"JetBrains Mono", monospace',
-                wordBreak: "break-all",
-              }}
-            >
-              {parsed.body}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
  * Evidence card for a single log entry
  * Click to toggle between formatted and raw view
  */
@@ -259,8 +103,6 @@ const EvidenceCard = memo(function EvidenceCard({
       : log.parsed.timestamp.slice(0, 8)
     : null;
 
-  // Check if this is an API call
-  const apiCall = parseApiCall(content);
   const { tokens } = tokenizeContent(content);
 
   // Raw log data (original line from file)
@@ -270,8 +112,7 @@ const EvidenceCard = memo(function EvidenceCard({
     <div className="group relative" data-story-hash={log.hash}>
       {/* Card */}
       <div
-        onClick={() => setShowRaw(!showRaw)}
-        className="relative mx-4 mb-3 rounded-lg overflow-hidden transition-all duration-200 cursor-pointer hover:shadow-md"
+        className="relative mx-4 mb-3 rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md"
         style={{
           background: showRaw
             ? "linear-gradient(135deg, #2a2826 0%, #1e1c1a 100%)"
@@ -329,17 +170,16 @@ const EvidenceCard = memo(function EvidenceCard({
             >
               {serviceName}
             </span>
-            {showRaw && (
-              <span
-                className="text-[9px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider"
-                style={{
-                  background: "rgba(90, 181, 168, 0.2)",
-                  color: "#5ab5a8",
-                }}
-              >
-                RAW
-              </span>
-            )}
+            <button
+              onClick={() => setShowRaw(!showRaw)}
+              className="text-[9px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider cursor-pointer transition-all hover:scale-105"
+              style={{
+                background: showRaw ? "rgba(90, 181, 168, 0.2)" : "rgba(0,0,0,0.04)",
+                color: showRaw ? "#5ab5a8" : "#a8a098",
+              }}
+            >
+              {showRaw ? "RAW" : "RAW"}
+            </button>
           </div>
 
           {/* Log content - raw or formatted */}
@@ -353,8 +193,6 @@ const EvidenceCard = memo(function EvidenceCard({
             >
               {rawLog}
             </div>
-          ) : apiCall ? (
-            <ApiCallDisplay parsed={apiCall} />
           ) : (
             <div
               className="text-[13px] leading-relaxed"
@@ -364,9 +202,33 @@ const EvidenceCard = memo(function EvidenceCard({
                 wordBreak: "break-word",
               }}
             >
-              {tokens.map((token, i) => (
-                <TokenSpan key={i} token={token} />
-              ))}
+              {tokens.map((token, i) => {
+                // Render JSON tokens with JsonView
+                if (token.type === "json") {
+                  try {
+                    const parsed = JSON.parse(token.text);
+                    return (
+                      <div
+                        key={i}
+                        className="my-2 p-2 rounded text-[12px]"
+                        style={{
+                          background: "rgba(0,0,0,0.03)",
+                          border: "1px solid rgba(0,0,0,0.06)",
+                        }}
+                      >
+                        <JsonView
+                          data={parsed}
+                          shouldExpandNode={(level) => level < 1}
+                          style={logbookJsonStyles}
+                        />
+                      </div>
+                    );
+                  } catch {
+                    // If parse fails, fall through to regular token
+                  }
+                }
+                return <TokenSpan key={i} token={token} />;
+              })}
             </div>
           )}
         </div>

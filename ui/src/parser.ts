@@ -863,11 +863,104 @@ function classifyToken(text: string): TokenType {
 }
 
 /**
+ * Find the end of a JSON block starting at position 0
+ * Returns the index after the closing bracket, or -1 if not valid JSON
+ */
+function findJsonEnd(str: string): number {
+  if (!str || (str[0] !== '{' && str[0] !== '[')) return -1;
+
+  const endChar = str[0] === '{' ? '}' : ']';
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === str[0]) {
+      depth++;
+    } else if (char === endChar) {
+      depth--;
+      if (depth === 0) {
+        return i + 1;
+      }
+    }
+  }
+
+  return -1;
+}
+
+/**
  * Tokenize a segment of content (non-marker parts)
+ * Extracts JSON blocks first, then tokenizes the rest by whitespace
  */
 function tokenizeSegment(segment: string): LogToken[] {
   const tokens: LogToken[] = [];
-  const parts = segment.split(/(\s+)/);
+  let remaining = segment;
+
+  while (remaining.length > 0) {
+    // Find the first potential JSON start
+    const jsonStart = remaining.search(/[{[]/);
+
+    if (jsonStart === -1) {
+      // No JSON found, tokenize the rest normally
+      tokenizeSimpleParts(remaining, tokens);
+      break;
+    }
+
+    // Tokenize text before JSON
+    if (jsonStart > 0) {
+      tokenizeSimpleParts(remaining.slice(0, jsonStart), tokens);
+    }
+
+    // Try to extract JSON
+    const jsonStr = remaining.slice(jsonStart);
+    const jsonEnd = findJsonEnd(jsonStr);
+
+    if (jsonEnd > 0) {
+      // Valid JSON found
+      const jsonText = jsonStr.slice(0, jsonEnd);
+      // Verify it parses
+      try {
+        JSON.parse(jsonText);
+        tokens.push({ text: jsonText, type: 'json' });
+        remaining = jsonStr.slice(jsonEnd);
+        continue;
+      } catch {
+        // Not valid JSON, treat the opening bracket as regular text
+      }
+    }
+
+    // Not valid JSON, tokenize just the bracket and continue
+    tokens.push({ text: remaining[jsonStart], type: 'message' });
+    remaining = remaining.slice(jsonStart + 1);
+  }
+
+  return tokens;
+}
+
+/**
+ * Tokenize simple text parts (no JSON) by whitespace
+ */
+function tokenizeSimpleParts(text: string, tokens: LogToken[]): void {
+  const parts = text.split(/(\s+)/);
 
   for (const part of parts) {
     if (!part) continue;
@@ -875,13 +968,6 @@ function tokenizeSegment(segment: string): LogToken[] {
     // Whitespace
     if (/^\s+$/.test(part)) {
       tokens.push({ text: part, type: 'message' });
-      continue;
-    }
-
-    // JSON blocks
-    if ((part.startsWith('{') && part.endsWith('}')) ||
-        (part.startsWith('[') && part.endsWith(']'))) {
-      tokens.push({ text: part, type: 'json' });
       continue;
     }
 
@@ -894,8 +980,6 @@ function tokenizeSegment(segment: string): LogToken[] {
     // Classify the token
     tokens.push({ text: part, type: classifyToken(part) });
   }
-
-  return tokens;
 }
 
 /**

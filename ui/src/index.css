@@ -210,3 +210,92 @@ button {
   pointer-events: none;
   mix-blend-mode: overlay;
 }
+
+/* ========================================
+   JSON View - Logbook Paper Theme
+   ======================================== */
+.jv-logbook-container {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.jv-logbook-child {
+  padding-left: 1em;
+  margin-left: 0.3em;
+  border-left: 1px solid rgba(139, 131, 120, 0.2);
+}
+
+.jv-logbook-label {
+  color: #5a544d;
+}
+
+.jv-logbook-string {
+  color: #5a8a5a;
+}
+
+.jv-logbook-number {
+  color: #4a7ba8;
+}
+
+.jv-logbook-boolean {
+  color: #b8956f;
+  font-weight: 600;
+}
+
+.jv-logbook-null {
+  color: #a8a098;
+  font-style: italic;
+}
+
+.jv-logbook-other {
+  color: #3d3833;
+}
+
+.jv-logbook-punctuation {
+  color: #8b8378;
+}
+
+.jv-logbook-expand-icon {
+  cursor: pointer;
+  color: #6b635a;
+  margin-right: 4px;
+  user-select: none;
+  display: inline-block;
+  width: 1em;
+  text-align: center;
+}
+
+.jv-logbook-expand-icon::after {
+  content: '▶';
+  font-size: 8px;
+}
+
+.jv-logbook-expand-icon:hover {
+  color: #3d3833;
+}
+
+.jv-logbook-collapse-icon {
+  cursor: pointer;
+  color: #6b635a;
+  margin-right: 4px;
+  user-select: none;
+  display: inline-block;
+  width: 1em;
+  text-align: center;
+}
+
+.jv-logbook-collapse-icon::after {
+  content: '▼';
+  font-size: 8px;
+}
+
+.jv-logbook-collapse-icon:hover {
+  color: #3d3833;
+}
+
+.jv-logbook-collapsed {
+  color: #a8a098;
+  cursor: pointer;
+}
+

@@ -18,6 +18,7 @@
     "murmurhash": "^2.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-json-view-lite": "^2.5.0",
     "tailwindcss": "^4.1.18",
     "zustand": "^5.0.10"
   },
