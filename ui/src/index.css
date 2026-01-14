@@ -40,9 +40,9 @@
   --mocha-info: #5ab5a8;
   --mocha-success: #6cb879;
 
-  /* Selection */
-  --mocha-selection: #4a4030;
-  --mocha-selection-border: #6a5a40;
+  /* Selection - cool teal to contrast with warm warning */
+  --mocha-selection: #1e3a3a;
+  --mocha-selection-border: #2a5050;
 
   /* Service badge palette - warm tones */
   --badge-core: #6b9bd1;

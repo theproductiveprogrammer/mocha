@@ -232,6 +232,7 @@ function ApiCallDisplay({ parsed }: { parsed: ApiCallParsed }) {
 
 /**
  * Evidence card for a single log entry
+ * Click to toggle between formatted and raw view
  */
 const EvidenceCard = memo(function EvidenceCard({
   log,
@@ -242,6 +243,7 @@ const EvidenceCard = memo(function EvidenceCard({
   index: number
   onRemove: () => void
 }) {
+  const [showRaw, setShowRaw] = useState(false)
   const serviceName = getServiceName(log)
   const content = log.parsed?.content || log.data
   const timestamp = log.parsed?.timestamp
@@ -254,29 +256,37 @@ const EvidenceCard = memo(function EvidenceCard({
   const apiCall = parseApiCall(content)
   const { tokens } = tokenizeContent(content)
 
+  // Raw log data (original line from file)
+  const rawLog = log.data
+
   return (
     <div className="group relative">
       {/* Card */}
       <div
-        className="relative mx-4 mb-3 rounded-lg overflow-hidden transition-all duration-200"
+        onClick={() => setShowRaw(!showRaw)}
+        className="relative mx-4 mb-3 rounded-lg overflow-hidden transition-all duration-200 cursor-pointer hover:shadow-md"
         style={{
-          background: 'linear-gradient(135deg, #faf8f5 0%, #f5f2ed 100%)',
+          background: showRaw
+            ? 'linear-gradient(135deg, #2a2826 0%, #1e1c1a 100%)'
+            : 'linear-gradient(135deg, #faf8f5 0%, #f5f2ed 100%)',
           boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
-          border: '1px solid rgba(0,0,0,0.06)',
+          border: showRaw ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.06)',
         }}
       >
         {/* Evidence number */}
         <div
           className="absolute -left-0 top-0 bottom-0 w-10 flex items-center justify-center"
           style={{
-            background: 'linear-gradient(135deg, #e8e4de 0%, #ddd8d0 100%)',
-            borderRight: '1px solid rgba(0,0,0,0.08)',
+            background: showRaw
+              ? 'linear-gradient(135deg, #3a3836 0%, #2a2826 100%)'
+              : 'linear-gradient(135deg, #e8e4de 0%, #ddd8d0 100%)',
+            borderRight: showRaw ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)',
           }}
         >
           <span
             className="text-xs font-bold tabular-nums"
             style={{
-              color: '#6b635a',
+              color: showRaw ? '#8a8680' : '#6b635a',
               fontFamily: '"JetBrains Mono", monospace',
             }}
           >
@@ -292,7 +302,7 @@ const EvidenceCard = memo(function EvidenceCard({
               <span
                 className="text-[10px] tracking-wide tabular-nums"
                 style={{
-                  color: '#8b8378',
+                  color: showRaw ? '#6a6460' : '#8b8378',
                   fontFamily: '"JetBrains Mono", monospace',
                 }}
               >
@@ -302,16 +312,37 @@ const EvidenceCard = memo(function EvidenceCard({
             <span
               className="text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider"
               style={{
-                background: '#e8e4de',
-                color: '#6b635a',
+                background: showRaw ? 'rgba(255,255,255,0.1)' : '#e8e4de',
+                color: showRaw ? '#a8a098' : '#6b635a',
               }}
             >
               {serviceName}
             </span>
+            {showRaw && (
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider"
+                style={{
+                  background: 'rgba(90, 181, 168, 0.2)',
+                  color: '#5ab5a8',
+                }}
+              >
+                RAW
+              </span>
+            )}
           </div>
 
-          {/* Log content - either API call display or tokenized text */}
-          {apiCall ? (
+          {/* Log content - raw or formatted */}
+          {showRaw ? (
+            <div
+              className="text-[11px] leading-relaxed whitespace-pre-wrap break-all select-text"
+              style={{
+                color: '#c8c0b8',
+                fontFamily: '"JetBrains Mono", monospace',
+              }}
+            >
+              {rawLog}
+            </div>
+          ) : apiCall ? (
             <ApiCallDisplay parsed={apiCall} />
           ) : (
             <div
@@ -337,8 +368,8 @@ const EvidenceCard = memo(function EvidenceCard({
           }}
           className="absolute right-2 top-2 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
           style={{
-            background: 'rgba(0,0,0,0.06)',
-            color: '#8b8378',
+            background: showRaw ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+            color: showRaw ? '#a8a098' : '#8b8378',
           }}
           title="Remove from story"
         >
