@@ -180,20 +180,44 @@ export interface LogViewerState {
 }
 
 /**
+ * A single story (notebook) containing curated log entries
+ */
+export interface Story {
+  id: string;
+  name: string;
+  hashes: string[];
+  createdAt: number;
+}
+
+/**
  * Story store state for building curated log narratives
+ * Supports multiple named stories (notebooks)
  */
 export interface StoryState {
-  storyHashes: string[];  // Ordered list of hashes in story
-  storyPaneHeight: number;  // Height of story pane in pixels
-  storyPaneCollapsed: boolean;  // Whether story pane is collapsed
+  stories: Story[];
+  activeStoryId: string | null;
+  storyPaneHeight: number;
+  storyPaneCollapsed: boolean;
 
-  // Actions
+  // Story management
+  createStory: (name?: string) => string;
+  deleteStory: (id: string) => void;
+  renameStory: (id: string, name: string) => void;
+  setActiveStory: (id: string | null) => void;
+
+  // Log management (operates on active story)
   addToStory: (hash: string) => void;
   removeFromStory: (hash: string) => void;
   toggleStory: (hash: string) => void;
   clearStory: () => void;
+  reorderStory: (fromIndex: number, toIndex: number) => void;
+
+  // UI state
   setStoryPaneHeight: (height: number) => void;
   setStoryPaneCollapsed: (collapsed: boolean) => void;
+
+  // Legacy compatibility - get hashes from active story
+  getActiveStoryHashes: () => string[];
 }
 
 /**

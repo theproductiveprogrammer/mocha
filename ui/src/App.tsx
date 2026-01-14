@@ -27,16 +27,28 @@ function App() {
     [rawInactiveNames]
   )
 
-  // Story store
+  // Story store - multi-story support
   const {
-    storyHashes,
+    stories,
+    activeStoryId,
     storyPaneHeight,
     storyPaneCollapsed,
+    createStory,
+    deleteStory,
+    renameStory,
+    setActiveStory,
     removeFromStory,
     clearStory,
     setStoryPaneHeight,
     setStoryPaneCollapsed,
   } = useStoryStore()
+
+  // Get active story's hashes
+  const activeStory = useMemo(
+    () => stories.find(s => s.id === activeStoryId),
+    [stories, activeStoryId]
+  )
+  const storyHashes = activeStory?.hashes || []
 
   // File store - now with multi-file support
   const {
@@ -441,6 +453,8 @@ function App() {
             <>
               <LogViewer logs={mergedLogs} />
               <StoryPane
+                stories={stories}
+                activeStoryId={activeStoryId}
                 storyLogs={storyLogs}
                 height={storyPaneHeight}
                 collapsed={storyPaneCollapsed}
@@ -448,6 +462,10 @@ function App() {
                 onClearStory={clearStory}
                 onHeightChange={setStoryPaneHeight}
                 onToggleCollapsed={() => setStoryPaneCollapsed(!storyPaneCollapsed)}
+                onCreateStory={createStory}
+                onDeleteStory={deleteStory}
+                onRenameStory={renameStory}
+                onSetActiveStory={setActiveStory}
               />
             </>
           ) : (

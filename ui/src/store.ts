@@ -7,7 +7,7 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { LogViewerState, StoryState, FileState, ParsedFilter, RecentFile, LogEntry, OpenedFileWithLogs } from './types'
+import type { LogViewerState, StoryState, FileState, ParsedFilter, RecentFile, LogEntry, OpenedFileWithLogs, Story } from './types'
 
 /**
  * Get short service name from log entry.
@@ -171,16 +171,24 @@ export const useLogViewerStore = create<LogViewerState>()(
 )
 
 // ============================================================================
-// useStoryStore - Story building state
+// useStoryStore - Multi-story management
 // ============================================================================
 
 /**
- * Store for managing the story pane - a curated selection of log lines.
+ * Generate a unique ID for stories
+ */
+function generateStoryId(): string {
+  return `story-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+/**
+ * Store for managing multiple stories (notebooks) of curated log lines.
  *
  * Features:
- * - storyHashes: Ordered array of log hashes in the story
- * - storyPaneHeight: Persisted height of the story pane
- * - storyPaneCollapsed: Whether the story pane is collapsed
+ * - Multiple named stories
+ * - Active story selection
+ * - Log management within active story
+ * - Drag-to-reorder support
  *
  * All state is persisted to localStorage.
  */
@@ -188,65 +196,154 @@ export const useStoryStore = create<StoryState>()(
   persist(
     (set, get) => ({
       // State
-      storyHashes: [],
-      storyPaneHeight: 200,
+      stories: [],
+      activeStoryId: null,
+      storyPaneHeight: 250,
       storyPaneCollapsed: false,
 
-      // Actions
+      // Story management
 
-      /**
-       * Add a log entry to the story.
-       */
+      createStory: (name?: string) => {
+        const id = generateStoryId()
+        const { stories } = get()
+        const storyNumber = stories.length + 1
+        const newStory: Story = {
+          id,
+          name: name || `Investigation ${storyNumber}`,
+          hashes: [],
+          createdAt: Date.now(),
+        }
+        set({
+          stories: [...stories, newStory],
+          activeStoryId: id,
+        })
+        return id
+      },
+
+      deleteStory: (id: string) => {
+        const { stories, activeStoryId } = get()
+        const newStories = stories.filter(s => s.id !== id)
+        set({
+          stories: newStories,
+          activeStoryId: activeStoryId === id
+            ? (newStories[0]?.id || null)
+            : activeStoryId,
+        })
+      },
+
+      renameStory: (id: string, name: string) => {
+        const { stories } = get()
+        set({
+          stories: stories.map(s =>
+            s.id === id ? { ...s, name } : s
+          ),
+        })
+      },
+
+      setActiveStory: (id: string | null) => {
+        set({ activeStoryId: id })
+      },
+
+      // Log management (operates on active story)
+
       addToStory: (hash: string) => {
-        const { storyHashes } = get()
-        if (!storyHashes.includes(hash)) {
-          set({ storyHashes: [...storyHashes, hash] })
+        const { stories, activeStoryId, createStory } = get()
+
+        // Auto-create a story if none exists
+        let targetId = activeStoryId
+        if (!targetId || !stories.find(s => s.id === targetId)) {
+          targetId = createStory()
         }
+
+        set({
+          stories: stories.map(s =>
+            s.id === targetId && !s.hashes.includes(hash)
+              ? { ...s, hashes: [...s.hashes, hash] }
+              : s
+          ),
+        })
       },
 
-      /**
-       * Remove a log entry from the story.
-       */
       removeFromStory: (hash: string) => {
-        const { storyHashes } = get()
-        set({ storyHashes: storyHashes.filter(h => h !== hash) })
+        const { stories, activeStoryId } = get()
+        if (!activeStoryId) return
+
+        set({
+          stories: stories.map(s =>
+            s.id === activeStoryId
+              ? { ...s, hashes: s.hashes.filter(h => h !== hash) }
+              : s
+          ),
+        })
       },
 
-      /**
-       * Toggle a log entry in/out of the story.
-       */
       toggleStory: (hash: string) => {
-        const { storyHashes } = get()
-        if (storyHashes.includes(hash)) {
-          set({ storyHashes: storyHashes.filter(h => h !== hash) })
+        const { stories, activeStoryId, createStory, addToStory, removeFromStory } = get()
+
+        // Auto-create a story if none exists
+        if (!activeStoryId || !stories.find(s => s.id === activeStoryId)) {
+          createStory()
+          addToStory(hash)
+          return
+        }
+
+        const activeStory = stories.find(s => s.id === activeStoryId)
+        if (!activeStory) return
+
+        if (activeStory.hashes.includes(hash)) {
+          removeFromStory(hash)
         } else {
-          set({ storyHashes: [...storyHashes, hash] })
+          addToStory(hash)
         }
       },
 
-      /**
-       * Clear all entries from the story.
-       */
       clearStory: () => {
-        set({ storyHashes: [] })
+        const { stories, activeStoryId } = get()
+        if (!activeStoryId) return
+
+        set({
+          stories: stories.map(s =>
+            s.id === activeStoryId
+              ? { ...s, hashes: [] }
+              : s
+          ),
+        })
       },
 
-      /**
-       * Set the story pane height.
-       */
+      reorderStory: (fromIndex: number, toIndex: number) => {
+        const { stories, activeStoryId } = get()
+        if (!activeStoryId) return
+
+        set({
+          stories: stories.map(s => {
+            if (s.id !== activeStoryId) return s
+            const newHashes = [...s.hashes]
+            const [removed] = newHashes.splice(fromIndex, 1)
+            newHashes.splice(toIndex, 0, removed)
+            return { ...s, hashes: newHashes }
+          }),
+        })
+      },
+
+      // UI state
+
       setStoryPaneHeight: (height: number) => {
         set({ storyPaneHeight: height })
       },
 
-      /**
-       * Set the story pane collapsed state.
-       */
       setStoryPaneCollapsed: (collapsed: boolean) => {
         set({ storyPaneCollapsed: collapsed })
       },
+
+      // Helper to get active story hashes
+      getActiveStoryHashes: () => {
+        const { stories, activeStoryId } = get()
+        const activeStory = stories.find(s => s.id === activeStoryId)
+        return activeStory?.hashes || []
+      },
     }),
     {
-      name: 'mocha-story',
+      name: 'mocha-stories',
       storage: createJSONStorage(() => localStorage),
     }
   )

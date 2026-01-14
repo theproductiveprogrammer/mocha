@@ -1,10 +1,23 @@
 import { useState, useCallback, useRef, useEffect, memo } from 'react'
-import { X, Copy, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
-import type { LogEntry, LogToken } from '../types'
+import {
+  X,
+  Copy,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  MoreHorizontal,
+  FileText,
+  Check,
+  Pencil,
+} from 'lucide-react'
+import type { LogEntry, LogToken, Story } from '../types'
 import { tokenizeContent } from '../parser'
 import { getServiceName } from './LogLine'
 
 interface StoryPaneProps {
+  stories: Story[]
+  activeStoryId: string | null
   storyLogs: LogEntry[]
   height: number
   collapsed: boolean
@@ -12,7 +25,13 @@ interface StoryPaneProps {
   onClearStory: () => void
   onHeightChange: (height: number) => void
   onToggleCollapsed: () => void
+  onCreateStory: (name?: string) => void
+  onDeleteStory: (id: string) => void
+  onRenameStory: (id: string, name: string) => void
+  onSetActiveStory: (id: string) => void
 }
+
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 
 /**
  * Render a single token with appropriate styling
@@ -21,19 +40,19 @@ function TokenSpan({ token }: { token: LogToken }) {
   const getTokenStyle = (): React.CSSProperties => {
     switch (token.type) {
       case 'marker.error':
-        return { color: 'var(--mocha-error)', fontWeight: 600 }
+        return { color: '#e85c5c', fontWeight: 600 }
       case 'marker.warn':
-        return { color: 'var(--mocha-warning)', fontWeight: 600 }
+        return { color: '#d4a054', fontWeight: 600 }
       case 'marker.info':
-        return { color: 'var(--mocha-text-muted)' }
+        return { color: '#8b8b8b' }
       case 'url':
-        return { color: 'var(--mocha-info)' }
+        return { color: '#6b9ece' }
       case 'data':
-        return { color: 'var(--mocha-accent)', fontWeight: 500 }
+        return { color: '#b8956f', fontWeight: 500 }
       case 'json':
-        return { color: 'var(--mocha-text-muted)' }
+        return { color: '#8b8b8b' }
       case 'symbol':
-        return { color: 'var(--mocha-text-muted)' }
+        return { color: '#8b8b8b' }
       case 'message':
       default:
         return {}
@@ -44,94 +63,183 @@ function TokenSpan({ token }: { token: LogToken }) {
 }
 
 /**
- * Check if content looks like JSON
+ * Parse API call from log content
  */
-function isJsonContent(content: string): boolean {
-  const trimmed = content.trim()
-  return (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-         (trimmed.startsWith('[') && trimmed.endsWith(']'))
+interface ApiCallParsed {
+  url: string
+  direction: 'in' | 'out' | null
+  body: string | null
+  prefix: string | null // text before the URL
 }
 
-/**
- * Check if content looks like a stack trace
- */
-function isStackTrace(content: string): boolean {
-  return /^\s*at\s+/.test(content) ||
-         /Exception|Error/.test(content) && content.includes('\n')
+function parseApiCall(content: string): ApiCallParsed | null {
+  // Match patterns like:
+  // "/user-token/get-access-token: <- {...}"
+  // "GET /api/users -> {...}"
+  // "c.s.platform.auth.TokenProvider - /user-token/get-access-token: <- {...}"
+
+  const urlMatch = content.match(/(\/[a-zA-Z0-9\-_\/]+)/)
+  if (!urlMatch) return null
+
+  const url = urlMatch[1]
+  const urlIndex = content.indexOf(url)
+  const prefix = urlIndex > 0 ? content.slice(0, urlIndex).trim() : null
+  const afterUrl = content.slice(urlIndex + url.length)
+
+  // Detect direction
+  let direction: 'in' | 'out' | null = null
+  let bodyStart = 0
+
+  if (afterUrl.includes('<-') || afterUrl.includes('←')) {
+    direction = 'in'
+    bodyStart = Math.max(afterUrl.indexOf('<-'), afterUrl.indexOf('←')) + 2
+  } else if (afterUrl.includes('->') || afterUrl.includes('→')) {
+    direction = 'out'
+    bodyStart = Math.max(afterUrl.indexOf('->'), afterUrl.indexOf('→')) + 2
+  }
+
+  // Extract body (everything after the direction arrow)
+  let body: string | null = null
+  if (bodyStart > 0) {
+    body = afterUrl.slice(bodyStart).trim()
+    // Clean up the body - remove leading colon if present
+    if (body.startsWith(':')) body = body.slice(1).trim()
+  } else {
+    // No direction found, check for body after colon
+    const colonIndex = afterUrl.indexOf(':')
+    if (colonIndex >= 0) {
+      body = afterUrl.slice(colonIndex + 1).trim()
+    }
+  }
+
+  return { url, direction, body, prefix }
 }
 
 /**
  * Format JSON for display
  */
-function formatJson(content: string): string {
+function formatJsonBody(body: string): string {
   try {
-    const parsed = JSON.parse(content)
+    const parsed = JSON.parse(body)
     return JSON.stringify(parsed, null, 2)
   } catch {
-    return content
+    return body
   }
 }
 
 /**
- * Collapsible content block for JSON or stack traces
+ * API Call display component
  */
-function CollapsibleContent({
-  content,
-  type
-}: {
-  content: string
-  type: 'json' | 'stacktrace'
-}) {
+function ApiCallDisplay({ parsed }: { parsed: ApiCallParsed }) {
   const [expanded, setExpanded] = useState(false)
-  const formattedContent = type === 'json' ? formatJson(content) : content
-  const lines = formattedContent.split('\n')
-  const previewLines = lines.slice(0, 2).join('\n')
+  const hasBody = parsed.body && parsed.body.length > 0
+  const isJson = hasBody && (parsed.body!.startsWith('{') || parsed.body!.startsWith('['))
 
   return (
-    <div
-      className="mt-1 rounded overflow-hidden"
-      style={{ background: 'var(--mocha-bg-darker)' }}
-    >
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          setExpanded(!expanded)
-        }}
-        className="w-full px-2 py-1 flex items-center gap-2 text-left hover:bg-white/5 transition-colors"
-        style={{ color: 'var(--mocha-text-muted)' }}
-      >
-        {expanded ? (
-          <ChevronUp className="w-3 h-3 shrink-0" />
-        ) : (
-          <ChevronDown className="w-3 h-3 shrink-0" />
+    <div className="space-y-2">
+      {/* URL row */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Direction badge */}
+        {parsed.direction && (
+          <span
+            className={`
+              inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider
+              ${parsed.direction === 'in'
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-blue-100 text-blue-700'
+              }
+            `}
+          >
+            {parsed.direction === 'in' ? (
+              <>
+                <ArrowLeft className="w-3 h-3" />
+                Response
+              </>
+            ) : (
+              <>
+                <ArrowRight className="w-3 h-3" />
+                Request
+              </>
+            )}
+          </span>
         )}
-        <span className="text-[10px] uppercase tracking-wide">
-          {type === 'json' ? 'JSON' : 'Stack Trace'} ({lines.length} lines)
-        </span>
-      </button>
 
-      <div
-        className="px-3 py-2 font-mono text-[11px] leading-relaxed overflow-x-auto"
-        style={{
-          color: 'var(--mocha-text-secondary)',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-all',
-        }}
-      >
-        {expanded ? formattedContent : previewLines + (lines.length > 2 ? '\n...' : '')}
+        {/* URL */}
+        <code
+          className="px-2 py-1 rounded text-[12px] font-semibold"
+          style={{
+            background: 'rgba(107, 158, 206, 0.15)',
+            color: '#4a7ba8',
+            fontFamily: '"JetBrains Mono", monospace',
+          }}
+        >
+          {parsed.url}
+        </code>
       </div>
+
+      {/* Body */}
+      {hasBody && (
+        <div
+          className="rounded overflow-hidden"
+          style={{
+            background: 'rgba(0,0,0,0.03)',
+            border: '1px solid rgba(0,0,0,0.06)',
+          }}
+        >
+          {isJson ? (
+            <>
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="w-full px-3 py-1.5 text-left text-[10px] uppercase tracking-wide flex items-center gap-2 hover:bg-black/5 transition-colors"
+                style={{ color: '#8b8378' }}
+              >
+                {expanded ? (
+                  <ChevronUp className="w-3 h-3" />
+                ) : (
+                  <ChevronDown className="w-3 h-3" />
+                )}
+                JSON Body
+              </button>
+              <pre
+                className="px-3 py-2 text-[11px] leading-relaxed overflow-x-auto"
+                style={{
+                  color: '#5a544d',
+                  fontFamily: '"JetBrains Mono", monospace',
+                  maxHeight: expanded ? '300px' : '60px',
+                  overflow: expanded ? 'auto' : 'hidden',
+                }}
+              >
+                {expanded ? formatJsonBody(parsed.body!) : parsed.body!.slice(0, 100) + (parsed.body!.length > 100 ? '...' : '')}
+              </pre>
+            </>
+          ) : (
+            <div
+              className="px-3 py-2 text-[11px] leading-relaxed"
+              style={{
+                color: '#5a544d',
+                fontFamily: '"JetBrains Mono", monospace',
+                wordBreak: 'break-all',
+              }}
+            >
+              {parsed.body}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
 /**
- * Single story line with expanded view
+ * Evidence card for a single log entry
  */
-const StoryLine = memo(function StoryLine({
+const EvidenceCard = memo(function EvidenceCard({
   log,
-  onRemove
+  index,
+  onRemove,
 }: {
   log: LogEntry
+  index: number
   onRemove: () => void
 }) {
   const serviceName = getServiceName(log)
@@ -142,75 +250,243 @@ const StoryLine = memo(function StoryLine({
       : log.parsed.timestamp.slice(0, 8)
     : null
 
-  // Check if content has special formatting needs
-  const hasJson = isJsonContent(content)
-  const hasStackTrace = !hasJson && isStackTrace(content)
-
-  // Tokenize the main content (non-JSON, non-stacktrace)
-  const mainContent = hasJson || hasStackTrace ? '' : content
-  const { tokens } = tokenizeContent(mainContent)
+  // Check if this is an API call
+  const apiCall = parseApiCall(content)
+  const { tokens } = tokenizeContent(content)
 
   return (
-    <div
-      className="group relative px-3 py-2 border-b transition-colors hover:bg-white/5"
-      style={{
-        borderColor: 'var(--mocha-border-subtle)',
-        background: 'var(--mocha-bg)',
-      }}
-    >
-      {/* Remove button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onRemove()
+    <div className="group relative">
+      {/* Card */}
+      <div
+        className="relative mx-4 mb-3 rounded-lg overflow-hidden transition-all duration-200"
+        style={{
+          background: 'linear-gradient(135deg, #faf8f5 0%, #f5f2ed 100%)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
+          border: '1px solid rgba(0,0,0,0.06)',
         }}
-        className="absolute right-2 top-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
-        style={{ color: 'var(--mocha-text-muted)' }}
-        title="Remove from story"
       >
-        <X className="w-3.5 h-3.5" />
-      </button>
-
-      {/* Header: timestamp + service */}
-      <div className="flex items-center gap-2 mb-1">
-        {timestamp && (
-          <span
-            className="text-[10px] font-mono tabular-nums"
-            style={{ color: 'var(--mocha-text-muted)' }}
-          >
-            {timestamp}
-          </span>
-        )}
-        <span
-          className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+        {/* Evidence number */}
+        <div
+          className="absolute -left-0 top-0 bottom-0 w-10 flex items-center justify-center"
           style={{
-            background: 'var(--mocha-accent-muted)',
-            color: 'var(--mocha-accent)',
+            background: 'linear-gradient(135deg, #e8e4de 0%, #ddd8d0 100%)',
+            borderRight: '1px solid rgba(0,0,0,0.08)',
           }}
         >
-          {serviceName}
-        </span>
-      </div>
+          <span
+            className="text-xs font-bold tabular-nums"
+            style={{
+              color: '#6b635a',
+              fontFamily: '"JetBrains Mono", monospace',
+            }}
+          >
+            {String(index + 1).padStart(2, '0')}
+          </span>
+        </div>
 
-      {/* Content */}
-      <div
-        className="font-mono text-[12px] leading-relaxed pr-6"
-        style={{
-          color: 'var(--mocha-text)',
-          wordBreak: 'break-word',
-        }}
-      >
-        {hasJson ? (
-          <CollapsibleContent content={content} type="json" />
-        ) : hasStackTrace ? (
-          <CollapsibleContent content={content} type="stacktrace" />
-        ) : (
-          tokens.map((token, i) => <TokenSpan key={i} token={token} />)
-        )}
+        {/* Content area */}
+        <div className="pl-12 pr-10 py-3">
+          {/* Header row */}
+          <div className="flex items-center gap-2 mb-2">
+            {timestamp && (
+              <span
+                className="text-[10px] tracking-wide tabular-nums"
+                style={{
+                  color: '#8b8378',
+                  fontFamily: '"JetBrains Mono", monospace',
+                }}
+              >
+                {timestamp}
+              </span>
+            )}
+            <span
+              className="text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider"
+              style={{
+                background: '#e8e4de',
+                color: '#6b635a',
+              }}
+            >
+              {serviceName}
+            </span>
+          </div>
+
+          {/* Log content - either API call display or tokenized text */}
+          {apiCall ? (
+            <ApiCallDisplay parsed={apiCall} />
+          ) : (
+            <div
+              className="text-[13px] leading-relaxed"
+              style={{
+                color: '#3d3833',
+                fontFamily: '"JetBrains Mono", monospace',
+                wordBreak: 'break-word',
+              }}
+            >
+              {tokens.map((token, i) => (
+                <TokenSpan key={i} token={token} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Remove button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onRemove()
+          }}
+          className="absolute right-2 top-2 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+          style={{
+            background: 'rgba(0,0,0,0.06)',
+            color: '#8b8378',
+          }}
+          title="Remove from story"
+        >
+          <X className="w-3 h-3" />
+        </button>
       </div>
     </div>
   )
 })
+
+/**
+ * Story tab component
+ */
+function StoryTab({
+  story,
+  isActive,
+  onSelect,
+  onRename,
+  onDelete,
+}: {
+  story: Story
+  isActive: boolean
+  onSelect: () => void
+  onRename: (name: string) => void
+  onDelete: () => void
+}) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editValue, setEditValue] = useState(story.name)
+  const [showMenu, setShowMenu] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  const handleSubmit = () => {
+    if (editValue.trim()) {
+      onRename(editValue.trim())
+    }
+    setIsEditing(false)
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={onSelect}
+        onDoubleClick={() => setIsEditing(true)}
+        className={`
+          flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-sm font-medium
+          transition-all duration-200 border border-b-0
+          ${isActive
+            ? 'bg-gradient-to-b from-[#faf8f5] to-[#f5f2ed] border-[rgba(0,0,0,0.08)] text-[#3d3833]'
+            : 'bg-transparent border-transparent text-[#8b8378] hover:text-[#6b635a] hover:bg-[rgba(0,0,0,0.03)]'
+          }
+        `}
+        style={{
+          fontFamily: '"Source Serif 4", Georgia, serif',
+        }}
+      >
+        <FileText className="w-3.5 h-3.5" />
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSubmit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSubmit()
+              if (e.key === 'Escape') {
+                setEditValue(story.name)
+                setIsEditing(false)
+              }
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-transparent outline-none w-24 text-sm"
+            style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}
+          />
+        ) : (
+          <span className="max-w-[120px] truncate">{story.name}</span>
+        )}
+        <span
+          className="text-[10px] px-1.5 py-0.5 rounded-full tabular-nums"
+          style={{
+            background: isActive ? '#e8e4de' : 'rgba(0,0,0,0.06)',
+            color: '#6b635a',
+          }}
+        >
+          {story.hashes.length}
+        </span>
+
+        {isActive && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowMenu(!showMenu)
+            }}
+            className="p-0.5 rounded hover:bg-[rgba(0,0,0,0.06)] transition-colors"
+          >
+            <MoreHorizontal className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </button>
+
+      {/* Dropdown menu */}
+      {showMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setShowMenu(false)}
+          />
+          <div
+            className="absolute top-full left-0 z-20 mt-1 py-1 rounded-lg shadow-lg min-w-[140px]"
+            style={{
+              background: '#faf8f5',
+              border: '1px solid rgba(0,0,0,0.1)',
+            }}
+          >
+            <button
+              onClick={() => {
+                setIsEditing(true)
+                setShowMenu(false)
+              }}
+              className="w-full px-3 py-1.5 text-left text-sm flex items-center gap-2 hover:bg-[rgba(0,0,0,0.04)] transition-colors"
+              style={{ color: '#3d3833' }}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Rename
+            </button>
+            <button
+              onClick={() => {
+                onDelete()
+                setShowMenu(false)
+              }}
+              className="w-full px-3 py-1.5 text-left text-sm flex items-center gap-2 hover:bg-[rgba(0,0,0,0.04)] transition-colors"
+              style={{ color: '#c45c5c' }}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 /**
  * Resize handle for the story pane
@@ -253,21 +529,26 @@ function ResizeHandle({ onDrag }: { onDrag: (deltaY: number) => void }) {
   return (
     <div
       onMouseDown={handleMouseDown}
-      className="h-1.5 cursor-row-resize flex items-center justify-center group"
-      style={{ background: 'var(--mocha-border)' }}
+      className="h-2 cursor-row-resize flex items-center justify-center group"
+      style={{
+        background: 'linear-gradient(to bottom, #ddd8d0, #d5d0c8)',
+      }}
     >
       <div
-        className="w-12 h-0.5 rounded-full transition-colors group-hover:bg-white/30"
-        style={{ background: 'var(--mocha-text-muted)' }}
+        className="w-16 h-1 rounded-full transition-colors group-hover:bg-[#a09890]"
+        style={{ background: '#b8b0a5' }}
       />
     </div>
   )
 }
 
 /**
- * Story Pane - displays curated log lines
+ * Story Pane - The Investigator's Notebook
+ * A beautiful, readable pane for curating and reviewing log evidence
  */
 export function StoryPane({
+  stories,
+  activeStoryId,
   storyLogs,
   height,
   collapsed,
@@ -275,24 +556,36 @@ export function StoryPane({
   onClearStory,
   onHeightChange,
   onToggleCollapsed,
+  onCreateStory,
+  onDeleteStory,
+  onRenameStory,
+  onSetActiveStory,
 }: StoryPaneProps) {
+  const [copyFeedback, setCopyFeedback] = useState(false)
+
   const handleCopy = useCallback(() => {
     const text = storyLogs
-      .map((log) => {
+      .map((log, i) => {
         const timestamp = log.parsed?.timestamp || ''
         const service = getServiceName(log)
         const content = log.parsed?.content || log.data
-        return `[${timestamp}] ${service}: ${content}`
+        return `[${String(i + 1).padStart(2, '0')}] ${timestamp} | ${service}\n    ${content}`
       })
       .join('\n\n')
 
     navigator.clipboard.writeText(text)
+    setCopyFeedback(true)
+    setTimeout(() => setCopyFeedback(false), 2000)
   }, [storyLogs])
 
-  const handleDrag = useCallback((deltaY: number) => {
-    onHeightChange(Math.max(100, Math.min(600, height + deltaY)))
-  }, [height, onHeightChange])
+  const handleDrag = useCallback(
+    (deltaY: number) => {
+      onHeightChange(Math.max(150, Math.min(600, height + deltaY)))
+    },
+    [height, onHeightChange]
+  )
 
+  const activeStory = stories.find((s) => s.id === activeStoryId)
   const isEmpty = storyLogs.length === 0
 
   return (
@@ -300,61 +593,97 @@ export function StoryPane({
       className="flex flex-col shrink-0"
       style={{
         height: collapsed ? 'auto' : height,
-        borderTop: '1px solid var(--mocha-border)',
+        background: 'linear-gradient(to bottom, #e8e4de, #ddd8d0)',
       }}
     >
       {/* Resize handle */}
       {!collapsed && <ResizeHandle onDrag={handleDrag} />}
 
-      {/* Header */}
+      {/* Header with tabs */}
       <div
-        className="flex items-center justify-between px-3 py-2 shrink-0"
-        style={{
-          background: 'var(--mocha-bg-elevated)',
-          borderBottom: collapsed ? 'none' : '1px solid var(--mocha-border-subtle)',
-        }}
+        className="flex items-center justify-between px-3 pt-2 pb-0 shrink-0"
+        style={{ background: 'linear-gradient(to bottom, #d5d0c8, #cec9c0)' }}
       >
-        <button
-          onClick={onToggleCollapsed}
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-        >
-          {collapsed ? (
-            <ChevronUp className="w-4 h-4" style={{ color: 'var(--mocha-text-muted)' }} />
-          ) : (
-            <ChevronDown className="w-4 h-4" style={{ color: 'var(--mocha-text-muted)' }} />
-          )}
-          <span
-            className="text-sm font-medium"
-            style={{ color: 'var(--mocha-text)' }}
+        {/* Left: Collapse toggle + tabs */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onToggleCollapsed}
+            className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.06)] transition-colors mr-1"
+            style={{ color: '#6b635a' }}
           >
-            Your Story
-          </span>
-          <span
-            className="text-xs px-1.5 py-0.5 rounded"
-            style={{
-              background: 'var(--mocha-accent-muted)',
-              color: 'var(--mocha-accent)',
-            }}
-          >
-            {storyLogs.length}
-          </span>
-        </button>
+            {collapsed ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
+          </button>
 
-        {!collapsed && !isEmpty && (
-          <div className="flex items-center gap-1">
+          {/* Story tabs */}
+          {!collapsed && (
+            <div className="flex items-end gap-0.5">
+              {stories.map((story) => (
+                <StoryTab
+                  key={story.id}
+                  story={story}
+                  isActive={story.id === activeStoryId}
+                  onSelect={() => onSetActiveStory(story.id)}
+                  onRename={(name) => onRenameStory(story.id, name)}
+                  onDelete={() => onDeleteStory(story.id)}
+                />
+              ))}
+
+              {/* New story button */}
+              <button
+                onClick={() => onCreateStory()}
+                className="flex items-center gap-1 px-2 py-1.5 rounded-t-lg text-sm transition-all duration-200 hover:bg-[rgba(0,0,0,0.04)]"
+                style={{ color: '#8b8378' }}
+                title="New investigation"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Collapsed title */}
+          {collapsed && (
+            <span
+              className="text-sm font-semibold"
+              style={{
+                color: '#3d3833',
+                fontFamily: '"Source Serif 4", Georgia, serif',
+              }}
+            >
+              Investigations
+              <span
+                className="ml-2 text-xs px-1.5 py-0.5 rounded-full"
+                style={{ background: '#e8e4de', color: '#6b635a' }}
+              >
+                {stories.length}
+              </span>
+            </span>
+          )}
+        </div>
+
+        {/* Right: Actions */}
+        {!collapsed && activeStory && !isEmpty && (
+          <div className="flex items-center gap-1 pb-1">
             <button
               onClick={handleCopy}
-              className="p-1.5 rounded hover:bg-white/10 transition-colors"
-              style={{ color: 'var(--mocha-text-muted)' }}
-              title="Copy story"
+              className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.06)] transition-all duration-200 flex items-center gap-1"
+              style={{ color: '#6b635a' }}
+              title="Copy all"
             >
-              <Copy className="w-4 h-4" />
+              {copyFeedback ? (
+                <Check className="w-4 h-4 text-green-600" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
             </button>
             <button
               onClick={onClearStory}
-              className="p-1.5 rounded hover:bg-white/10 transition-colors"
-              style={{ color: 'var(--mocha-text-muted)' }}
-              title="Clear story"
+              className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.06)] transition-colors"
+              style={{ color: '#6b635a' }}
+              title="Clear all"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -362,27 +691,71 @@ export function StoryPane({
         )}
       </div>
 
-      {/* Content */}
+      {/* Content area */}
       {!collapsed && (
         <div
-          className="flex-1 overflow-y-auto"
-          style={{ background: 'var(--mocha-bg)' }}
+          className="flex-1 overflow-y-auto py-4"
+          style={{
+            background: 'linear-gradient(135deg, #f0ece6 0%, #e8e4de 100%)',
+          }}
         >
-          {isEmpty ? (
-            <div
-              className="flex items-center justify-center h-full text-sm"
-              style={{ color: 'var(--mocha-text-muted)' }}
-            >
-              Click log lines above to build your story
+          {stories.length === 0 ? (
+            // No stories yet
+            <div className="flex flex-col items-center justify-center h-full text-center px-6">
+              <div
+                className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
+                style={{
+                  background: 'linear-gradient(135deg, #faf8f5 0%, #f0ece6 100%)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                }}
+              >
+                <FileText className="w-6 h-6" style={{ color: '#8b8378' }} />
+              </div>
+              <p
+                className="text-lg font-semibold mb-2"
+                style={{
+                  color: '#3d3833',
+                  fontFamily: '"Source Serif 4", Georgia, serif',
+                }}
+              >
+                Start an Investigation
+              </p>
+              <p className="text-sm mb-4" style={{ color: '#8b8378' }}>
+                Click log lines above to collect evidence
+              </p>
+              <button
+                onClick={() => onCreateStory()}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105"
+                style={{
+                  background: 'linear-gradient(135deg, #faf8f5 0%, #f0ece6 100%)',
+                  color: '#3d3833',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                }}
+              >
+                <Plus className="w-4 h-4" />
+                New Investigation
+              </button>
+            </div>
+          ) : isEmpty ? (
+            // Story exists but empty
+            <div className="flex flex-col items-center justify-center h-full text-center px-6">
+              <p className="text-sm" style={{ color: '#8b8378' }}>
+                Click log lines to add evidence to{' '}
+                <span style={{ fontWeight: 600 }}>{activeStory?.name}</span>
+              </p>
             </div>
           ) : (
-            storyLogs.map((log) => (
-              <StoryLine
-                key={log.hash}
-                log={log}
-                onRemove={() => log.hash && onRemoveFromStory(log.hash)}
-              />
-            ))
+            // Evidence cards
+            <div className="space-y-0">
+              {storyLogs.map((log, index) => (
+                <EvidenceCard
+                  key={log.hash}
+                  log={log}
+                  index={index}
+                  onRemove={() => log.hash && onRemoveFromStory(log.hash)}
+                />
+              ))}
+            </div>
           )}
         </div>
       )}

@@ -33,10 +33,13 @@ export function LogViewer({ logs }: LogViewerProps) {
   const { inactiveNames, filters } = useLogViewerStore()
 
   // Story store
-  const { storyHashes, toggleStory } = useStoryStore()
+  const { stories, activeStoryId, toggleStory } = useStoryStore()
 
-  // Convert to Set for fast lookup
-  const storyHashSet = useMemo(() => new Set(storyHashes), [storyHashes])
+  // Get active story hashes and convert to Set for fast lookup
+  const storyHashSet = useMemo(() => {
+    const activeStory = stories.find(s => s.id === activeStoryId)
+    return new Set(activeStory?.hashes || [])
+  }, [stories, activeStoryId])
 
   // Check if two logs belong to same group (within 300ms + same service + same thread)
   const isSameGroup = useCallback((a: LogEntry | null, b: LogEntry): boolean => {
