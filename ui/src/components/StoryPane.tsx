@@ -30,6 +30,7 @@ interface StoryPaneProps {
   onDeleteStory: (id: string) => void;
   onRenameStory: (id: string, name: string) => void;
   onSetActiveStory: (id: string) => void;
+  scrollRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
@@ -266,7 +267,7 @@ const EvidenceCard = memo(function EvidenceCard({
   const rawLog = log.data;
 
   return (
-    <div className="group relative">
+    <div className="group relative" data-story-hash={log.hash}>
       {/* Card */}
       <div
         onClick={() => setShowRaw(!showRaw)}
@@ -602,6 +603,7 @@ export function StoryPane({
   onDeleteStory,
   onRenameStory,
   onSetActiveStory,
+  scrollRef,
 }: StoryPaneProps) {
   const [copyFeedback, setCopyFeedback] = useState(false);
 
@@ -749,6 +751,7 @@ export function StoryPane({
       {/* Content area */}
       {!collapsed && (
         <div
+          ref={scrollRef}
           className="flex-1 overflow-y-auto py-4"
           style={{
             background: "linear-gradient(135deg, #f0ece6 0%, #e8e4de 100%)",

@@ -7,6 +7,7 @@ import { LogLine, getServiceName } from './LogLine'
 
 export interface LogViewerProps {
   logs: LogEntry[]
+  onToggleStory?: (log: LogEntry) => void
 }
 
 /**
@@ -21,7 +22,7 @@ function getThreadId(log: LogEntry): string | null {
 /**
  * LogViewer component - Virtualized log display with filtering and story integration.
  */
-export function LogViewer({ logs }: LogViewerProps) {
+export function LogViewer({ logs, onToggleStory }: LogViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Buffer new logs when user is scrolled down
@@ -139,12 +140,16 @@ export function LogViewer({ logs }: LogViewerProps) {
     containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [filteredLogs])
 
-  // Handle story toggle - now passes full log entry
+  // Handle story toggle - use prop if provided, otherwise use store
   const handleToggleStory = useCallback(
     (log: LogEntry) => {
-      toggleStory(log)
+      if (onToggleStory) {
+        onToggleStory(log)
+      } else {
+        toggleStory(log)
+      }
     },
-    [toggleStory]
+    [onToggleStory, toggleStory]
   )
 
   const virtualItems = virtualizer.getVirtualItems()

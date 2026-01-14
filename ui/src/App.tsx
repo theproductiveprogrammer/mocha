@@ -37,11 +37,15 @@ function App() {
     deleteStory,
     renameStory,
     setActiveStory,
+    toggleStory,
     removeFromStory,
     clearStory,
     setStoryPaneHeight,
     setStoryPaneCollapsed,
   } = useStoryStore()
+
+  // Ref to scroll the story pane content
+  const storyPaneScrollRef = useRef<HTMLDivElement>(null)
 
   // Get active story
   const activeStory = useMemo(
@@ -93,6 +97,36 @@ function App() {
     // Sort by timestamp (chronological order)
     return [...entries].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
   }, [activeStory])
+
+  // Handle toggling a log in/out of story - expand pane and scroll when adding
+  const handleToggleStory = useCallback((log: LogEntry) => {
+    // If no active story exists, create one first
+    if (!activeStory) {
+      createStory()
+    }
+
+    // Check if this log is already in the story (will be removed)
+    const isRemoving = activeStory?.entries.some(e => e.hash === log.hash)
+
+    // Toggle the log
+    toggleStory(log)
+
+    // If adding (not removing), expand pane and scroll to the new entry
+    if (!isRemoving) {
+      // Expand if collapsed
+      if (storyPaneCollapsed) {
+        setStoryPaneCollapsed(false)
+      }
+
+      // Scroll to the specific entry after render
+      setTimeout(() => {
+        const card = document.querySelector(`[data-story-hash="${log.hash}"]`)
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 150)
+    }
+  }, [activeStory, createStory, toggleStory, storyPaneCollapsed, setStoryPaneCollapsed])
 
   // Count of active files
   const activeFileCount = useMemo(() => {
@@ -437,7 +471,7 @@ function App() {
           {/* Virtualized Log viewer */}
           {mergedLogs.length > 0 ? (
             <>
-              <LogViewer logs={mergedLogs} />
+              <LogViewer logs={mergedLogs} onToggleStory={handleToggleStory} />
               <StoryPane
                 stories={stories}
                 activeStoryId={activeStoryId}
@@ -452,6 +486,7 @@ function App() {
                 onDeleteStory={deleteStory}
                 onRenameStory={renameStory}
                 onSetActiveStory={setActiveStory}
+                scrollRef={storyPaneScrollRef}
               />
             </>
           ) : (
