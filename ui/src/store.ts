@@ -209,7 +209,7 @@ export const useStoryStore = create<StoryState>()(
         const storyNumber = stories.length + 1
         const newStory: Story = {
           id,
-          name: name || `Investigation ${storyNumber}`,
+          name: name || `Logbook ${storyNumber}`,
           entries: [],  // Store full log entries
           createdAt: Date.now(),
         }

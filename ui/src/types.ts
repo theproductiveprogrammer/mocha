@@ -180,7 +180,7 @@ export interface LogViewerState {
 }
 
 /**
- * A story/investigation containing curated log entries
+ * A logbook containing curated log entries
  * Stores full log data so entries persist even when source files are unloaded
  */
 export interface Story {

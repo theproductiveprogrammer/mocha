@@ -250,12 +250,12 @@ function LogLineComponent({
 
       {/* Right column: tokenized log content */}
       <div
-        className={`flex-1 px-3 font-mono text-[12px] leading-relaxed flex items-center ${
+        className={`flex-1 min-w-0 px-3 font-mono text-[12px] leading-relaxed flex items-center overflow-hidden ${
           isContinuation ? 'py-0.5' : 'py-1.5'
         }`}
         style={{ color: rowStyle.text }}
       >
-        <div className="flex-1 truncate">
+        <div className="flex-1 min-w-0 truncate">
           <TokenizedContent tokens={tokens} />
         </div>
 
