@@ -10,7 +10,7 @@ import {
   FileText,
   Check,
   Pencil,
-  Coffee,
+  BookOpen,
   Maximize2,
   Minimize2,
   Search,
@@ -70,13 +70,13 @@ function TokenSpan({ token }: { token: LogToken }) {
       case "marker.error":
         return { color: "#e85c5c", fontWeight: 600 };
       case "marker.warn":
-        return { color: "#b8860b", fontWeight: 600 };
+        return { color: "#ffd93d", fontWeight: 600 };
       case "marker.info":
         return { color: "#8b8b8b" };
       case "url":
-        return { color: "#6b9ece" };
+        return { color: "#4ecdc4" };
       case "data":
-        return { color: "#b8956f", fontWeight: 500 };
+        return { color: "#e8a854", fontWeight: 500 };
       case "json":
         return { color: "#8b8b8b" };
       case "symbol":
@@ -92,7 +92,6 @@ function TokenSpan({ token }: { token: LogToken }) {
 
 /**
  * Evidence card for a single log entry
- * Click to toggle between formatted and raw view
  */
 const EvidenceCard = memo(function EvidenceCard({
   log,
@@ -125,18 +124,16 @@ const EvidenceCard = memo(function EvidenceCard({
 
   // Level-based styling
   const getLevelIndicator = () => {
-    if (level === 'ERROR') return { color: '#e85c5c', label: 'ERR' };
-    if (level === 'WARN' || level === 'WARNING') return { color: '#eab308', label: 'WARN' };
+    if (level === 'ERROR') return { color: 'var(--mocha-error)', label: 'ERR' };
+    if (level === 'WARN' || level === 'WARNING') return { color: 'var(--mocha-warning)', label: 'WARN' };
     return null;
   };
   const levelIndicator = getLevelIndicator();
 
   const { tokens } = tokenizeContent(content);
-
-  // Raw log data (original line from file)
   const rawLog = log.data;
 
-  // Helper to highlight search matches in text
+  // Highlight search matches
   const highlightMatches = (text: string) => {
     if (!searchQuery?.trim()) return text;
 
@@ -148,13 +145,13 @@ const EvidenceCard = memo(function EvidenceCard({
       const parts = text.split(regex);
       return parts.map((part, i) => {
         if (regex.test(part)) {
-          regex.lastIndex = 0; // Reset for next test
+          regex.lastIndex = 0;
           return (
             <mark
               key={i}
               style={{
-                background: isCurrentMatch ? '#eab308' : '#eab30866',
-                color: '#000',
+                background: isCurrentMatch ? 'var(--mocha-accent)' : 'var(--mocha-accent-muted)',
+                color: isCurrentMatch ? 'var(--mocha-bg)' : 'var(--mocha-accent)',
                 padding: '0 2px',
                 borderRadius: '2px',
               }}
@@ -174,40 +171,29 @@ const EvidenceCard = memo(function EvidenceCard({
   return (
     <div
       ref={cardRef}
-      className={`group relative ${isCurrentMatch ? 'ring-2 ring-[#eab308] ring-offset-2 ring-offset-[#f0ece6]' : ''}`}
+      className={`group relative ${isCurrentMatch ? 'ring-2 ring-[var(--mocha-accent)] ring-offset-2 ring-offset-[#f5f2ed]' : ''}`}
       data-story-hash={log.hash}
     >
-      {/* Card */}
       <div
-        className="relative mx-4 mb-3 rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md"
-        style={{
-          background: showRaw
-            ? "linear-gradient(135deg, #2a2826 0%, #1e1c1a 100%)"
-            : "linear-gradient(135deg, #faf8f5 0%, #f5f2ed 100%)",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)",
-          border: showRaw
-            ? "1px solid rgba(255,255,255,0.1)"
-            : "1px solid rgba(0,0,0,0.06)",
-        }}
+        className="relative mx-4 mb-3 rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg logbook-card"
       >
-        {/* Evidence number with level indicator */}
+        {/* Evidence number strip */}
         <div
-          className="absolute -left-0 top-0 bottom-0 w-10 flex items-center justify-center"
+          className="absolute -left-0 top-0 bottom-0 w-12 flex items-center justify-center"
           style={{
             background: showRaw
-              ? "linear-gradient(135deg, #3a3836 0%, #2a2826 100%)"
-              : "linear-gradient(135deg, #e8e4de 0%, #ddd8d0 100%)",
+              ? 'linear-gradient(135deg, #252b38 0%, #1e232e 100%)'
+              : 'linear-gradient(135deg, #e8e4de 0%, #ddd8d0 100%)',
             borderRight: showRaw
-              ? "1px solid rgba(255,255,255,0.1)"
-              : "1px solid rgba(0,0,0,0.08)",
+              ? '1px solid var(--mocha-border)'
+              : '1px solid rgba(0,0,0,0.06)',
             borderLeft: levelIndicator ? `3px solid ${levelIndicator.color}` : undefined,
           }}
         >
           <span
-            className="text-xs font-bold tabular-nums"
+            className="text-xs font-bold tabular-nums font-mono"
             style={{
-              color: showRaw ? "#8a8680" : "#6b635a",
-              fontFamily: '"JetBrains Mono", monospace',
+              color: showRaw ? 'var(--mocha-text-muted)' : '#6b635a',
             }}
           >
             {String(index + 1).padStart(2, "0")}
@@ -215,15 +201,21 @@ const EvidenceCard = memo(function EvidenceCard({
         </div>
 
         {/* Content area */}
-        <div className="pl-12 pr-10 py-3">
-          {/* Header row */}
-          <div className="flex items-center gap-2 mb-2">
+        <div
+          className="pl-14 pr-12 py-4"
+          style={{
+            background: showRaw
+              ? 'linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface) 100%)'
+              : 'linear-gradient(145deg, #fdfcfa 0%, #f8f6f2 100%)',
+          }}
+        >
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-3">
             {timestamp && (
               <span
-                className="text-[10px] tracking-wide tabular-nums"
+                className="text-[10px] tracking-wide tabular-nums font-mono"
                 style={{
-                  color: showRaw ? "#6a6460" : "#8b8378",
-                  fontFamily: '"JetBrains Mono", monospace',
+                  color: showRaw ? 'var(--mocha-text-muted)' : '#8b8378',
                 }}
               >
                 {timestamp}
@@ -233,7 +225,7 @@ const EvidenceCard = memo(function EvidenceCard({
               <span
                 className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"
                 style={{
-                  background: showRaw ? `${levelIndicator.color}33` : `${levelIndicator.color}22`,
+                  background: showRaw ? `color-mix(in srgb, ${levelIndicator.color} 15%, transparent)` : `color-mix(in srgb, ${levelIndicator.color} 12%, transparent)`,
                   color: levelIndicator.color,
                 }}
               >
@@ -241,58 +233,53 @@ const EvidenceCard = memo(function EvidenceCard({
               </span>
             )}
             <span
-              className="text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider"
+              className="text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider font-mono"
               style={{
-                background: showRaw ? "rgba(255,255,255,0.1)" : "#e8e4de",
-                color: showRaw ? "#a8a098" : "#6b635a",
+                background: showRaw ? 'var(--mocha-surface-hover)' : '#e8e4de',
+                color: showRaw ? 'var(--mocha-text-secondary)' : '#6b635a',
               }}
             >
               {serviceName}
             </span>
             <button
               onClick={() => setShowRaw(!showRaw)}
-              className="text-[9px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider cursor-pointer transition-all hover:scale-105"
+              className="text-[9px] px-2 py-0.5 rounded font-semibold uppercase tracking-wider cursor-pointer transition-all hover:scale-105"
               style={{
-                background: showRaw ? "rgba(90, 181, 168, 0.2)" : "rgba(0,0,0,0.04)",
-                color: showRaw ? "#5ab5a8" : "#a8a098",
+                background: showRaw ? 'var(--mocha-info-muted)' : 'rgba(0,0,0,0.04)',
+                color: showRaw ? 'var(--mocha-info)' : '#a8a098',
               }}
             >
-              {showRaw ? "RAW" : "RAW"}
+              {showRaw ? 'RAW' : 'RAW'}
             </button>
           </div>
 
-          {/* Log content - raw or formatted */}
+          {/* Log content */}
           {showRaw ? (
             <div
-              className="text-[11px] leading-relaxed whitespace-pre-wrap break-all select-text"
-              style={{
-                color: "#c8c0b8",
-                fontFamily: '"JetBrains Mono", monospace',
-              }}
+              className="text-[11px] leading-relaxed whitespace-pre-wrap break-all select-text font-mono"
+              style={{ color: 'var(--mocha-text)' }}
             >
               {highlightMatches(rawLog)}
             </div>
           ) : (
             <div
-              className="text-[13px] leading-relaxed"
+              className="text-[13px] leading-relaxed font-mono"
               style={{
-                color: "#3d3833",
-                fontFamily: '"JetBrains Mono", monospace',
-                wordBreak: "break-word",
+                color: '#3d3833',
+                wordBreak: 'break-word',
               }}
             >
               {tokens.map((token, i) => {
-                // Render JSON tokens with JsonView
                 if (token.type === "json") {
                   try {
                     const parsed = JSON.parse(token.text);
                     return (
                       <div
                         key={i}
-                        className="my-2 p-2 rounded text-[12px]"
+                        className="my-2 p-2.5 rounded-lg text-[11px]"
                         style={{
-                          background: "rgba(0,0,0,0.03)",
-                          border: "1px solid rgba(0,0,0,0.06)",
+                          background: 'rgba(0,0,0,0.03)',
+                          border: '1px solid rgba(0,0,0,0.05)',
                         }}
                       >
                         <JsonView
@@ -303,7 +290,7 @@ const EvidenceCard = memo(function EvidenceCard({
                       </div>
                     );
                   } catch {
-                    // If parse fails, fall through to regular token
+                    // Parse failed
                   }
                 }
                 return <TokenSpan key={i} token={token} />;
@@ -313,38 +300,36 @@ const EvidenceCard = memo(function EvidenceCard({
         </div>
 
         {/* Action buttons */}
-        <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
-          {/* Jump to source button */}
+        <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
           {onJumpToSource && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onJumpToSource();
               }}
-              className="p-1.5 rounded-full hover:scale-110 transition-all"
+              className="p-1.5 rounded-lg transition-all hover:scale-110"
               style={{
-                background: showRaw ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
-                color: showRaw ? "#a8a098" : "#8b8378",
+                background: showRaw ? 'var(--mocha-surface-hover)' : 'rgba(0,0,0,0.06)',
+                color: showRaw ? 'var(--mocha-text-secondary)' : '#8b8378',
               }}
               title="Jump to source in log viewer"
             >
-              <Crosshair className="w-3 h-3" />
+              <Crosshair className="w-3.5 h-3.5" />
             </button>
           )}
-          {/* Remove button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               onRemove();
             }}
-            className="p-1.5 rounded-full hover:scale-110 transition-all"
+            className="p-1.5 rounded-lg transition-all hover:scale-110"
             style={{
-              background: showRaw ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
-              color: showRaw ? "#a8a098" : "#8b8378",
+              background: showRaw ? 'var(--mocha-surface-hover)' : 'rgba(0,0,0,0.06)',
+              color: showRaw ? 'var(--mocha-text-secondary)' : '#8b8378',
             }}
-            title="Remove from story"
+            title="Remove from logbook"
           >
-            <X className="w-3 h-3" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -393,17 +378,14 @@ function StoryTab({
         onClick={onSelect}
         onDoubleClick={() => setIsEditing(true)}
         className={`
-          flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-sm font-medium
+          flex items-center gap-2 px-3 py-2 rounded-t-xl text-sm font-medium
           transition-all duration-200 border border-b-0
           ${
             isActive
-              ? "bg-gradient-to-b from-[#faf8f5] to-[#f5f2ed] border-[rgba(0,0,0,0.08)] text-[#3d3833]"
-              : "bg-transparent border-transparent text-[var(--mocha-text-muted)] hover:text-[var(--mocha-text-secondary)] hover:bg-[rgba(255,255,255,0.05)]"
+              ? 'bg-gradient-to-b from-[#fdfcfa] to-[#f8f6f2] border-[rgba(0,0,0,0.06)] text-[#3d3833]'
+              : 'bg-transparent border-transparent text-[var(--mocha-text-muted)] hover:text-[var(--mocha-text-secondary)] hover:bg-[var(--mocha-surface-hover)]'
           }
         `}
-        style={{
-          fontFamily: '"Source Serif 4", Georgia, serif',
-        }}
       >
         <FileText className="w-3.5 h-3.5" />
         {isEditing ? (
@@ -413,24 +395,23 @@ function StoryTab({
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={handleSubmit}
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleSubmit();
-              if (e.key === "Escape") {
+              if (e.key === 'Enter') handleSubmit();
+              if (e.key === 'Escape') {
                 setEditValue(story.name);
                 setIsEditing(false);
               }
             }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-transparent outline-none w-24 text-sm"
-            style={{ fontFamily: '"Source Serif 4", Georgia, serif' }}
+            className="bg-transparent outline-none w-24 text-sm font-medium"
           />
         ) : (
           <span className="max-w-[120px] truncate">{story.name}</span>
         )}
         <span
-          className="text-[10px] px-1.5 py-0.5 rounded-full tabular-nums"
+          className="text-[10px] px-1.5 py-0.5 rounded-full tabular-nums font-mono"
           style={{
-            background: isActive ? "#e8e4de" : "rgba(255,255,255,0.1)",
-            color: isActive ? "#6b635a" : "var(--mocha-text-muted)",
+            background: isActive ? '#e8e4de' : 'var(--mocha-surface-hover)',
+            color: isActive ? '#6b635a' : 'var(--mocha-text-muted)',
           }}
         >
           {story.entries.length}
@@ -457,10 +438,10 @@ function StoryTab({
             onClick={() => setShowMenu(false)}
           />
           <div
-            className="absolute top-full left-0 z-20 mt-1 py-1 rounded-lg shadow-lg min-w-[140px]"
+            className="absolute top-full left-0 z-20 mt-1 py-1 rounded-xl shadow-lg min-w-[140px] animate-scale-in"
             style={{
-              background: "#faf8f5",
-              border: "1px solid rgba(0,0,0,0.1)",
+              background: '#fdfcfa',
+              border: '1px solid rgba(0,0,0,0.08)',
             }}
           >
             <button
@@ -468,8 +449,8 @@ function StoryTab({
                 setIsEditing(true);
                 setShowMenu(false);
               }}
-              className="w-full px-3 py-1.5 text-left text-sm flex items-center gap-2 hover:bg-[rgba(0,0,0,0.04)] transition-colors"
-              style={{ color: "#3d3833" }}
+              className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-[rgba(0,0,0,0.04)] transition-colors"
+              style={{ color: '#3d3833' }}
             >
               <Pencil className="w-3.5 h-3.5" />
               Rename
@@ -479,8 +460,8 @@ function StoryTab({
                 onDelete();
                 setShowMenu(false);
               }}
-              className="w-full px-3 py-1.5 text-left text-sm flex items-center gap-2 hover:bg-[rgba(0,0,0,0.04)] transition-colors"
-              style={{ color: "#c45c5c" }}
+              className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-[rgba(0,0,0,0.04)] transition-colors"
+              style={{ color: 'var(--mocha-error)' }}
             >
               <Trash2 className="w-3.5 h-3.5" />
               Delete
@@ -493,7 +474,7 @@ function StoryTab({
 }
 
 /**
- * Resize handle for the story pane
+ * Resize handle
  */
 function ResizeHandle({ onDrag }: { onDrag: (deltaY: number) => void }) {
   const dragging = useRef(false);
@@ -503,8 +484,8 @@ function ResizeHandle({ onDrag }: { onDrag: (deltaY: number) => void }) {
     e.preventDefault();
     dragging.current = true;
     lastY.current = e.clientY;
-    document.body.style.cursor = "row-resize";
-    document.body.style.userSelect = "none";
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
   }, []);
 
   useEffect(() => {
@@ -517,38 +498,35 @@ function ResizeHandle({ onDrag }: { onDrag: (deltaY: number) => void }) {
 
     const handleMouseUp = () => {
       dragging.current = false;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
     };
 
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
 
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [onDrag]);
 
   return (
     <div
       onMouseDown={handleMouseDown}
-      className="h-2 cursor-row-resize flex items-center justify-center group"
-      style={{
-        background: "var(--mocha-surface)",
-      }}
+      className="h-3 cursor-row-resize flex items-center justify-center group"
+      style={{ background: 'var(--mocha-surface)' }}
     >
       <div
-        className="w-16 h-1 rounded-full transition-colors group-hover:bg-[var(--mocha-text-muted)]"
-        style={{ background: "var(--mocha-border)" }}
+        className="w-20 h-1 rounded-full transition-all duration-200 group-hover:bg-[var(--mocha-accent)] group-hover:shadow-[0_0_8px_var(--mocha-accent-glow)]"
+        style={{ background: 'var(--mocha-border-strong)' }}
       />
     </div>
   );
 }
 
 /**
- * Story Pane - The Investigator's Notebook
- * A beautiful, readable pane for curating and reviewing log evidence
+ * Story Pane - The Investigator's Logbook
  */
 export function StoryPane({
   stories,
@@ -572,12 +550,12 @@ export function StoryPane({
   const [copyFeedback, setCopyFeedback] = useState(false);
 
   // Search state
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [isRegex, setIsRegex] = useState(false);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  // Find all matches in logs
+  // Find matches
   const searchMatches = useMemo(() => {
     if (!searchQuery.trim()) return [];
 
@@ -592,20 +570,18 @@ export function StoryPane({
         if (log.hash && regex.test(log.data)) {
           matches.push({ logHash: log.hash, logIndex: index });
         }
-        // Reset regex lastIndex for next test
         regex.lastIndex = 0;
       });
     } catch {
-      // Invalid regex, ignore
+      // Invalid regex
     }
 
     return matches;
   }, [searchQuery, isRegex, storyLogs]);
 
-  // Get current match hash for highlighting
   const currentMatchHash = searchMatches[currentMatchIndex]?.logHash || null;
 
-  // Scroll to current match when it changes
+  // Scroll to match
   useEffect(() => {
     if (currentMatchHash) {
       const card = cardRefs.current.get(currentMatchHash);
@@ -615,7 +591,6 @@ export function StoryPane({
     }
   }, [currentMatchHash, currentMatchIndex]);
 
-  // Navigation handlers
   const goToNextMatch = useCallback(() => {
     if (searchMatches.length > 0) {
       setCurrentMatchIndex((prev) => (prev + 1) % searchMatches.length);
@@ -628,31 +603,26 @@ export function StoryPane({
     }
   }, [searchMatches.length]);
 
-  // Reset match index when query changes
   useEffect(() => {
     setCurrentMatchIndex(0);
   }, [searchQuery, isRegex]);
 
   const handleCopy = useCallback(() => {
-    // Build output with file headers whenever the source file changes
     const lines: string[] = [];
     let currentFile: string | null = null;
 
     for (const log of storyLogs) {
       const filePath = log.name;
-
-      // Add header when file changes
       if (filePath !== currentFile) {
         const headerBase = `LOGFILE: ${filePath} `;
-        const padding = "=".repeat(Math.max(0, 72 - headerBase.length));
+        const padding = '='.repeat(Math.max(0, 72 - headerBase.length));
         lines.push(`${headerBase}${padding}|`);
         currentFile = filePath;
       }
-
       lines.push(log.data);
     }
 
-    const text = lines.join("\n");
+    const text = lines.join('\n');
     navigator.clipboard.writeText(text);
     setCopyFeedback(true);
     setTimeout(() => setCopyFeedback(false), 2000);
@@ -662,48 +632,45 @@ export function StoryPane({
     (deltaY: number) => {
       onHeightChange(Math.max(150, Math.min(600, height + deltaY)));
     },
-    [height, onHeightChange],
+    [height, onHeightChange]
   );
 
   const activeStory = stories.find((s) => s.id === activeStoryId);
   const isEmpty = storyLogs.length === 0;
-
-  // Calculate height based on state
-  const paneHeight = collapsed ? "auto" : maximized ? "100vh" : height;
+  const paneHeight = collapsed ? 'auto' : maximized ? '100vh' : height;
 
   return (
     <div
-      className={`flex flex-col shrink-0 ${maximized ? "fixed inset-0 z-50" : ""}`}
+      className={`flex flex-col shrink-0 ${maximized ? 'fixed inset-0 z-50' : ''}`}
       style={{
         height: paneHeight,
-        background: "var(--mocha-surface)",
+        background: 'var(--mocha-surface)',
       }}
     >
-      {/* Resize handle - hidden when maximized */}
+      {/* Resize handle */}
       {!collapsed && !maximized && <ResizeHandle onDrag={handleDrag} />}
 
-      {/* Header with tabs - darker to transition from log viewer */}
+      {/* Header */}
       <div
-        className="flex items-center justify-between px-3 pt-2 pb-0 shrink-0"
-        style={{ background: "linear-gradient(to bottom, #2a2724, #3a3632)" }}
+        className="flex items-center justify-between px-4 pt-2.5 pb-0 shrink-0"
+        style={{
+          background: 'linear-gradient(to bottom, var(--mocha-surface-raised), var(--mocha-surface))',
+          borderTop: '1px solid var(--mocha-border)',
+        }}
       >
-        {/* Left: Collapse toggle + tabs */}
-        <div className="flex items-center gap-1">
+        {/* Left side */}
+        <div className="flex items-center gap-2">
           <button
             onClick={onToggleCollapsed}
-            className="p-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.1)] transition-colors mr-1"
-            style={{ color: "var(--mocha-text-secondary)" }}
+            className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-colors"
+            style={{ color: 'var(--mocha-text-secondary)' }}
           >
-            {collapsed ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
+            {collapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
 
-          {/* Story tabs */}
+          {/* Tabs */}
           {!collapsed && (
-            <div className="flex items-end gap-0.5">
+            <div className="flex items-end gap-1">
               {stories.map((story) => (
                 <StoryTab
                   key={story.id}
@@ -715,11 +682,10 @@ export function StoryPane({
                 />
               ))}
 
-              {/* New story button */}
               <button
                 onClick={() => onCreateStory()}
-                className="flex items-center gap-1 px-2 py-1.5 rounded-t-lg text-sm transition-all duration-200 hover:bg-[rgba(255,255,255,0.1)]"
-                style={{ color: "var(--mocha-text-muted)" }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-t-xl text-sm transition-all duration-200 hover:bg-[var(--mocha-surface-hover)]"
+                style={{ color: 'var(--mocha-text-muted)' }}
                 title="New logbook"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -730,18 +696,16 @@ export function StoryPane({
           {/* Collapsed title */}
           {collapsed && (
             <span
-              className="text-sm font-semibold"
-              style={{
-                color: "var(--mocha-text)",
-                fontFamily: '"Source Serif 4", Georgia, serif',
-              }}
+              className="text-sm font-semibold font-display flex items-center gap-2"
+              style={{ color: 'var(--mocha-text)' }}
             >
+              <BookOpen className="w-4 h-4" style={{ color: 'var(--mocha-accent)' }} />
               Logbooks
               <span
-                className="ml-2 text-xs px-1.5 py-0.5 rounded-full"
+                className="text-xs px-1.5 py-0.5 rounded-full tabular-nums"
                 style={{
-                  background: "rgba(255,255,255,0.1)",
-                  color: "var(--mocha-text-secondary)",
+                  background: 'var(--mocha-surface-hover)',
+                  color: 'var(--mocha-text-secondary)',
                 }}
               >
                 {stories.length}
@@ -750,27 +714,24 @@ export function StoryPane({
           )}
         </div>
 
-        {/* Center: Search (when maximized) */}
+        {/* Search (maximized only) */}
         {!collapsed && maximized && (
           <div className="flex items-center gap-2 pb-1">
             <div
-              className="flex items-center gap-1 px-2 py-1 rounded-lg"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
               style={{
-                background: "rgba(255,255,255,0.1)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                background: 'var(--mocha-surface-hover)',
+                border: '1px solid var(--mocha-border)',
               }}
             >
-              <Search className="w-4 h-4" style={{ color: "var(--mocha-text-muted)" }} />
+              <Search className="w-4 h-4" style={{ color: 'var(--mocha-text-muted)' }} />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search logs..."
-                className="bg-transparent outline-none text-sm w-48"
-                style={{
-                  color: "var(--mocha-text)",
-                  fontFamily: '"JetBrains Mono", monospace',
-                }}
+                placeholder="Search..."
+                className="bg-transparent outline-none text-sm w-40 font-mono"
+                style={{ color: 'var(--mocha-text)' }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.shiftKey ? goToPrevMatch() : goToNextMatch();
@@ -779,87 +740,81 @@ export function StoryPane({
               />
               {searchQuery && (
                 <button
-                  onClick={() => setSearchQuery("")}
-                  className="p-0.5 rounded hover:bg-[rgba(255,255,255,0.1)]"
-                  style={{ color: "var(--mocha-text-muted)" }}
+                  onClick={() => setSearchQuery('')}
+                  className="p-0.5 rounded hover:bg-[var(--mocha-surface-active)]"
+                  style={{ color: 'var(--mocha-text-muted)' }}
                 >
                   <X className="w-3 h-3" />
                 </button>
               )}
             </div>
 
-            {/* Regex toggle */}
             <button
               onClick={() => setIsRegex(!isRegex)}
-              className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
-                isRegex ? "bg-[var(--mocha-accent)]" : "bg-[rgba(255,255,255,0.1)]"
-              }`}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors"
               style={{
-                color: isRegex ? "var(--mocha-bg)" : "var(--mocha-text-muted)",
+                background: isRegex ? 'var(--mocha-accent)' : 'var(--mocha-surface-hover)',
+                color: isRegex ? 'var(--mocha-bg)' : 'var(--mocha-text-muted)',
               }}
-              title="Toggle regex search"
+              title="Toggle regex"
             >
               .*
             </button>
 
-            {/* Match navigation */}
             {searchMatches.length > 0 && (
               <div className="flex items-center gap-1">
                 <button
                   onClick={goToPrevMatch}
-                  className="p-1 rounded hover:bg-[rgba(255,255,255,0.1)] transition-colors"
-                  style={{ color: "var(--mocha-text-secondary)" }}
-                  title="Previous match (Shift+Enter)"
+                  className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-colors"
+                  style={{ color: 'var(--mocha-text-secondary)' }}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <span
-                  className="text-xs tabular-nums px-1"
-                  style={{ color: "var(--mocha-text-secondary)" }}
+                  className="text-xs tabular-nums px-1.5 font-mono"
+                  style={{ color: 'var(--mocha-text-secondary)' }}
                 >
                   {currentMatchIndex + 1}/{searchMatches.length}
                 </span>
                 <button
                   onClick={goToNextMatch}
-                  className="p-1 rounded hover:bg-[rgba(255,255,255,0.1)] transition-colors"
-                  style={{ color: "var(--mocha-text-secondary)" }}
-                  title="Next match (Enter)"
+                  className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-colors"
+                  style={{ color: 'var(--mocha-text-secondary)' }}
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             )}
 
-            {/* No matches indicator */}
             {searchQuery && searchMatches.length === 0 && (
-              <span className="text-xs" style={{ color: "var(--mocha-error)" }}>
+              <span className="text-xs" style={{ color: 'var(--mocha-error)' }}>
                 No matches
               </span>
             )}
           </div>
         )}
 
-        {/* Right: Actions */}
+        {/* Right actions */}
         {!collapsed && (
           <div className="flex items-center gap-1 pb-1">
             {activeStory && !isEmpty && (
               <>
                 <button
                   onClick={handleCopy}
-                  className="p-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.1)] transition-all duration-200 flex items-center gap-1"
-                  style={{ color: "var(--mocha-text-secondary)" }}
+                  className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-all duration-200"
+                  style={{ color: 'var(--mocha-text-secondary)' }}
                   title="Copy all"
                 >
                   {copyFeedback ? (
-                    <Check className="w-4 h-4 text-green-400" />
+                    <Check className="w-4 h-4" style={{ color: 'var(--mocha-success)' }} />
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
                 </button>
                 <button
                   onClick={onClearStory}
-                  className="p-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.1)] transition-colors"
-                  style={{ color: "var(--mocha-text-secondary)" }}
+                  className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-colors"
+                  style={{ color: 'var(--mocha-text-secondary)' }}
                   title="Clear all"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -868,63 +823,51 @@ export function StoryPane({
             )}
             <button
               onClick={onToggleMaximized}
-              className="p-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.1)] transition-colors"
-              style={{ color: "var(--mocha-text-secondary)" }}
-              title={maximized ? "Restore" : "Maximize"}
+              className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-colors"
+              style={{ color: 'var(--mocha-text-secondary)' }}
+              title={maximized ? 'Restore' : 'Maximize'}
             >
-              {maximized ? (
-                <Minimize2 className="w-4 h-4" />
-              ) : (
-                <Maximize2 className="w-4 h-4" />
-              )}
+              {maximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
           </div>
         )}
       </div>
 
-      {/* Content area */}
+      {/* Content */}
       {!collapsed && (
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto py-4"
-          style={{
-            background: "linear-gradient(135deg, #f0ece6 0%, #e8e4de 100%)",
-          }}
+          className="flex-1 overflow-y-auto py-5 logbook-paper"
         >
           {stories.length === 0 ? (
-            // No stories yet
-            <div className="flex flex-col items-center justify-center h-full text-center px-6">
+            <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in-up">
               <div
-                className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
+                className="w-20 h-20 mx-auto mb-5 rounded-2xl flex items-center justify-center"
                 style={{
-                  background:
-                    "linear-gradient(135deg, #faf8f5 0%, #f0ece6 100%)",
-                  border: "1px solid rgba(0,0,0,0.06)",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                  background: 'linear-gradient(135deg, #fdfcfa 0%, #f5f2ed 100%)',
+                  border: '1px solid rgba(0,0,0,0.06)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
                 }}
               >
-                <Coffee className="w-7 h-7" style={{ color: "#8b8378" }} />
+                <BookOpen className="w-9 h-9" style={{ color: '#8b8378' }} />
               </div>
               <p
-                className="text-lg font-semibold mb-1"
-                style={{
-                  color: "#3d3833",
-                  fontFamily: '"Source Serif 4", Georgia, serif',
-                }}
+                className="text-xl font-semibold mb-2 font-display"
+                style={{ color: '#3d3833' }}
               >
                 Start a Logbook
               </p>
-              <p className="text-sm mb-4" style={{ color: "#8b8378" }}>
-                Click log lines above to collect logs
+              <p className="text-sm mb-6" style={{ color: '#8b8378' }}>
+                Click on log lines above to collect evidence
               </p>
               <button
                 onClick={() => onCreateStory()}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105"
+                className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105"
                 style={{
-                  background:
-                    "linear-gradient(135deg, #faf8f5 0%, #f0ece6 100%)",
-                  color: "#3d3833",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  background: 'linear-gradient(135deg, #fdfcfa 0%, #f0ece6 100%)',
+                  color: '#3d3833',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                  border: '1px solid rgba(0,0,0,0.06)',
                 }}
               >
                 <Plus className="w-4 h-4" />
@@ -932,16 +875,13 @@ export function StoryPane({
               </button>
             </div>
           ) : isEmpty ? (
-            // Story exists but empty
-            <div className="flex flex-col items-center justify-center h-full text-center px-6">
-              <Coffee className="w-8 h-8 mb-3" style={{ color: "#a8a098" }} />
-              <p className="text-sm" style={{ color: "#8b8378" }}>
-                Click log lines to add to{" "}
-                <span style={{ fontWeight: 600 }}>{activeStory?.name}</span>
+            <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in">
+              <BookOpen className="w-10 h-10 mb-4" style={{ color: '#a8a098' }} />
+              <p className="text-sm" style={{ color: '#8b8378' }}>
+                Click log lines to add to <span className="font-semibold">{activeStory?.name}</span>
               </p>
             </div>
           ) : (
-            // Evidence cards
             <div className="space-y-0">
               {storyLogs.map((log, index) => (
                 <EvidenceCard

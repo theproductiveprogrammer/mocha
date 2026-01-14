@@ -1,64 +1,82 @@
-/* Import distinctive fonts - must be first */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+/* ========================================
+   MOCHA OBSERVATORY
+   A refined log viewing experience
+   ======================================== */
+
+/* Import distinctive fonts */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
 
 @import "tailwindcss";
 
-/* ========================================
-   MOCHA - Warm Terminal Aesthetic
-   A refined dark theme inspired by coffee
-   ======================================== */
-
 :root {
-  /* === Color Palette === */
-  /* Base tones - warm charcoal */
-  --mocha-bg: #141210;
-  --mocha-bg-darker: #0e0d0c;
-  --mocha-bg-elevated: #1a1816;
-  --mocha-surface: #1e1c1a;
-  --mocha-surface-raised: #262320;
-  --mocha-surface-hover: #302c28;
-  --mocha-border: #3a3632;
-  --mocha-border-subtle: #2a2724;
+  /* === The Observatory Palette === */
 
-  /* Text hierarchy */
-  --mocha-text: #e8e0d8;
-  --mocha-text-secondary: #a8a098;
-  --mocha-text-muted: #6a6460;
+  /* Deep space backgrounds */
+  --mocha-bg: #08090c;
+  --mocha-bg-darker: #050607;
+  --mocha-bg-elevated: #0d0f14;
+  --mocha-surface: #12151c;
+  --mocha-surface-raised: #181c25;
+  --mocha-surface-hover: #1e232e;
+  --mocha-surface-active: #252b38;
 
-  /* Accent - warm coffee tan */
-  --mocha-accent: #c4a77d;
-  --mocha-accent-hover: #d4b78d;
-  --mocha-accent-muted: #8a7a5d;
+  /* Borders - subtle containment */
+  --mocha-border: rgba(255, 255, 255, 0.08);
+  --mocha-border-subtle: rgba(255, 255, 255, 0.04);
+  --mocha-border-strong: rgba(255, 255, 255, 0.12);
 
-  /* Semantic colors */
-  --mocha-error: #e85c5c;
-  --mocha-error-bg: #3a2020;
-  --mocha-error-border: #5a3030;
-  --mocha-warning: #eab308;
-  --mocha-warning-bg: #422006;
-  --mocha-warning-border: #854d0e;
-  --mocha-info: #5ab5a8;
-  --mocha-success: #6cb879;
+  /* Text - clear hierarchy */
+  --mocha-text: #f0f2f5;
+  --mocha-text-secondary: #9ca3b0;
+  --mocha-text-muted: #5c6370;
+  --mocha-text-faint: #3d424d;
 
-  /* Selection - cool teal to contrast with warm warning */
-  --mocha-selection: #1e3a3a;
-  --mocha-selection-border: #2a5050;
+  /* Primary accent - warm amber gold */
+  --mocha-accent: #e8a854;
+  --mocha-accent-hover: #f0b864;
+  --mocha-accent-muted: rgba(232, 168, 84, 0.15);
+  --mocha-accent-glow: rgba(232, 168, 84, 0.4);
 
-  /* Service badge palette - warm tones */
+  /* Secondary accent - cool cyan */
+  --mocha-info: #4ecdc4;
+  --mocha-info-muted: rgba(78, 205, 196, 0.15);
+
+  /* Semantic - Error */
+  --mocha-error: #ff6b6b;
+  --mocha-error-bg: rgba(255, 107, 107, 0.08);
+  --mocha-error-border: rgba(255, 107, 107, 0.2);
+  --mocha-error-glow: rgba(255, 107, 107, 0.3);
+
+  /* Semantic - Warning */
+  --mocha-warning: #ffd93d;
+  --mocha-warning-bg: rgba(255, 217, 61, 0.06);
+  --mocha-warning-border: rgba(255, 217, 61, 0.15);
+  --mocha-warning-glow: rgba(255, 217, 61, 0.25);
+
+  /* Semantic - Success */
+  --mocha-success: #6bcb77;
+  --mocha-success-muted: rgba(107, 203, 119, 0.15);
+
+  /* Selection - cool teal */
+  --mocha-selection: rgba(78, 205, 196, 0.12);
+  --mocha-selection-border: rgba(78, 205, 196, 0.3);
+  --mocha-selection-glow: rgba(78, 205, 196, 0.2);
+
+  /* Service badge palette - refined */
   --badge-core: #6b9bd1;
   --badge-app: #b58fd1;
-  --badge-platform: #6bc98f;
-  --badge-runner: #8a8680;
-  --badge-iwf: #d9a05b;
-  --badge-rag: #5bc9c0;
-  --badge-transcriber: #d98fb0;
-  --badge-tracker: #d9c95b;
-  --badge-verify: #8b8fd1;
+  --badge-platform: #6bcb77;
+  --badge-runner: #8a9aad;
+  --badge-iwf: #e8a854;
+  --badge-rag: #4ecdc4;
+  --badge-transcriber: #f08080;
+  --badge-tracker: #ffd93d;
+  --badge-verify: #9b8fd1;
   --badge-pixel: #5bc9a8;
-  --badge-default: #8a8680;
+  --badge-default: #7a8594;
 
   /* Typography */
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
@@ -72,17 +90,36 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* === Base Reset === */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
   background: var(--mocha-bg);
+  overflow: hidden;
+}
+
+/* === Typography Helpers === */
+.font-display {
+  font-family: 'Instrument Serif', Georgia, serif;
+}
+
+.font-mono {
+  font-family: 'IBM Plex Mono', 'SF Mono', Menlo, monospace;
+}
+
+.font-ui {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* === Custom Scrollbar === */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -90,12 +127,20 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--mocha-border);
-  border-radius: 4px;
+  background: var(--mocha-surface-hover);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--mocha-text-muted);
+  background: var(--mocha-surface-active);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* === Selection === */
@@ -110,20 +155,89 @@ body {
   outline-offset: 2px;
 }
 
-/* === Animations === */
+/* ========================================
+   ANIMATIONS
+   Subtle, purposeful motion
+   ======================================== */
+
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideIn {
-  from { opacity: 0; transform: translateX(-8px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes breathe {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 8px var(--glow-color, var(--mocha-accent-glow));
+  }
+  50% {
+    box-shadow: 0 0 16px var(--glow-color, var(--mocha-accent-glow));
+  }
 }
 
 @keyframes shimmer {
@@ -131,109 +245,354 @@ body {
   100% { background-position: 200% 0; }
 }
 
-/* === Utility Classes === */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes flashHighlight {
+  0% {
+    background-color: var(--mocha-accent-muted);
+    box-shadow: inset 0 0 20px var(--mocha-accent-glow);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+@keyframes newLogPulse {
+  0% {
+    background-color: var(--mocha-info-muted);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Steam animation for empty state */
+@keyframes steam {
+  0% {
+    transform: translateY(0) scaleY(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-8px) scaleY(1.2);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(-16px) scaleY(0.8);
+    opacity: 0;
+  }
+}
+
+/* === Animation Classes === */
 .animate-fade-in {
-  animation: fadeIn 0.2s ease-out;
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .animate-slide-in {
-  animation: slideIn 0.2s ease-out;
+  animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .animate-pulse-subtle {
-  animation: pulse 2s ease-in-out infinite;
+  animation: breathe 3s ease-in-out infinite;
 }
 
-/* Flash highlight for jump-to-source */
-@keyframes flashHighlight {
-  0% { background-color: rgba(196, 167, 125, 0.5); }
-  100% { background-color: transparent; }
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
 }
 
 .animate-flash-highlight {
   animation: flashHighlight 1.5s ease-out;
 }
 
-/* Glass effect for elevated surfaces */
-.glass {
-  background: linear-gradient(
-    135deg,
-    rgba(38, 35, 32, 0.95) 0%,
-    rgba(30, 28, 26, 0.98) 100%
-  );
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--mocha-border-subtle);
+.animate-new-log {
+  animation: newLogPulse 1s ease-out;
 }
 
-/* Subtle glow effect */
-.glow {
-  box-shadow: 0 0 20px rgba(196, 167, 125, 0.1);
-}
-
-/* Smooth transitions */
-.transition-smooth {
-  transition: all 0.15s ease-out;
-}
-
-/* Text gradient for headings */
-.text-gradient {
-  background: linear-gradient(135deg, var(--mocha-accent) 0%, var(--mocha-text) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Badge glow on hover */
-.badge-glow:hover {
-  box-shadow: 0 0 12px currentColor;
-}
-
-/* Input field styling */
-input[type="text"] {
-  background: var(--mocha-surface);
-  border: 1px solid var(--mocha-border);
-  color: var(--mocha-text);
-  transition: all 0.15s ease-out;
-}
-
-input[type="text"]:focus {
-  border-color: var(--mocha-accent);
-  box-shadow: 0 0 0 3px rgba(196, 167, 125, 0.15);
-}
-
-input[type="text"]::placeholder {
-  color: var(--mocha-text-muted);
-}
-
-/* Button base */
-button {
-  transition: all 0.15s ease-out;
-}
-
-/* Noise texture overlay for depth */
-.noise-overlay::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  opacity: 0.03;
-  pointer-events: none;
-  mix-blend-mode: overlay;
+.animate-steam {
+  animation: steam 2s ease-out infinite;
 }
 
 /* ========================================
-   JSON View - Logbook Paper Theme
+   GLASSMORPHIC EFFECTS
+   Depth through transparency
    ======================================== */
+
+.glass {
+  background: linear-gradient(
+    135deg,
+    rgba(18, 21, 28, 0.85) 0%,
+    rgba(13, 15, 20, 0.95) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--mocha-border);
+}
+
+.glass-subtle {
+  background: rgba(18, 21, 28, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-card {
+  background: linear-gradient(
+    145deg,
+    rgba(24, 28, 37, 0.9) 0%,
+    rgba(18, 21, 28, 0.95) 100%
+  );
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--mocha-border);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/* ========================================
+   GLOW EFFECTS
+   Signal-like luminosity
+   ======================================== */
+
+.glow-amber {
+  box-shadow:
+    0 0 20px var(--mocha-accent-glow),
+    0 0 40px rgba(232, 168, 84, 0.1);
+}
+
+.glow-cyan {
+  box-shadow:
+    0 0 20px var(--mocha-selection-glow),
+    0 0 40px rgba(78, 205, 196, 0.1);
+}
+
+.glow-error {
+  box-shadow:
+    0 0 20px var(--mocha-error-glow),
+    0 0 40px rgba(255, 107, 107, 0.1);
+}
+
+.glow-warning {
+  box-shadow:
+    0 0 15px var(--mocha-warning-glow),
+    0 0 30px rgba(255, 217, 61, 0.08);
+}
+
+/* Signal line - left border glow effect */
+.signal-line {
+  position: relative;
+}
+
+.signal-line::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--signal-color, var(--mocha-accent));
+  box-shadow: 0 0 8px var(--signal-color, var(--mocha-accent-glow));
+  opacity: 0.8;
+}
+
+/* ========================================
+   INPUT STYLES
+   Refined form elements
+   ======================================== */
+
+input[type="text"],
+input[type="search"] {
+  background: var(--mocha-surface);
+  border: 1px solid var(--mocha-border);
+  border-radius: 8px;
+  color: var(--mocha-text);
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+input[type="text"]:hover,
+input[type="search"]:hover {
+  border-color: var(--mocha-border-strong);
+  background: var(--mocha-surface-raised);
+}
+
+input[type="text"]:focus,
+input[type="search"]:focus {
+  outline: none;
+  border-color: var(--mocha-accent);
+  background: var(--mocha-surface-raised);
+  box-shadow:
+    0 0 0 3px var(--mocha-accent-muted),
+    0 0 20px rgba(232, 168, 84, 0.1);
+}
+
+input[type="text"]::placeholder,
+input[type="search"]::placeholder {
+  color: var(--mocha-text-muted);
+}
+
+/* ========================================
+   BUTTON STYLES
+   Purposeful interactions
+   ======================================== */
+
+button {
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--mocha-accent) 0%, #d49544 100%);
+  color: var(--mocha-bg);
+  border: none;
+  font-weight: 600;
+  box-shadow: 0 2px 12px var(--mocha-accent-glow);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--mocha-accent-hover) 0%, var(--mocha-accent) 100%);
+  box-shadow: 0 4px 20px var(--mocha-accent-glow);
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--mocha-border);
+  color: var(--mocha-text-secondary);
+}
+
+.btn-ghost:hover {
+  background: var(--mocha-surface-hover);
+  border-color: var(--mocha-border-strong);
+  color: var(--mocha-text);
+}
+
+/* ========================================
+   BADGE STYLES
+   Service identification
+   ======================================== */
+
+.badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--badge-bg, rgba(122, 133, 148, 0.15));
+  color: var(--badge-color, var(--badge-default));
+  border: 1px solid var(--badge-border, rgba(122, 133, 148, 0.2));
+  transition: all 0.15s ease;
+}
+
+.badge:hover {
+  background: var(--badge-bg-hover, rgba(122, 133, 148, 0.25));
+}
+
+/* ========================================
+   LOG LEVEL INDICATORS
+   Visual severity mapping
+   ======================================== */
+
+.log-error {
+  --signal-color: var(--mocha-error);
+  background: var(--mocha-error-bg);
+  border-left: 3px solid var(--mocha-error);
+}
+
+.log-error:hover {
+  background: rgba(255, 107, 107, 0.12);
+}
+
+.log-warn {
+  --signal-color: var(--mocha-warning);
+  background: var(--mocha-warning-bg);
+  border-left: 3px solid var(--mocha-warning);
+}
+
+.log-warn:hover {
+  background: rgba(255, 217, 61, 0.1);
+}
+
+.log-info {
+  border-left: 3px solid transparent;
+}
+
+.log-info:hover {
+  background: var(--mocha-surface-hover);
+  border-left-color: var(--mocha-text-muted);
+}
+
+/* ========================================
+   STORY PANE / LOGBOOK
+   The investigator's notebook
+   ======================================== */
+
+.logbook-paper {
+  background: linear-gradient(
+    to bottom,
+    #faf8f5 0%,
+    #f5f2ed 50%,
+    #f0ece6 100%
+  );
+}
+
+.logbook-card {
+  background: linear-gradient(
+    145deg,
+    #fdfcfa 0%,
+    #f8f6f2 100%
+  );
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.02);
+}
+
+.logbook-card:hover {
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+/* ========================================
+   JSON VIEW THEME
+   Syntax highlighting
+   ======================================== */
+
 .jv-logbook-container {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .jv-logbook-child {
   padding-left: 1em;
   margin-left: 0.3em;
-  border-left: 1px solid rgba(139, 131, 120, 0.2);
+  border-left: 1px solid rgba(139, 131, 120, 0.15);
 }
 
 .jv-logbook-label {
@@ -241,7 +600,7 @@ button {
 }
 
 .jv-logbook-string {
-  color: #5a8a5a;
+  color: #4a8a5a;
 }
 
 .jv-logbook-number {
@@ -266,25 +625,7 @@ button {
   color: #8b8378;
 }
 
-.jv-logbook-expand-icon {
-  cursor: pointer;
-  color: #6b635a;
-  margin-right: 4px;
-  user-select: none;
-  display: inline-block;
-  width: 1em;
-  text-align: center;
-}
-
-.jv-logbook-expand-icon::after {
-  content: '▶';
-  font-size: 8px;
-}
-
-.jv-logbook-expand-icon:hover {
-  color: #3d3833;
-}
-
+.jv-logbook-expand-icon,
 .jv-logbook-collapse-icon {
   cursor: pointer;
   color: #6b635a;
@@ -293,6 +634,12 @@ button {
   display: inline-block;
   width: 1em;
   text-align: center;
+  transition: color 0.15s ease;
+}
+
+.jv-logbook-expand-icon::after {
+  content: '▶';
+  font-size: 8px;
 }
 
 .jv-logbook-collapse-icon::after {
@@ -300,6 +647,7 @@ button {
   font-size: 8px;
 }
 
+.jv-logbook-expand-icon:hover,
 .jv-logbook-collapse-icon:hover {
   color: #3d3833;
 }
@@ -309,3 +657,93 @@ button {
   cursor: pointer;
 }
 
+/* ========================================
+   UTILITY CLASSES
+   Composable helpers
+   ======================================== */
+
+.truncate-fade {
+  position: relative;
+  overflow: hidden;
+}
+
+.truncate-fade::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  background: linear-gradient(to right, transparent, var(--fade-color, var(--mocha-bg)));
+  pointer-events: none;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(135deg, var(--mocha-accent) 0%, #f0c878 50%, var(--mocha-info) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Noise texture overlay */
+.noise::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.015;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+/* Grid pattern background */
+.grid-pattern {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Radial glow background */
+.radial-glow {
+  background: radial-gradient(
+    ellipse 80% 50% at 50% -20%,
+    rgba(232, 168, 84, 0.08) 0%,
+    transparent 70%
+  );
+}
+
+/* ========================================
+   RESPONSIVE ADJUSTMENTS
+   ======================================== */
+
+@media (max-width: 768px) {
+  :root {
+    font-size: 14px;
+  }
+}
+
+/* ========================================
+   REDUCED MOTION
+   Accessibility respect
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,9 +1,9 @@
-import { memo, useState } from 'react'
-import { X, Eye, EyeOff, FileText, Files, AlertTriangle, Search, Hash, MinusCircle, ChevronUp, ChevronDown } from 'lucide-react'
+import { memo, useState, useRef, useEffect } from 'react'
+import { X, Eye, EyeOff, FileText, Files, AlertTriangle, Search, Hash, MinusCircle, ChevronUp, ChevronDown, Command } from 'lucide-react'
 import type { ToolbarProps, ParsedFilter } from '../types'
 
 /**
- * Filter chip component with refined styling
+ * Filter chip with refined styling
  */
 interface FilterChipProps {
   filter: ParsedFilter
@@ -16,7 +16,6 @@ const FilterChip = memo(function FilterChip({
   index,
   onRemove,
 }: FilterChipProps) {
-  // Style based on filter type
   const getChipStyle = () => {
     switch (filter.type) {
       case 'exclude':
@@ -28,15 +27,15 @@ const FilterChip = memo(function FilterChip({
         }
       case 'regex':
         return {
-          bg: 'rgba(139, 143, 209, 0.15)',
-          border: 'rgba(139, 143, 209, 0.3)',
+          bg: 'rgba(155, 143, 209, 0.12)',
+          border: 'rgba(155, 143, 209, 0.25)',
           text: 'var(--badge-verify)',
           icon: Hash,
         }
       default:
         return {
-          bg: 'var(--mocha-selection)',
-          border: 'var(--mocha-selection-border)',
+          bg: 'var(--mocha-accent-muted)',
+          border: 'rgba(232, 168, 84, 0.25)',
           text: 'var(--mocha-accent)',
           icon: Search,
         }
@@ -48,7 +47,7 @@ const FilterChip = memo(function FilterChip({
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all animate-fade-in"
+      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 animate-scale-in"
       style={{
         background: style.bg,
         border: `1px solid ${style.border}`,
@@ -57,12 +56,12 @@ const FilterChip = memo(function FilterChip({
       data-testid={`filter-chip-${index}`}
     >
       <Icon className="w-3 h-3 opacity-70" />
-      <span className="max-w-32 truncate" title={filter.text}>
+      <span className="max-w-32 truncate font-mono" title={filter.text}>
         {filter.text}
       </span>
       <button
         onClick={onRemove}
-        className="p-0.5 rounded transition-all hover:opacity-70"
+        className="p-0.5 rounded transition-all duration-150 hover:bg-[rgba(255,255,255,0.1)]"
         style={{ color: style.text }}
         title="Remove filter"
         data-testid={`remove-filter-${index}`}
@@ -73,7 +72,6 @@ const FilterChip = memo(function FilterChip({
   )
 })
 
-
 /**
  * Extended Toolbar props
  */
@@ -81,7 +79,6 @@ interface ExtendedToolbarProps extends ToolbarProps {
   truncated?: boolean
   visibleCount?: number
   isWatching?: boolean
-  // Search props
   searchQuery?: string
   searchIsRegex?: boolean
   searchMatchCount?: number
@@ -93,7 +90,7 @@ interface ExtendedToolbarProps extends ToolbarProps {
 }
 
 /**
- * Toolbar component for log filtering and file controls
+ * Toolbar component - refined command bar
  */
 export const Toolbar = memo(function Toolbar({
   filters,
@@ -104,7 +101,6 @@ export const Toolbar = memo(function Toolbar({
   truncated = false,
   visibleCount,
   isWatching = false,
-  // Search props
   searchQuery = '',
   searchIsRegex = false,
   searchMatchCount = 0,
@@ -115,20 +111,33 @@ export const Toolbar = memo(function Toolbar({
   onSearchPrev,
 }: ExtendedToolbarProps) {
   const [isFocused, setIsFocused] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Keyboard shortcut: Cmd/Ctrl+F to focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault()
+        inputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   return (
     <div
-      className="h-14 flex items-center gap-4 px-4"
+      className="h-14 flex items-center gap-4 px-5"
       style={{
         background: 'var(--mocha-surface)',
-        borderBottom: '1px solid var(--mocha-border-subtle)',
+        borderBottom: '1px solid var(--mocha-border)',
       }}
       data-testid="toolbar"
     >
       {/* File info section */}
       <div className="flex items-center gap-3 min-w-0 shrink-0">
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          className="w-9 h-9 rounded-lg flex items-center justify-center"
           style={{
             background: 'var(--mocha-surface-raised)',
             border: '1px solid var(--mocha-border)',
@@ -142,7 +151,7 @@ export const Toolbar = memo(function Toolbar({
         </div>
 
         {activeFileCount > 0 ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <span
               className="font-medium text-sm"
               style={{ color: 'var(--mocha-text)' }}
@@ -152,10 +161,11 @@ export const Toolbar = memo(function Toolbar({
             </span>
             {totalLines > 0 && (
               <span
-                className="px-2 py-0.5 rounded-md text-xs font-medium"
+                className="px-2 py-1 rounded-md text-xs font-mono font-medium tabular-nums"
                 style={{
                   background: 'var(--mocha-surface-raised)',
                   color: 'var(--mocha-text-secondary)',
+                  border: '1px solid var(--mocha-border-subtle)',
                 }}
                 data-testid="line-count"
               >
@@ -167,7 +177,7 @@ export const Toolbar = memo(function Toolbar({
             )}
             {truncated && (
               <span
-                className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium"
                 style={{
                   background: 'var(--mocha-warning-bg)',
                   border: '1px solid var(--mocha-warning-border)',
@@ -200,9 +210,9 @@ export const Toolbar = memo(function Toolbar({
         />
       )}
 
-      {/* Active filters section */}
+      {/* Active filters */}
       {filters.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto" data-testid="active-filters">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar" data-testid="active-filters">
           {filters.map((filter, index) => (
             <FilterChip
               key={`${filter.type}-${filter.text}-${index}`}
@@ -217,21 +227,23 @@ export const Toolbar = memo(function Toolbar({
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Search input */}
+      {/* Search section */}
       <div className="flex items-center gap-2">
+        {/* Search input */}
         <div
-          className="relative flex items-center transition-all"
+          className="relative flex items-center transition-all duration-300"
           style={{
-            width: isFocused ? '240px' : '180px',
+            width: isFocused || searchQuery ? '280px' : '200px',
           }}
         >
           <Search
-            className="absolute left-3 w-4 h-4 pointer-events-none transition-colors"
+            className="absolute left-3 w-4 h-4 pointer-events-none transition-colors duration-200"
             style={{
               color: isFocused ? 'var(--mocha-accent)' : 'var(--mocha-text-muted)',
             }}
           />
           <input
+            ref={inputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange?.(e.target.value)}
@@ -239,39 +251,62 @@ export const Toolbar = memo(function Toolbar({
               if (e.key === 'Enter') {
                 e.shiftKey ? onSearchPrev?.() : onSearchNext?.()
               }
+              if (e.key === 'Escape') {
+                onSearchChange?.('')
+                inputRef.current?.blur()
+              }
             }}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             placeholder="Search logs..."
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg focus:outline-none"
+            className="w-full pl-10 pr-10 py-2.5 text-sm rounded-xl font-mono"
             style={{
-              background: 'var(--mocha-surface-raised)',
+              background: isFocused ? 'var(--mocha-surface-raised)' : 'var(--mocha-surface-hover)',
               border: `1px solid ${isFocused ? 'var(--mocha-accent)' : 'var(--mocha-border)'}`,
               color: 'var(--mocha-text)',
-              boxShadow: isFocused ? '0 0 0 3px rgba(196, 167, 125, 0.1)' : 'none',
+              boxShadow: isFocused
+                ? '0 0 0 3px var(--mocha-accent-muted), 0 4px 16px rgba(0,0,0,0.2)'
+                : 'none',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
-            title="Search logs. Enter for next, Shift+Enter for previous"
+            title="Search logs (⌘F). Enter for next, Shift+Enter for previous"
             data-testid="search-input"
           />
-          {searchQuery && (
+
+          {/* Keyboard hint or clear button */}
+          {searchQuery ? (
             <button
               onClick={() => onSearchChange?.('')}
-              className="absolute right-2 p-1 rounded hover:bg-[var(--mocha-surface-hover)]"
+              className="absolute right-3 p-1 rounded-md transition-all duration-150 hover:bg-[var(--mocha-surface-active)]"
               style={{ color: 'var(--mocha-text-muted)' }}
             >
-              <X className="w-3 h-3" />
+              <X className="w-3.5 h-3.5" />
             </button>
+          ) : !isFocused && (
+            <div
+              className="absolute right-3 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style={{
+                background: 'var(--mocha-surface-active)',
+                color: 'var(--mocha-text-muted)',
+              }}
+            >
+              <Command className="w-2.5 h-2.5" />
+              <span>F</span>
+            </div>
           )}
         </div>
 
         {/* Regex toggle */}
         <button
           onClick={onSearchRegexToggle}
-          className="px-2 py-2 rounded-lg text-xs font-mono transition-colors"
+          className="px-3 py-2.5 rounded-xl text-xs font-mono font-semibold transition-all duration-200"
           style={{
-            background: searchIsRegex ? 'var(--mocha-accent)' : 'var(--mocha-surface-raised)',
+            background: searchIsRegex
+              ? 'linear-gradient(135deg, var(--mocha-accent) 0%, #d49544 100%)'
+              : 'var(--mocha-surface-hover)',
             border: `1px solid ${searchIsRegex ? 'var(--mocha-accent)' : 'var(--mocha-border)'}`,
             color: searchIsRegex ? 'var(--mocha-bg)' : 'var(--mocha-text-muted)',
+            boxShadow: searchIsRegex ? '0 2px 12px var(--mocha-accent-glow)' : 'none',
           }}
           title="Toggle regex search"
         >
@@ -280,26 +315,38 @@ export const Toolbar = memo(function Toolbar({
 
         {/* Match navigation */}
         {searchQuery && (
-          <div className="flex items-center gap-1">
+          <div
+            className="flex items-center gap-1 animate-scale-in"
+            style={{
+              background: 'var(--mocha-surface-raised)',
+              border: '1px solid var(--mocha-border)',
+              borderRadius: '12px',
+              padding: '4px',
+            }}
+          >
             <button
               onClick={onSearchPrev}
-              className="p-1.5 rounded-lg transition-colors hover:bg-[var(--mocha-surface-hover)]"
-              style={{ color: 'var(--mocha-text-secondary)' }}
+              className="p-1.5 rounded-lg transition-all duration-150 hover:bg-[var(--mocha-surface-hover)]"
+              style={{ color: searchMatchCount > 0 ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)' }}
               title="Previous match (Shift+Enter)"
               disabled={searchMatchCount === 0}
             >
               <ChevronUp className="w-4 h-4" />
             </button>
+
             <span
-              className="text-xs tabular-nums min-w-[4rem] text-center"
-              style={{ color: searchMatchCount > 0 ? 'var(--mocha-text-secondary)' : 'var(--mocha-error)' }}
+              className="text-xs tabular-nums min-w-[3.5rem] text-center font-mono font-medium px-1"
+              style={{
+                color: searchMatchCount > 0 ? 'var(--mocha-text-secondary)' : 'var(--mocha-error)',
+              }}
             >
-              {searchMatchCount > 0 ? `${searchCurrentIndex + 1}/${searchMatchCount}` : 'No matches'}
+              {searchMatchCount > 0 ? `${searchCurrentIndex + 1}/${searchMatchCount}` : '0/0'}
             </span>
+
             <button
               onClick={onSearchNext}
-              className="p-1.5 rounded-lg transition-colors hover:bg-[var(--mocha-surface-hover)]"
-              style={{ color: 'var(--mocha-text-secondary)' }}
+              className="p-1.5 rounded-lg transition-all duration-150 hover:bg-[var(--mocha-surface-hover)]"
+              style={{ color: searchMatchCount > 0 ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)' }}
               title="Next match (Enter)"
               disabled={searchMatchCount === 0}
             >
@@ -309,14 +356,23 @@ export const Toolbar = memo(function Toolbar({
         )}
       </div>
 
+      {/* Divider before watch */}
+      <div
+        className="h-6 w-px ml-2"
+        style={{ background: 'var(--mocha-border)' }}
+      />
+
       {/* Watch toggle */}
       <button
         onClick={onToggleWatch}
-        className="p-2.5 rounded-lg transition-all"
+        className="p-2.5 rounded-xl transition-all duration-200"
         style={{
-          background: isWatching ? 'var(--mocha-selection)' : 'transparent',
+          background: isWatching
+            ? 'var(--mocha-selection)'
+            : 'transparent',
           border: `1px solid ${isWatching ? 'var(--mocha-selection-border)' : 'transparent'}`,
-          color: isWatching ? 'var(--mocha-accent)' : 'var(--mocha-text-muted)',
+          color: isWatching ? 'var(--mocha-info)' : 'var(--mocha-text-muted)',
+          boxShadow: isWatching ? '0 0 16px var(--mocha-selection-glow)' : 'none',
         }}
         onMouseEnter={(e) => {
           if (!isWatching) {

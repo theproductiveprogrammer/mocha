@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react'
-import { Coffee, Upload, Sparkles } from 'lucide-react'
+import { Upload, FileSearch, Zap } from 'lucide-react'
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import type { LogEntry, OpenedFileWithLogs } from './types'
@@ -574,17 +574,17 @@ function App() {
           {/* Error banner */}
           {error && (
             <div
-              className="animate-fade-in px-4 py-3 text-sm flex items-center justify-between"
+              className="animate-fade-in px-5 py-3 text-sm flex items-center justify-between"
               style={{
                 background: 'var(--mocha-error-bg)',
                 borderBottom: '1px solid var(--mocha-error-border)',
                 color: 'var(--mocha-error)'
               }}
             >
-              <span>{error}</span>
+              <span className="font-medium">{error}</span>
               <button
                 onClick={() => setError(null)}
-                className="px-2 py-1 rounded text-xs font-medium hover:opacity-80"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 hover:scale-105"
                 style={{ background: 'var(--mocha-error)', color: 'var(--mocha-bg)' }}
               >
                 Dismiss
@@ -595,15 +595,21 @@ function App() {
           {/* Loading banner */}
           {isLoading && (
             <div
-              className="animate-fade-in px-4 py-3 text-sm flex items-center gap-2"
+              className="animate-fade-in px-5 py-3 text-sm flex items-center gap-3"
               style={{
                 background: 'var(--mocha-surface-raised)',
                 borderBottom: '1px solid var(--mocha-border)',
                 color: 'var(--mocha-accent)'
               }}
             >
-              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              Loading file...
+              <div
+                className="w-4 h-4 rounded-full animate-spin"
+                style={{
+                  border: '2px solid var(--mocha-accent-muted)',
+                  borderTopColor: 'var(--mocha-accent)',
+                }}
+              />
+              <span className="font-medium">Loading file...</span>
             </div>
           )}
 
@@ -619,88 +625,136 @@ function App() {
               onJumpComplete={handleJumpComplete}
             />
           ) : (
+            /* Beautiful empty state */
             <div
-              className="flex-1 flex items-center justify-center"
+              className="flex-1 flex items-center justify-center relative overflow-hidden"
               style={{ background: 'var(--mocha-bg)' }}
             >
-              <div className="text-center max-w-md px-8">
-                {/* Decorative coffee cup */}
-                <div className="relative mb-8">
+              {/* Ambient background glow */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(232, 168, 84, 0.06) 0%, transparent 60%)',
+                }}
+              />
+
+              {/* Grid pattern overlay */}
+              <div
+                className="absolute inset-0 pointer-events-none opacity-30 grid-pattern"
+              />
+
+              <div className="relative z-10 text-center max-w-lg px-8 animate-fade-in-up">
+                {/* Iconic illustration */}
+                <div className="relative mb-10">
+                  {/* Outer ring */}
                   <div
-                    className="w-24 h-24 mx-auto rounded-2xl flex items-center justify-center"
+                    className="w-32 h-32 mx-auto rounded-full flex items-center justify-center"
                     style={{
                       background: 'linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface) 100%)',
-                      border: '1px solid var(--mocha-border)'
+                      border: '1px solid var(--mocha-border)',
+                      boxShadow: '0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
                     }}
                   >
-                    <Coffee
-                      className="w-12 h-12"
-                      style={{ color: 'var(--mocha-accent)' }}
-                      strokeWidth={1.5}
-                    />
+                    {/* Inner glow ring */}
+                    <div
+                      className="w-24 h-24 rounded-full flex items-center justify-center"
+                      style={{
+                        background: 'linear-gradient(135deg, var(--mocha-surface-hover) 0%, var(--mocha-surface-raised) 100%)',
+                        border: '1px solid var(--mocha-border-subtle)',
+                        boxShadow: 'inset 0 0 20px rgba(232, 168, 84, 0.1)',
+                      }}
+                    >
+                      <FileSearch
+                        className="w-10 h-10"
+                        style={{ color: 'var(--mocha-accent)' }}
+                        strokeWidth={1.5}
+                      />
+                    </div>
                   </div>
-                  {/* Steam animation */}
-                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex gap-1">
-                    <div
-                      className="w-1 h-6 rounded-full animate-pulse-subtle"
-                      style={{
-                        background: 'linear-gradient(to top, var(--mocha-accent-muted), transparent)',
-                        animationDelay: '0s'
-                      }}
-                    />
-                    <div
-                      className="w-1 h-8 rounded-full animate-pulse-subtle"
-                      style={{
-                        background: 'linear-gradient(to top, var(--mocha-accent-muted), transparent)',
-                        animationDelay: '0.3s'
-                      }}
-                    />
-                    <div
-                      className="w-1 h-5 rounded-full animate-pulse-subtle"
-                      style={{
-                        background: 'linear-gradient(to top, var(--mocha-accent-muted), transparent)',
-                        animationDelay: '0.6s'
-                      }}
-                    />
-                  </div>
+
+                  {/* Floating particles */}
+                  <div
+                    className="absolute top-0 left-1/4 w-2 h-2 rounded-full animate-float"
+                    style={{
+                      background: 'var(--mocha-accent)',
+                      opacity: 0.4,
+                      animationDelay: '0s',
+                    }}
+                  />
+                  <div
+                    className="absolute bottom-4 right-1/4 w-1.5 h-1.5 rounded-full animate-float"
+                    style={{
+                      background: 'var(--mocha-info)',
+                      opacity: 0.4,
+                      animationDelay: '1s',
+                    }}
+                  />
+                  <div
+                    className="absolute top-1/4 right-8 w-1 h-1 rounded-full animate-float"
+                    style={{
+                      background: 'var(--mocha-accent)',
+                      opacity: 0.3,
+                      animationDelay: '0.5s',
+                    }}
+                  />
                 </div>
 
                 <h2
-                  className="text-2xl font-semibold mb-3"
-                  style={{
-                    fontFamily: "'Space Grotesk', sans-serif",
-                    color: 'var(--mocha-text)'
-                  }}
+                  className="text-2xl font-semibold mb-4 font-display"
+                  style={{ color: 'var(--mocha-text)' }}
                 >
-                  Ready to brew some logs
+                  Ready to analyze
                 </h2>
+
                 <p
-                  className="text-sm mb-8 leading-relaxed"
+                  className="text-sm mb-10 leading-relaxed"
                   style={{ color: 'var(--mocha-text-secondary)' }}
                 >
-                  Drop a log file here, click the button below,<br />
-                  or pick from your recent files in the sidebar.
+                  Drop a log file anywhere on this window, or use the button below.
+                  <br />
+                  <span style={{ color: 'var(--mocha-text-muted)' }}>
+                    Your recent files are waiting in the sidebar.
+                  </span>
                 </p>
+
                 <button
                   onClick={() => handleOpenFile()}
-                  className="group px-6 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 mx-auto transition-all hover:scale-105"
+                  className="group px-8 py-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-3 mx-auto transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
                   style={{
-                    background: 'linear-gradient(135deg, var(--mocha-accent) 0%, var(--mocha-accent-hover) 100%)',
+                    background: 'linear-gradient(135deg, var(--mocha-accent) 0%, #d49544 100%)',
                     color: 'var(--mocha-bg)',
-                    boxShadow: '0 4px 20px rgba(196, 167, 125, 0.3)'
+                    boxShadow: '0 4px 24px var(--mocha-accent-glow), 0 8px 32px rgba(0,0,0,0.2)',
                   }}
                   data-testid="open-file-btn"
                 >
-                  <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                  <Zap className="w-5 h-5 transition-transform duration-300 group-hover:rotate-12" />
                   Open Log File
                 </button>
 
                 {/* Keyboard shortcut hint */}
                 <p
-                  className="mt-6 text-xs"
+                  className="mt-8 text-xs flex items-center justify-center gap-2"
                   style={{ color: 'var(--mocha-text-muted)' }}
                 >
-                  Pro tip: Drag &amp; drop works too
+                  <span
+                    className="px-2 py-1 rounded text-[10px] font-medium"
+                    style={{
+                      background: 'var(--mocha-surface-raised)',
+                      border: '1px solid var(--mocha-border)',
+                    }}
+                  >
+                    Drag & Drop
+                  </span>
+                  <span>or</span>
+                  <span
+                    className="px-2 py-1 rounded text-[10px] font-medium"
+                    style={{
+                      background: 'var(--mocha-surface-raised)',
+                      border: '1px solid var(--mocha-border)',
+                    }}
+                  >
+                    .log / .txt
+                  </span>
                 </p>
               </div>
             </div>
@@ -734,28 +788,36 @@ function App() {
             <div
               className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none animate-fade-in"
               style={{
-                background: 'rgba(20, 18, 16, 0.9)',
-                backdropFilter: 'blur(8px)'
+                background: 'rgba(8, 9, 12, 0.95)',
+                backdropFilter: 'blur(12px)',
               }}
             >
               <div
-                className="px-8 py-6 rounded-2xl flex items-center gap-4"
+                className="px-12 py-10 rounded-3xl flex flex-col items-center gap-6 animate-scale-in"
                 style={{
-                  background: 'var(--mocha-surface-raised)',
+                  background: 'linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface) 100%)',
                   border: '2px dashed var(--mocha-accent)',
-                  boxShadow: '0 0 40px rgba(196, 167, 125, 0.2)'
+                  boxShadow: '0 0 60px var(--mocha-accent-glow), 0 20px 60px rgba(0,0,0,0.4)',
                 }}
               >
-                <Upload className="w-10 h-10" style={{ color: 'var(--mocha-accent)' }} />
-                <div>
+                <div
+                  className="w-20 h-20 rounded-2xl flex items-center justify-center"
+                  style={{
+                    background: 'var(--mocha-accent-muted)',
+                    border: '1px solid rgba(232, 168, 84, 0.3)',
+                  }}
+                >
+                  <Upload
+                    className="w-10 h-10 animate-float"
+                    style={{ color: 'var(--mocha-accent)' }}
+                  />
+                </div>
+                <div className="text-center">
                   <div
-                    className="font-semibold text-lg"
-                    style={{
-                      fontFamily: "'Space Grotesk', sans-serif",
-                      color: 'var(--mocha-text)'
-                    }}
+                    className="font-semibold text-xl mb-2 font-display"
+                    style={{ color: 'var(--mocha-text)' }}
                   >
-                    Drop your log file
+                    Drop to analyze
                   </div>
                   <div
                     className="text-sm"
