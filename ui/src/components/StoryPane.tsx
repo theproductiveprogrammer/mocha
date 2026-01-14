@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, memo } from "react";
+import { useState, useCallback, useRef, useEffect, memo, useMemo } from "react";
 import {
   X,
   Copy,
@@ -13,6 +13,9 @@ import {
   Coffee,
   Maximize2,
   Minimize2,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { JsonView } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
@@ -93,10 +96,18 @@ const EvidenceCard = memo(function EvidenceCard({
   log,
   index,
   onRemove,
+  searchQuery,
+  isRegex,
+  isCurrentMatch,
+  cardRef,
 }: {
   log: LogEntry;
   index: number;
   onRemove: () => void;
+  searchQuery?: string;
+  isRegex?: boolean;
+  isCurrentMatch?: boolean;
+  cardRef?: (el: HTMLDivElement | null) => void;
 }) {
   const [showRaw, setShowRaw] = useState(false);
   const serviceName = getServiceName(log);
@@ -121,8 +132,47 @@ const EvidenceCard = memo(function EvidenceCard({
   // Raw log data (original line from file)
   const rawLog = log.data;
 
+  // Helper to highlight search matches in text
+  const highlightMatches = (text: string) => {
+    if (!searchQuery?.trim()) return text;
+
+    try {
+      const regex = isRegex
+        ? new RegExp(`(${searchQuery})`, 'gi')
+        : new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+
+      const parts = text.split(regex);
+      return parts.map((part, i) => {
+        if (regex.test(part)) {
+          regex.lastIndex = 0; // Reset for next test
+          return (
+            <mark
+              key={i}
+              style={{
+                background: isCurrentMatch ? '#eab308' : '#eab30866',
+                color: '#000',
+                padding: '0 2px',
+                borderRadius: '2px',
+              }}
+            >
+              {part}
+            </mark>
+          );
+        }
+        regex.lastIndex = 0;
+        return part;
+      });
+    } catch {
+      return text;
+    }
+  };
+
   return (
-    <div className="group relative" data-story-hash={log.hash}>
+    <div
+      ref={cardRef}
+      className={`group relative ${isCurrentMatch ? 'ring-2 ring-[#eab308] ring-offset-2 ring-offset-[#f0ece6]' : ''}`}
+      data-story-hash={log.hash}
+    >
       {/* Card */}
       <div
         className="relative mx-4 mb-3 rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md"
@@ -216,7 +266,7 @@ const EvidenceCard = memo(function EvidenceCard({
                 fontFamily: '"JetBrains Mono", monospace',
               }}
             >
-              {rawLog}
+              {highlightMatches(rawLog)}
             </div>
           ) : (
             <div
@@ -496,6 +546,68 @@ export function StoryPane({
 }: StoryPaneProps) {
   const [copyFeedback, setCopyFeedback] = useState(false);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isRegex, setIsRegex] = useState(false);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // Find all matches in logs
+  const searchMatches = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+
+    const matches: { logHash: string; logIndex: number }[] = [];
+
+    try {
+      const regex = isRegex
+        ? new RegExp(searchQuery, 'gi')
+        : new RegExp(searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+
+      storyLogs.forEach((log, index) => {
+        if (log.hash && regex.test(log.data)) {
+          matches.push({ logHash: log.hash, logIndex: index });
+        }
+        // Reset regex lastIndex for next test
+        regex.lastIndex = 0;
+      });
+    } catch {
+      // Invalid regex, ignore
+    }
+
+    return matches;
+  }, [searchQuery, isRegex, storyLogs]);
+
+  // Get current match hash for highlighting
+  const currentMatchHash = searchMatches[currentMatchIndex]?.logHash || null;
+
+  // Scroll to current match when it changes
+  useEffect(() => {
+    if (currentMatchHash) {
+      const card = cardRefs.current.get(currentMatchHash);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [currentMatchHash, currentMatchIndex]);
+
+  // Navigation handlers
+  const goToNextMatch = useCallback(() => {
+    if (searchMatches.length > 0) {
+      setCurrentMatchIndex((prev) => (prev + 1) % searchMatches.length);
+    }
+  }, [searchMatches.length]);
+
+  const goToPrevMatch = useCallback(() => {
+    if (searchMatches.length > 0) {
+      setCurrentMatchIndex((prev) => (prev - 1 + searchMatches.length) % searchMatches.length);
+    }
+  }, [searchMatches.length]);
+
+  // Reset match index when query changes
+  useEffect(() => {
+    setCurrentMatchIndex(0);
+  }, [searchQuery, isRegex]);
+
   const handleCopy = useCallback(() => {
     // Build output with file headers whenever the source file changes
     const lines: string[] = [];
@@ -613,6 +725,95 @@ export function StoryPane({
           )}
         </div>
 
+        {/* Center: Search (when maximized) */}
+        {!collapsed && maximized && (
+          <div className="flex items-center gap-2 pb-1">
+            <div
+              className="flex items-center gap-1 px-2 py-1 rounded-lg"
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                border: "1px solid rgba(255,255,255,0.1)",
+              }}
+            >
+              <Search className="w-4 h-4" style={{ color: "var(--mocha-text-muted)" }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search logs..."
+                className="bg-transparent outline-none text-sm w-48"
+                style={{
+                  color: "var(--mocha-text)",
+                  fontFamily: '"JetBrains Mono", monospace',
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.shiftKey ? goToPrevMatch() : goToNextMatch();
+                  }
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="p-0.5 rounded hover:bg-[rgba(255,255,255,0.1)]"
+                  style={{ color: "var(--mocha-text-muted)" }}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Regex toggle */}
+            <button
+              onClick={() => setIsRegex(!isRegex)}
+              className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
+                isRegex ? "bg-[var(--mocha-accent)]" : "bg-[rgba(255,255,255,0.1)]"
+              }`}
+              style={{
+                color: isRegex ? "var(--mocha-bg)" : "var(--mocha-text-muted)",
+              }}
+              title="Toggle regex search"
+            >
+              .*
+            </button>
+
+            {/* Match navigation */}
+            {searchMatches.length > 0 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={goToPrevMatch}
+                  className="p-1 rounded hover:bg-[rgba(255,255,255,0.1)] transition-colors"
+                  style={{ color: "var(--mocha-text-secondary)" }}
+                  title="Previous match (Shift+Enter)"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span
+                  className="text-xs tabular-nums px-1"
+                  style={{ color: "var(--mocha-text-secondary)" }}
+                >
+                  {currentMatchIndex + 1}/{searchMatches.length}
+                </span>
+                <button
+                  onClick={goToNextMatch}
+                  className="p-1 rounded hover:bg-[rgba(255,255,255,0.1)] transition-colors"
+                  style={{ color: "var(--mocha-text-secondary)" }}
+                  title="Next match (Enter)"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* No matches indicator */}
+            {searchQuery && searchMatches.length === 0 && (
+              <span className="text-xs" style={{ color: "var(--mocha-error)" }}>
+                No matches
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Right: Actions */}
         {!collapsed && (
           <div className="flex items-center gap-1 pb-1">
@@ -723,6 +924,14 @@ export function StoryPane({
                   log={log}
                   index={index}
                   onRemove={() => log.hash && onRemoveFromStory(log.hash)}
+                  searchQuery={searchQuery}
+                  isRegex={isRegex}
+                  isCurrentMatch={log.hash === currentMatchHash}
+                  cardRef={(el) => {
+                    if (el && log.hash) {
+                      cardRefs.current.set(log.hash, el);
+                    }
+                  }}
                 />
               ))}
             </div>

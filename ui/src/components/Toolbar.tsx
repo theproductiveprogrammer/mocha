@@ -1,5 +1,5 @@
-import { memo, useState, useCallback } from 'react'
-import { X, Eye, EyeOff, FileText, Files, AlertTriangle, Search, Hash, MinusCircle } from 'lucide-react'
+import { memo, useState } from 'react'
+import { X, Eye, EyeOff, FileText, Files, AlertTriangle, Search, Hash, MinusCircle, ChevronUp, ChevronDown } from 'lucide-react'
 import type { ToolbarProps, ParsedFilter } from '../types'
 
 /**
@@ -73,48 +73,6 @@ const FilterChip = memo(function FilterChip({
   )
 })
 
-/**
- * Parse a filter input string into a ParsedFilter object.
- */
-function parseFilterInput(input: string): ParsedFilter | null {
-  const trimmed = input.trim()
-  if (!trimmed) return null
-
-  // Check for regex pattern: /pattern/
-  if (trimmed.startsWith('/') && trimmed.endsWith('/') && trimmed.length > 2) {
-    const pattern = trimmed.slice(1, -1)
-    try {
-      new RegExp(pattern)
-      return {
-        type: 'regex',
-        value: pattern,
-        text: trimmed,
-      }
-    } catch {
-      return {
-        type: 'text',
-        value: trimmed,
-        text: trimmed,
-      }
-    }
-  }
-
-  // Check for exclude pattern: -text
-  if (trimmed.startsWith('-') && trimmed.length > 1) {
-    return {
-      type: 'exclude',
-      value: trimmed.slice(1),
-      text: trimmed,
-    }
-  }
-
-  // Plain text filter
-  return {
-    type: 'text',
-    value: trimmed,
-    text: trimmed,
-  }
-}
 
 /**
  * Extended Toolbar props
@@ -123,6 +81,15 @@ interface ExtendedToolbarProps extends ToolbarProps {
   truncated?: boolean
   visibleCount?: number
   isWatching?: boolean
+  // Search props
+  searchQuery?: string
+  searchIsRegex?: boolean
+  searchMatchCount?: number
+  searchCurrentIndex?: number
+  onSearchChange?: (query: string) => void
+  onSearchRegexToggle?: () => void
+  onSearchNext?: () => void
+  onSearchPrev?: () => void
 }
 
 /**
@@ -130,36 +97,24 @@ interface ExtendedToolbarProps extends ToolbarProps {
  */
 export const Toolbar = memo(function Toolbar({
   filters,
-  filterInput,
   activeFileCount,
   totalLines,
-  onAddFilter,
   onRemoveFilter,
-  onFilterInputChange,
   onToggleWatch,
   truncated = false,
   visibleCount,
   isWatching = false,
+  // Search props
+  searchQuery = '',
+  searchIsRegex = false,
+  searchMatchCount = 0,
+  searchCurrentIndex = 0,
+  onSearchChange,
+  onSearchRegexToggle,
+  onSearchNext,
+  onSearchPrev,
 }: ExtendedToolbarProps) {
-  const [localInput, setLocalInput] = useState(filterInput)
   const [isFocused, setIsFocused] = useState(false)
-
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setLocalInput(value)
-    onFilterInputChange(value)
-  }, [onFilterInputChange])
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && localInput.trim()) {
-      const filter = parseFilterInput(localInput)
-      if (filter) {
-        onAddFilter(filter)
-        setLocalInput('')
-        onFilterInputChange('')
-      }
-    }
-  }, [localInput, onAddFilter, onFilterInputChange])
 
   return (
     <div
@@ -262,7 +217,7 @@ export const Toolbar = memo(function Toolbar({
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Filter input */}
+      {/* Search input */}
       <div className="flex items-center gap-2">
         <div
           className="relative flex items-center transition-all"
@@ -278,12 +233,16 @@ export const Toolbar = memo(function Toolbar({
           />
           <input
             type="text"
-            value={localInput}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
+            value={searchQuery}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.shiftKey ? onSearchPrev?.() : onSearchNext?.()
+              }
+            }}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            placeholder="Filter logs..."
+            placeholder="Search logs..."
             className="w-full pl-9 pr-3 py-2 text-sm rounded-lg focus:outline-none"
             style={{
               background: 'var(--mocha-surface-raised)',
@@ -291,10 +250,63 @@ export const Toolbar = memo(function Toolbar({
               color: 'var(--mocha-text)',
               boxShadow: isFocused ? '0 0 0 3px rgba(196, 167, 125, 0.1)' : 'none',
             }}
-            title="Press Enter to add filter. Use /regex/ or -exclude"
-            data-testid="filter-input"
+            title="Search logs. Enter for next, Shift+Enter for previous"
+            data-testid="search-input"
           />
+          {searchQuery && (
+            <button
+              onClick={() => onSearchChange?.('')}
+              className="absolute right-2 p-1 rounded hover:bg-[var(--mocha-surface-hover)]"
+              style={{ color: 'var(--mocha-text-muted)' }}
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
         </div>
+
+        {/* Regex toggle */}
+        <button
+          onClick={onSearchRegexToggle}
+          className="px-2 py-2 rounded-lg text-xs font-mono transition-colors"
+          style={{
+            background: searchIsRegex ? 'var(--mocha-accent)' : 'var(--mocha-surface-raised)',
+            border: `1px solid ${searchIsRegex ? 'var(--mocha-accent)' : 'var(--mocha-border)'}`,
+            color: searchIsRegex ? 'var(--mocha-bg)' : 'var(--mocha-text-muted)',
+          }}
+          title="Toggle regex search"
+        >
+          .*
+        </button>
+
+        {/* Match navigation */}
+        {searchQuery && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onSearchPrev}
+              className="p-1.5 rounded-lg transition-colors hover:bg-[var(--mocha-surface-hover)]"
+              style={{ color: 'var(--mocha-text-secondary)' }}
+              title="Previous match (Shift+Enter)"
+              disabled={searchMatchCount === 0}
+            >
+              <ChevronUp className="w-4 h-4" />
+            </button>
+            <span
+              className="text-xs tabular-nums min-w-[4rem] text-center"
+              style={{ color: searchMatchCount > 0 ? 'var(--mocha-text-secondary)' : 'var(--mocha-error)' }}
+            >
+              {searchMatchCount > 0 ? `${searchCurrentIndex + 1}/${searchMatchCount}` : 'No matches'}
+            </span>
+            <button
+              onClick={onSearchNext}
+              className="p-1.5 rounded-lg transition-colors hover:bg-[var(--mocha-surface-hover)]"
+              style={{ color: 'var(--mocha-text-secondary)' }}
+              title="Next match (Enter)"
+              disabled={searchMatchCount === 0}
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Watch toggle */}

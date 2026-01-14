@@ -75,6 +75,11 @@ function App() {
   // Drag/drop hover state
   const [isDragging, setIsDragging] = useState(false)
 
+  // Search state for log stream
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchIsRegex, setSearchIsRegex] = useState(false)
+  const [searchCurrentIndex, setSearchCurrentIndex] = useState(0)
+
   // Ensure openedFiles is a Map (handles hydration)
   const safeOpenedFiles = useMemo(
     () => (openedFiles instanceof Map ? openedFiles : new Map<string, OpenedFileWithLogs>()),
@@ -99,6 +104,60 @@ function App() {
     // Sort by timestamp (chronological order)
     return [...entries].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
   }, [activeStory])
+
+  // Filter logs for display (apply filters)
+  const filteredLogs = useMemo(() => {
+    return filterLogs(mergedLogs, filters, inactiveNames)
+  }, [mergedLogs, filters, inactiveNames])
+
+  // Search matches in filtered logs
+  const searchMatches = useMemo(() => {
+    if (!searchQuery.trim()) return []
+
+    const matches: number[] = [] // indices into filteredLogs
+
+    try {
+      const regex = searchIsRegex
+        ? new RegExp(searchQuery, 'gi')
+        : new RegExp(searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+
+      filteredLogs.forEach((log, index) => {
+        if (regex.test(log.data)) {
+          matches.push(index)
+        }
+        regex.lastIndex = 0 // Reset for next test
+      })
+    } catch {
+      // Invalid regex
+    }
+
+    return matches
+  }, [searchQuery, searchIsRegex, filteredLogs])
+
+  // Reset search index when query changes
+  useEffect(() => {
+    setSearchCurrentIndex(0)
+  }, [searchQuery, searchIsRegex])
+
+  // Current match hash for scrolling and highlighting
+  const searchCurrentMatchHash = useMemo(() => {
+    if (searchMatches.length === 0) return null
+    const matchIndex = searchMatches[searchCurrentIndex]
+    return filteredLogs[matchIndex]?.hash || null
+  }, [searchMatches, searchCurrentIndex, filteredLogs])
+
+  // Search navigation
+  const handleSearchNext = useCallback(() => {
+    if (searchMatches.length > 0) {
+      setSearchCurrentIndex((prev) => (prev + 1) % searchMatches.length)
+    }
+  }, [searchMatches.length])
+
+  const handleSearchPrev = useCallback(() => {
+    if (searchMatches.length > 0) {
+      setSearchCurrentIndex((prev) => (prev - 1 + searchMatches.length) % searchMatches.length)
+    }
+  }, [searchMatches.length])
 
   // Handle toggling a log in/out of story - expand pane and scroll when adding
   const handleToggleStory = useCallback((log: LogEntry) => {
@@ -431,6 +490,15 @@ function App() {
           onToggleWatch={handleToggleWatch}
           visibleCount={visibleCount}
           isWatching={false}
+          // Search props
+          searchQuery={searchQuery}
+          searchIsRegex={searchIsRegex}
+          searchMatchCount={searchMatches.length}
+          searchCurrentIndex={searchCurrentIndex}
+          onSearchChange={setSearchQuery}
+          onSearchRegexToggle={() => setSearchIsRegex(!searchIsRegex)}
+          onSearchNext={handleSearchNext}
+          onSearchPrev={handleSearchPrev}
         />
 
         <div className="relative flex-1 flex flex-col overflow-hidden h-full">
@@ -473,7 +541,13 @@ function App() {
           {/* Virtualized Log viewer */}
           {mergedLogs.length > 0 ? (
             <>
-              <LogViewer logs={mergedLogs} onToggleStory={handleToggleStory} />
+              <LogViewer
+                logs={mergedLogs}
+                onToggleStory={handleToggleStory}
+                searchQuery={searchQuery}
+                searchIsRegex={searchIsRegex}
+                searchCurrentMatchHash={searchCurrentMatchHash}
+              />
               <StoryPane
                 stories={stories}
                 activeStoryId={activeStoryId}

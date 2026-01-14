@@ -161,6 +161,10 @@ export interface LogLineProps {
   isContinuation: boolean
   isLastInGroup: boolean
   onToggleStory: (log: LogEntry) => void
+  // Search props
+  searchQuery?: string
+  searchIsRegex?: boolean
+  isCurrentMatch?: boolean
 }
 
 function LogLineComponent({
@@ -169,6 +173,9 @@ function LogLineComponent({
   isContinuation,
   isLastInGroup,
   onToggleStory,
+  searchQuery,
+  searchIsRegex,
+  isCurrentMatch,
 }: LogLineProps) {
   const serviceName = getServiceName(log)
   const serviceAbbrev = getServiceAbbrev(serviceName)
@@ -188,6 +195,41 @@ function LogLineComponent({
     }
   }, [log, onToggleStory])
 
+  // Helper to highlight search matches in text
+  const highlightMatches = useCallback((text: string): React.ReactNode => {
+    if (!searchQuery?.trim()) return text
+
+    try {
+      const regex = searchIsRegex
+        ? new RegExp(`(${searchQuery})`, 'gi')
+        : new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+
+      const parts = text.split(regex)
+      return parts.map((part, i) => {
+        if (regex.test(part)) {
+          regex.lastIndex = 0
+          return (
+            <mark
+              key={i}
+              style={{
+                background: isCurrentMatch ? '#eab308' : '#eab30880',
+                color: '#000',
+                padding: '0 1px',
+                borderRadius: '2px',
+              }}
+            >
+              {part}
+            </mark>
+          )
+        }
+        regex.lastIndex = 0
+        return part
+      })
+    } catch {
+      return text
+    }
+  }, [searchQuery, searchIsRegex, isCurrentMatch])
+
   // Format timestamp for display
   const displayTimestamp = log.parsed?.timestamp
     ? log.parsed.timestamp.includes(' ')
@@ -198,9 +240,9 @@ function LogLineComponent({
   return (
     <div
       onClick={handleClick}
-      className="flex group transition-colors cursor-pointer"
+      className={`flex group transition-colors cursor-pointer ${isCurrentMatch ? 'ring-2 ring-[#eab308] ring-inset' : ''}`}
       style={{
-        background: isInStory ? 'var(--mocha-selection)' : rowStyle.bg,
+        background: isCurrentMatch ? 'rgba(234, 179, 8, 0.15)' : isInStory ? 'var(--mocha-selection)' : rowStyle.bg,
         borderBottom: isLastInGroup ? `1px solid ${rowStyle.border}` : 'none',
       }}
       data-testid="log-line"
@@ -256,7 +298,7 @@ function LogLineComponent({
         style={{ color: rowStyle.text }}
       >
         <div className="flex-1 min-w-0 truncate">
-          <TokenizedContent tokens={tokens} />
+          {searchQuery ? highlightMatches(content) : <TokenizedContent tokens={tokens} />}
         </div>
 
         {/* Story indicator icon */}

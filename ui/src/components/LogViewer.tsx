@@ -8,6 +8,10 @@ import { LogLine, getServiceName } from './LogLine'
 export interface LogViewerProps {
   logs: LogEntry[]
   onToggleStory?: (log: LogEntry) => void
+  // Search props
+  searchQuery?: string
+  searchIsRegex?: boolean
+  searchCurrentMatchHash?: string | null  // Hash of the current match log
 }
 
 /**
@@ -22,7 +26,13 @@ function getThreadId(log: LogEntry): string | null {
 /**
  * LogViewer component - Virtualized log display with filtering and story integration.
  */
-export function LogViewer({ logs, onToggleStory }: LogViewerProps) {
+export function LogViewer({
+  logs,
+  onToggleStory,
+  searchQuery,
+  searchIsRegex,
+  searchCurrentMatchHash,
+}: LogViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Buffer new logs when user is scrolled down
@@ -152,6 +162,17 @@ export function LogViewer({ logs, onToggleStory }: LogViewerProps) {
     [onToggleStory, toggleStory]
   )
 
+  // Scroll to current search match when it changes
+  useEffect(() => {
+    if (!searchCurrentMatchHash) return
+
+    // Find the index of the matching log in displayedLogs
+    const matchIndex = displayedLogs.findIndex(log => log.hash === searchCurrentMatchHash)
+    if (matchIndex !== -1) {
+      virtualizer.scrollToIndex(matchIndex, { align: 'center', behavior: 'smooth' })
+    }
+  }, [searchCurrentMatchHash, displayedLogs, virtualizer])
+
   const virtualItems = virtualizer.getVirtualItems()
 
   return (
@@ -272,6 +293,9 @@ export function LogViewer({ logs, onToggleStory }: LogViewerProps) {
                   isContinuation={isContinuation}
                   isLastInGroup={isLastInGroup}
                   onToggleStory={handleToggleStory}
+                  searchQuery={searchQuery}
+                  searchIsRegex={searchIsRegex}
+                  isCurrentMatch={log.hash === searchCurrentMatchHash}
                 />
               </div>
             )
