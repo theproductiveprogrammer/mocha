@@ -164,6 +164,8 @@ interface LogViewerProps {
   currentMatchIndex: number;
   searchMatches: Array<{ hash: string; matchIndex: number }>;
   onToggleStory: (log: LogEntry) => void;
+  jumpToHash?: string | null;       // Hash to scroll to (from logbook jump-to-source)
+  onJumpComplete?: () => void;      // Called after jump scroll completes
 }
 ```
 
@@ -302,12 +304,19 @@ Shortcuts are disabled when focus is in input/textarea/select elements.
 
 **Purpose**: Resizable pane for building curated "logbooks" (stories) of important log entries.
 
+**Visibility**: Shown when there are logs loaded OR any stories exist. This allows accessing logbook entries even when no files are open.
+
 **Features**:
 - Multiple named stories (logbooks) with tabs
 - Drag-and-drop reordering of entries within a story
 - Maximize/minimize toggle
 - Resizable height via drag handle
 - Collapse/expand functionality
+- Jump-to-source: Click crosshair icon on entry to scroll to original log in viewer
+  - Opens file if closed (uses `filePath` or falls back to matching filename in recent files)
+  - Activates file if open but inactive
+  - Scrolls to entry with flash highlight
+- Auto-collapses when no logs are open (can still be manually expanded)
 
 **Props**:
 ```typescript
@@ -327,6 +336,7 @@ interface StoryPaneProps {
   onHeightChange: (height: number) => void;
   onToggleCollapse: () => void;
   onToggleMaximize: () => void;
+  onJumpToSource?: (log: LogEntry) => void;  // Opens file if needed, scrolls to entry
 }
 ```
 
@@ -357,6 +367,7 @@ interface LogLineProps {
   searchQuery?: string;     // For search highlighting
   searchIsRegex?: boolean;
   isCurrentMatch?: boolean; // Yellow highlight for current search match
+  isFlashing?: boolean;     // Flash animation for jump-to-source
   onToggleStory: (hash: string) => void;  // Add/remove from story
 }
 ```

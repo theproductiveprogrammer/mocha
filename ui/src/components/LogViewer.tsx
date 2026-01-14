@@ -12,6 +12,9 @@ export interface LogViewerProps {
   searchQuery?: string
   searchIsRegex?: boolean
   searchCurrentMatchHash?: string | null  // Hash of the current match log
+  // Jump to source (from logbook)
+  jumpToHash?: string | null
+  onJumpComplete?: () => void  // Called after scroll completes
 }
 
 /**
@@ -32,6 +35,8 @@ export function LogViewer({
   searchQuery,
   searchIsRegex,
   searchCurrentMatchHash,
+  jumpToHash,
+  onJumpComplete,
 }: LogViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -173,6 +178,28 @@ export function LogViewer({
     }
   }, [searchCurrentMatchHash, displayedLogs, virtualizer])
 
+  // Flash highlight for jump-to-source
+  const [flashHash, setFlashHash] = useState<string | null>(null)
+
+  // Handle jump to source from logbook
+  useEffect(() => {
+    if (!jumpToHash) return
+
+    // Find the index of the matching log in displayedLogs
+    const matchIndex = displayedLogs.findIndex(log => log.hash === jumpToHash)
+    if (matchIndex !== -1) {
+      // Scroll to the log
+      virtualizer.scrollToIndex(matchIndex, { align: 'center', behavior: 'smooth' })
+
+      // Flash highlight the row
+      setFlashHash(jumpToHash)
+      setTimeout(() => setFlashHash(null), 1500)
+    }
+
+    // Notify parent that jump is complete
+    onJumpComplete?.()
+  }, [jumpToHash, displayedLogs, virtualizer, onJumpComplete])
+
   const virtualItems = virtualizer.getVirtualItems()
 
   return (
@@ -296,6 +323,7 @@ export function LogViewer({
                   searchQuery={searchQuery}
                   searchIsRegex={searchIsRegex}
                   isCurrentMatch={log.hash === searchCurrentMatchHash}
+                  isFlashing={log.hash === flashHash}
                 />
               </div>
             )

@@ -83,6 +83,9 @@ function App() {
   const [searchIsRegex, setSearchIsRegex] = useState(false)
   const [searchCurrentIndex, setSearchCurrentIndex] = useState(0)
 
+  // Jump-to-source state (from logbook)
+  const [jumpToHash, setJumpToHash] = useState<string | null>(null)
+
   // Ensure openedFiles is a Map (handles hydration)
   const safeOpenedFiles = useMemo(
     () => (openedFiles instanceof Map ? openedFiles : new Map<string, OpenedFileWithLogs>()),
@@ -144,6 +147,13 @@ function App() {
   useEffect(() => {
     setSearchCurrentIndex(0)
   }, [searchQuery, searchIsRegex])
+
+  // Auto-collapse story pane when all logs are closed
+  useEffect(() => {
+    if (mergedLogs.length === 0) {
+      setStoryPaneCollapsed(true)
+    }
+  }, [mergedLogs.length, setStoryPaneCollapsed])
 
   // Current match hash for scrolling and highlighting
   const searchCurrentMatchHash = useMemo(() => {
@@ -306,6 +316,57 @@ function App() {
       }
     }
   }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, addRecentFileToStore])
+
+  // Jump to source from logbook - open file if needed, minimize logbook and scroll to the log
+  const handleJumpToSource = useCallback(async (log: LogEntry) => {
+    const hash = log.hash
+    if (!hash) return
+
+    // If maximized, minimize first
+    if (storyPaneMaximized) {
+      setStoryPaneMaximized(false)
+    }
+
+    // Try to find the file path - use filePath if available, otherwise search recent files by name
+    let filePath = log.filePath
+    if (!filePath) {
+      // Fall back to finding in recent files by filename
+      const recentMatch = recentFiles.find(f => f.name === log.name)
+      if (recentMatch) {
+        filePath = recentMatch.path
+      }
+    }
+
+    // Check if the file is currently open and active
+    const openedFile = filePath ? safeOpenedFiles.get(filePath) : null
+    const isFileOpenAndActive = openedFile?.isActive
+
+    if (filePath && !openedFile) {
+      // File is not open - need to open it first
+      await handleOpenFile(filePath)
+
+      // Wait for the file to be loaded and rendered, then scroll
+      setTimeout(() => {
+        setJumpToHash(hash)
+      }, 300)
+    } else if (openedFile && !isFileOpenAndActive) {
+      // File is open but not active - activate it first
+      toggleFileActive(filePath!)
+
+      // Wait for re-render, then scroll
+      setTimeout(() => {
+        setJumpToHash(hash)
+      }, 100)
+    } else {
+      // File is already open and active - just scroll
+      setJumpToHash(hash)
+    }
+  }, [storyPaneMaximized, setStoryPaneMaximized, safeOpenedFiles, recentFiles, handleOpenFile, toggleFileActive])
+
+  // Clear jump hash after scroll completes
+  const handleJumpComplete = useCallback(() => {
+    setJumpToHash(null)
+  }, [])
 
   // Handle file selection from browser file input
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -548,33 +609,15 @@ function App() {
 
           {/* Virtualized Log viewer */}
           {mergedLogs.length > 0 ? (
-            <>
-              <LogViewer
-                logs={mergedLogs}
-                onToggleStory={handleToggleStory}
-                searchQuery={searchQuery}
-                searchIsRegex={searchIsRegex}
-                searchCurrentMatchHash={searchCurrentMatchHash}
-              />
-              <StoryPane
-                stories={stories}
-                activeStoryId={activeStoryId}
-                storyLogs={storyLogs}
-                height={storyPaneHeight}
-                collapsed={storyPaneCollapsed}
-                maximized={storyPaneMaximized}
-                onRemoveFromStory={removeFromStory}
-                onClearStory={clearStory}
-                onHeightChange={setStoryPaneHeight}
-                onToggleCollapsed={() => setStoryPaneCollapsed(!storyPaneCollapsed)}
-                onToggleMaximized={() => setStoryPaneMaximized(!storyPaneMaximized)}
-                onCreateStory={createStory}
-                onDeleteStory={deleteStory}
-                onRenameStory={renameStory}
-                onSetActiveStory={setActiveStory}
-                scrollRef={storyPaneScrollRef}
-              />
-            </>
+            <LogViewer
+              logs={mergedLogs}
+              onToggleStory={handleToggleStory}
+              searchQuery={searchQuery}
+              searchIsRegex={searchIsRegex}
+              searchCurrentMatchHash={searchCurrentMatchHash}
+              jumpToHash={jumpToHash}
+              onJumpComplete={handleJumpComplete}
+            />
           ) : (
             <div
               className="flex-1 flex items-center justify-center"
@@ -661,6 +704,29 @@ function App() {
                 </p>
               </div>
             </div>
+          )}
+
+          {/* Story pane - always visible when there are stories or logs */}
+          {(mergedLogs.length > 0 || storyLogs.length > 0 || stories.length > 0) && (
+            <StoryPane
+              stories={stories}
+              activeStoryId={activeStoryId}
+              storyLogs={storyLogs}
+              height={storyPaneHeight}
+              collapsed={storyPaneCollapsed}
+              maximized={storyPaneMaximized}
+              onRemoveFromStory={removeFromStory}
+              onClearStory={clearStory}
+              onHeightChange={setStoryPaneHeight}
+              onToggleCollapsed={() => setStoryPaneCollapsed(!storyPaneCollapsed)}
+              onToggleMaximized={() => setStoryPaneMaximized(!storyPaneMaximized)}
+              onCreateStory={createStory}
+              onDeleteStory={deleteStory}
+              onRenameStory={renameStory}
+              onSetActiveStory={setActiveStory}
+              onJumpToSource={handleJumpToSource}
+              scrollRef={storyPaneScrollRef}
+            />
           )}
 
           {/* Drag overlay */}

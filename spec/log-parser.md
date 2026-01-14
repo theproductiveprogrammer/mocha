@@ -12,7 +12,8 @@ The log parser handles:
 
 ```typescript
 interface LogEntry {
-  name: string;          // Service/file name
+  name: string;          // Service/file name (for display)
+  filePath?: string;     // Full file path (for reopening)
   data: string;          // Original line (used for clipboard)
   isErr: boolean;        // Whether from stderr
   hash?: string;         // Unique identifier
@@ -43,6 +44,13 @@ interface ApiCallInfo {
 ## Log Format Patterns
 
 The parser tries each pattern in order until one matches.
+
+**Note on Dash Separators**: Log files may contain different dash characters as separators:
+- `-` (U+002D) hyphen-minus
+- `–` (U+2013) en dash
+- `—` (U+2014) em dash
+
+All patterns use `[-–—]` to match any of these dash characters.
 
 ### 1. SalesBox App Format
 **Pattern**: `salesbox-app`

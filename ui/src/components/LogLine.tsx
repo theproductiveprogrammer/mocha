@@ -218,6 +218,8 @@ export interface LogLineProps {
   searchQuery?: string
   searchIsRegex?: boolean
   isCurrentMatch?: boolean
+  // Jump-to-source flash
+  isFlashing?: boolean
 }
 
 function LogLineComponent({
@@ -229,6 +231,7 @@ function LogLineComponent({
   searchQuery,
   searchIsRegex,
   isCurrentMatch,
+  isFlashing,
 }: LogLineProps) {
   const serviceName = getServiceName(log)
   const serviceAbbrev = getServiceAbbrev(serviceName)
@@ -260,12 +263,20 @@ function LogLineComponent({
       : log.parsed.timestamp.slice(0, 8)
     : null
 
+  // Determine background based on state priority
+  const getBackgroundStyle = () => {
+    if (isFlashing) return 'rgba(196, 167, 125, 0.4)'  // Accent color flash
+    if (isCurrentMatch) return 'rgba(234, 179, 8, 0.15)'
+    if (isInStory) return 'var(--mocha-selection)'
+    return rowStyle.bg
+  }
+
   return (
     <div
       onClick={handleClick}
-      className={`flex group transition-colors cursor-pointer ${isCurrentMatch ? 'ring-2 ring-[#eab308] ring-inset' : ''}`}
+      className={`flex group cursor-pointer ${isCurrentMatch ? 'ring-2 ring-[#eab308] ring-inset' : ''} ${isFlashing ? 'animate-flash-highlight' : 'transition-colors'}`}
       style={{
-        background: isCurrentMatch ? 'rgba(234, 179, 8, 0.15)' : isInStory ? 'var(--mocha-selection)' : rowStyle.bg,
+        background: getBackgroundStyle(),
         borderBottom: isLastInGroup ? `1px solid ${rowStyle.border}` : 'none',
       }}
       data-testid="log-line"

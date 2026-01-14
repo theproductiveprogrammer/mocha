@@ -16,6 +16,7 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Crosshair,
 } from "lucide-react";
 import { JsonView } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
@@ -56,6 +57,7 @@ interface StoryPaneProps {
   onDeleteStory: (id: string) => void;
   onRenameStory: (id: string, name: string) => void;
   onSetActiveStory: (id: string) => void;
+  onJumpToSource?: (log: LogEntry) => void;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -96,6 +98,7 @@ const EvidenceCard = memo(function EvidenceCard({
   log,
   index,
   onRemove,
+  onJumpToSource,
   searchQuery,
   isRegex,
   isCurrentMatch,
@@ -104,6 +107,7 @@ const EvidenceCard = memo(function EvidenceCard({
   log: LogEntry;
   index: number;
   onRemove: () => void;
+  onJumpToSource?: () => void;
   searchQuery?: string;
   isRegex?: boolean;
   isCurrentMatch?: boolean;
@@ -308,21 +312,41 @@ const EvidenceCard = memo(function EvidenceCard({
           )}
         </div>
 
-        {/* Remove button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          className="absolute right-2 top-2 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
-          style={{
-            background: showRaw ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
-            color: showRaw ? "#a8a098" : "#8b8378",
-          }}
-          title="Remove from story"
-        >
-          <X className="w-3 h-3" />
-        </button>
+        {/* Action buttons */}
+        <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+          {/* Jump to source button */}
+          {onJumpToSource && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onJumpToSource();
+              }}
+              className="p-1.5 rounded-full hover:scale-110 transition-all"
+              style={{
+                background: showRaw ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+                color: showRaw ? "#a8a098" : "#8b8378",
+              }}
+              title="Jump to source in log viewer"
+            >
+              <Crosshair className="w-3 h-3" />
+            </button>
+          )}
+          {/* Remove button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            className="p-1.5 rounded-full hover:scale-110 transition-all"
+            style={{
+              background: showRaw ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+              color: showRaw ? "#a8a098" : "#8b8378",
+            }}
+            title="Remove from story"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -542,6 +566,7 @@ export function StoryPane({
   onDeleteStory,
   onRenameStory,
   onSetActiveStory,
+  onJumpToSource,
   scrollRef,
 }: StoryPaneProps) {
   const [copyFeedback, setCopyFeedback] = useState(false);
@@ -924,6 +949,11 @@ export function StoryPane({
                   log={log}
                   index={index}
                   onRemove={() => log.hash && onRemoveFromStory(log.hash)}
+                  onJumpToSource={
+                    onJumpToSource && log.hash
+                      ? () => onJumpToSource(log)
+                      : undefined
+                  }
                   searchQuery={searchQuery}
                   isRegex={isRegex}
                   isCurrentMatch={log.hash === currentMatchHash}

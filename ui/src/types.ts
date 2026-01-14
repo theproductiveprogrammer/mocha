@@ -78,7 +78,8 @@ export interface TokenizeResult {
  * A single log entry with original and parsed data
  */
 export interface LogEntry {
-  name: string;           // Service/file name
+  name: string;           // Service/file name (for display)
+  filePath?: string;      // Full file path (for reopening)
   data: string;           // Original line (for clipboard)
   isErr: boolean;         // Whether from stderr
   hash?: string;          // Unique identifier

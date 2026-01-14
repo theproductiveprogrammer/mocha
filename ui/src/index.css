@@ -144,6 +144,16 @@ body {
   animation: pulse 2s ease-in-out infinite;
 }
 
+/* Flash highlight for jump-to-source */
+@keyframes flashHighlight {
+  0% { background-color: rgba(196, 167, 125, 0.5); }
+  100% { background-color: transparent; }
+}
+
+.animate-flash-highlight {
+  animation: flashHighlight 1.5s ease-out;
+}
+
 /* Glass effect for elevated surfaces */
 .glass {
   background: linear-gradient(

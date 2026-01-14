@@ -685,7 +685,8 @@ function isGrafanaHeader(line: string): boolean {
 function parseFileLines(
   content: string,
   fileName: string,
-  hashKey: string
+  hashKey: string,
+  filePath?: string
 ): { logs: LogEntry[]; totalLines: number; truncated: boolean } {
   const maxLines = 2000;
   const { lines: linesToProcess, totalLines, truncated } = getLastNLines(content, maxLines);
@@ -764,6 +765,7 @@ function parseFileLines(
 
     logs.push({
       name: fileName,
+      filePath,
       data: line,
       isErr: false,
       hash,
@@ -821,7 +823,7 @@ function parseTimestampToEpoch(timestamp: string): number | null {
 export function parseLogFile(content: string, fileName: string, filePath?: string): ParsedLogFileResult {
   // Use filePath for hash generation to ensure uniqueness across files
   const hashKey = filePath || fileName;
-  const { logs: rawLogs, totalLines, truncated } = parseFileLines(content, fileName, hashKey);
+  const { logs: rawLogs, totalLines, truncated } = parseFileLines(content, fileName, hashKey, filePath);
   const normalized = normalize(rawLogs);
   const logs = normalized.map((log) => {
     const parsed = parseLogLine(log.data);
