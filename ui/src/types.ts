@@ -52,7 +52,9 @@ export interface ParsedLogLine {
 /**
  * Token type for tokenized log content rendering
  */
-export type TokenType = 'timestamp' | 'level' | 'service' | 'symbol' | 'url' | 'message' | 'data' | 'json';
+export type TokenType =
+  | 'timestamp' | 'level' | 'service' | 'symbol' | 'url' | 'message' | 'data' | 'json'
+  | 'marker.error' | 'marker.warn' | 'marker.info';  // Log level markers like [ERROR], [WARN], [INFO]
 
 /**
  * A single token from tokenized log content
@@ -60,6 +62,15 @@ export type TokenType = 'timestamp' | 'level' | 'service' | 'symbol' | 'url' | '
 export interface LogToken {
   text: string;
   type: TokenType;
+}
+
+/**
+ * Result from tokenizing log content
+ * Includes detected level if found at start of content
+ */
+export interface TokenizeResult {
+  tokens: LogToken[];
+  detectedLevel?: LogLevel;
 }
 
 /**

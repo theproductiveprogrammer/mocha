@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react'
 import { Check } from 'lucide-react'
-import type { LogEntry, LogToken } from '../types'
+import type { LogEntry, LogToken, LogLevel } from '../types'
 import { tokenizeContent } from '../parser'
 
 // Service colors - vibrant but not overwhelming
@@ -35,7 +35,7 @@ function getServiceColor(name: string): string {
   return 'var(--badge-default)'
 }
 
-function getRowStyle(log: LogEntry): {
+function getRowStyle(effectiveLevel?: LogLevel): {
   bg: string
   text: string
   border: string
@@ -56,24 +56,30 @@ function getRowStyle(log: LogEntry): {
     border: 'var(--mocha-border-subtle)',
   }
 
-  if (log.parsed?.level === 'ERROR') return errStyle
-  if (log.parsed?.level === 'WARN') return warnStyle
-  if (/[.][A-Za-z0-9]*Exception/.test(log.data)) return errStyle
+  // Simple level-based styling - no fragile content pattern matching
+  if (effectiveLevel === 'ERROR') return errStyle
+  if (effectiveLevel === 'WARN') return warnStyle
 
   return normStyle
 }
 
 /**
  * Get short service name from log entry.
+ * For structured logs, extracts the last part of the logger name.
+ * For unstructured logs, returns the filename as-is to indicate parsing failed.
  */
 export function getServiceName(log: LogEntry): string {
   if (log.parsed?.logger) {
     let logger = log.parsed.logger
+    // Strip [File.java:123] suffix if present
     logger = logger.replace(/\s*\[[^\]]+\.java:\d+\]$/, '')
     const withoutLineNum = logger.split(':')[0]
     const parts = withoutLineNum.split('.')
     return parts[parts.length - 1] || withoutLineNum
   }
+
+  // For unstructured lines, use filename as-is
+  // This clearly indicates we couldn't parse the line
   return log.name
 }
 
@@ -113,6 +119,12 @@ function getServiceAbbrev(name: string): string {
 function TokenSpan({ token }: { token: LogToken }) {
   const getTokenStyle = (): React.CSSProperties => {
     switch (token.type) {
+      case 'marker.error':
+        return { color: 'var(--mocha-error)', fontWeight: 600 }
+      case 'marker.warn':
+        return { color: 'var(--mocha-warning)', fontWeight: 600 }
+      case 'marker.info':
+        return { color: 'var(--mocha-text-muted)' }
       case 'url':
         return { color: 'var(--mocha-info)' }
       case 'data':
@@ -133,9 +145,7 @@ function TokenSpan({ token }: { token: LogToken }) {
 /**
  * Render tokenized content
  */
-function TokenizedContent({ content }: { content: string }) {
-  const tokens = tokenizeContent(content)
-
+function TokenizedContent({ tokens }: { tokens: LogToken[] }) {
   return (
     <>
       {tokens.map((token, i) => (
@@ -163,7 +173,14 @@ function LogLineComponent({
   const serviceName = getServiceName(log)
   const serviceAbbrev = getServiceAbbrev(serviceName)
   const serviceColor = getServiceColor(serviceName)
-  const rowStyle = getRowStyle(log)
+
+  // Tokenize content - this also strips [ERROR]/[WARN] prefix and returns detected level
+  const content = log.parsed?.content || log.data
+  const { tokens, detectedLevel } = tokenizeContent(content)
+
+  // Use parsed level if available, otherwise use level detected from content prefix
+  const effectiveLevel = log.parsed?.level || detectedLevel
+  const rowStyle = getRowStyle(effectiveLevel)
 
   const handleClick = useCallback(() => {
     if (log.hash) {
@@ -177,8 +194,6 @@ function LogLineComponent({
       ? log.parsed.timestamp.split(' ')[1]?.slice(0, 8)
       : log.parsed.timestamp.slice(0, 8)
     : null
-
-  const content = log.parsed?.content || log.data
 
   return (
     <div
@@ -241,7 +256,7 @@ function LogLineComponent({
         style={{ color: rowStyle.text }}
       >
         <div className="flex-1 truncate">
-          <TokenizedContent content={content} />
+          <TokenizedContent tokens={tokens} />
         </div>
 
         {/* Story indicator icon */}

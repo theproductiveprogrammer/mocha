@@ -11,16 +11,22 @@ import type { LogViewerState, StoryState, FileState, ParsedFilter, RecentFile, L
 
 /**
  * Get short service name from log entry.
- * Uses logger if available, otherwise falls back to filename.
+ * For structured logs, extracts the last part of the logger name.
+ * For unstructured logs, returns the filename as-is to indicate parsing failed.
  * Duplicated from LogLine.tsx to avoid circular imports.
  */
 function getServiceName(log: LogEntry): string {
   if (log.parsed?.logger) {
-    // Extract short name from logger (e.g., "c.s.c.c.bizlogic.MCPController" -> "MCPController")
-    const logger = log.parsed.logger
-    const parts = logger.split('.')
-    return parts[parts.length - 1] || logger
+    let logger = log.parsed.logger
+    // Strip [File.java:123] suffix if present
+    logger = logger.replace(/\s*\[[^\]]+\.java:\d+\]$/, '')
+    const withoutLineNum = logger.split(':')[0]
+    const parts = withoutLineNum.split('.')
+    return parts[parts.length - 1] || withoutLineNum
   }
+
+  // For unstructured lines, use filename as-is
+  // This clearly indicates we couldn't parse the line
   return log.name
 }
 

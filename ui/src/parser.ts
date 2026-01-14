@@ -6,7 +6,7 @@
  */
 
 import murmurhash from 'murmurhash';
-import type { LogEntry, ParsedLogLine, LogLevel, ApiCallInfo, ParsedLogFileResult, LogToken, TokenType } from './types';
+import type { LogEntry, ParsedLogLine, LogLevel, ApiCallInfo, ParsedLogFileResult, LogToken, TokenType, TokenizeResult } from './types';
 
 // ============================================================================
 // Log Pattern Interface
@@ -69,6 +69,17 @@ export function isContinuationLine(line: string): boolean {
   if (isAsciiArt(line)) return true;
   // Short lines without timestamp prefix
   if (line.length < 20 && !/^\[/.test(line)) return true;
+
+  // Java stack trace patterns (often not indented)
+  // Exception class with message: java.net.SocketTimeoutException: timeout
+  if (/^[a-z]+(\.[a-z]+)*\.[A-Z][A-Za-z]*(Exception|Error):/.test(trimmed)) return true;
+  // Caused by line
+  if (/^Caused by:/.test(trimmed)) return true;
+  // Stack frame: at java.base/java.lang.Thread.run(Thread.java:1583)
+  if (/^at\s+[a-z]/.test(trimmed)) return true;
+  // Truncated stack trace: ... 15 more
+  if (/^\.\.\.\s+\d+\s+more/.test(trimmed)) return true;
+
   return false;
 }
 
@@ -840,44 +851,30 @@ function classifyToken(text: string): TokenType {
 }
 
 /**
- * Tokenize log content into typed segments for rendering
- * Uses the already-parsed content field, not the raw line
+ * Tokenize a segment of content (non-marker parts)
  */
-export function tokenizeContent(content: string): LogToken[] {
-  if (!content) return [];
-
+function tokenizeSegment(segment: string): LogToken[] {
   const tokens: LogToken[] = [];
-
-  // Split on whitespace but preserve JSON blocks and URLs
-  // This regex captures:
-  // 1. URLs (http://... or /path/...)
-  // 2. JSON objects {...} (greedy, may not handle nested perfectly)
-  // 3. JSON arrays [...]
-  // 4. Symbols <- -> : =
-  // 5. Other words/tokens
-  const parts = content.split(/(\s+)/);
+  const parts = segment.split(/(\s+)/);
 
   for (const part of parts) {
-    // Skip empty parts
     if (!part) continue;
 
-    // Whitespace - add as-is with message type (will render as space)
+    // Whitespace
     if (/^\s+$/.test(part)) {
       tokens.push({ text: part, type: 'message' });
       continue;
     }
 
-    // Check for JSON - it may span multiple "words" if there was no space
-    // For now, simple approach: if it looks like JSON, treat it as one token
+    // JSON blocks
     if ((part.startsWith('{') && part.endsWith('}')) ||
         (part.startsWith('[') && part.endsWith(']'))) {
       tokens.push({ text: part, type: 'json' });
       continue;
     }
 
-    // Check for colon at end (like "tenantId:" or "userId:")
+    // Labels ending with colon
     if (part.endsWith(':') && part.length > 1) {
-      // This is a label, treat as message
       tokens.push({ text: part, type: 'message' });
       continue;
     }
@@ -887,4 +884,42 @@ export function tokenizeContent(content: string): LogToken[] {
   }
 
   return tokens;
+}
+
+/**
+ * Tokenize log content into typed segments for rendering.
+ * Detects [ERROR], [WARN], [INFO] markers and styles them specially.
+ * Does NOT strip any content - keeps everything visible.
+ */
+export function tokenizeContent(content: string): TokenizeResult {
+  if (!content) return { tokens: [] };
+
+  const tokens: LogToken[] = [];
+
+  // Split content by log level markers, keeping the markers
+  // Matches: [ERROR], [WARN], [WARNING], [INFO], [DEBUG], [TRACE]
+  const markerRegex = /(\[(?:ERROR|WARN(?:ING)?|INFO|DEBUG|TRACE)\])/gi;
+  const parts = content.split(markerRegex);
+
+  for (const part of parts) {
+    if (!part) continue;
+
+    // Check if this part is a marker
+    const upperPart = part.toUpperCase();
+    if (upperPart === '[ERROR]') {
+      tokens.push({ text: part, type: 'marker.error' });
+    } else if (upperPart === '[WARN]' || upperPart === '[WARNING]') {
+      tokens.push({ text: part, type: 'marker.warn' });
+    } else if (upperPart === '[INFO]') {
+      tokens.push({ text: part, type: 'marker.info' });
+    } else if (upperPart === '[DEBUG]' || upperPart === '[TRACE]') {
+      // Debug/trace markers - style as muted
+      tokens.push({ text: part, type: 'marker.info' });
+    } else {
+      // Tokenize the rest normally
+      tokens.push(...tokenizeSegment(part));
+    }
+  }
+
+  return { tokens };
 }

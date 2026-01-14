@@ -20,6 +20,12 @@ interface StoryPaneProps {
 function TokenSpan({ token }: { token: LogToken }) {
   const getTokenStyle = (): React.CSSProperties => {
     switch (token.type) {
+      case 'marker.error':
+        return { color: 'var(--mocha-error)', fontWeight: 600 }
+      case 'marker.warn':
+        return { color: 'var(--mocha-warning)', fontWeight: 600 }
+      case 'marker.info':
+        return { color: 'var(--mocha-text-muted)' }
       case 'url':
         return { color: 'var(--mocha-info)' }
       case 'data':
@@ -142,7 +148,7 @@ const StoryLine = memo(function StoryLine({
 
   // Tokenize the main content (non-JSON, non-stacktrace)
   const mainContent = hasJson || hasStackTrace ? '' : content
-  const tokens = tokenizeContent(mainContent)
+  const { tokens } = tokenizeContent(mainContent)
 
   return (
     <div
