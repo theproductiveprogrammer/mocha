@@ -33,6 +33,7 @@ function App() {
     activeStoryId,
     storyPaneHeight,
     storyPaneCollapsed,
+    storyPaneMaximized,
     createStory,
     deleteStory,
     renameStory,
@@ -42,6 +43,7 @@ function App() {
     clearStory,
     setStoryPaneHeight,
     setStoryPaneCollapsed,
+    setStoryPaneMaximized,
   } = useStoryStore()
 
   // Ref to scroll the story pane content
@@ -478,10 +480,12 @@ function App() {
                 storyLogs={storyLogs}
                 height={storyPaneHeight}
                 collapsed={storyPaneCollapsed}
+                maximized={storyPaneMaximized}
                 onRemoveFromStory={removeFromStory}
                 onClearStory={clearStory}
                 onHeightChange={setStoryPaneHeight}
                 onToggleCollapsed={() => setStoryPaneCollapsed(!storyPaneCollapsed)}
+                onToggleMaximized={() => setStoryPaneMaximized(!storyPaneMaximized)}
                 onCreateStory={createStory}
                 onDeleteStory={deleteStory}
                 onRenameStory={renameStory}

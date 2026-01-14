@@ -200,6 +200,7 @@ export const useStoryStore = create<StoryState>()(
       activeStoryId: null,
       storyPaneHeight: 250,
       storyPaneCollapsed: false,
+      storyPaneMaximized: false,
 
       // Story management
 
@@ -339,6 +340,10 @@ export const useStoryStore = create<StoryState>()(
 
       setStoryPaneCollapsed: (collapsed: boolean) => {
         set({ storyPaneCollapsed: collapsed })
+      },
+
+      setStoryPaneMaximized: (maximized: boolean) => {
+        set({ storyPaneMaximized: maximized })
       },
 
       // Helper to get hashes from active story (for highlighting in log viewer)

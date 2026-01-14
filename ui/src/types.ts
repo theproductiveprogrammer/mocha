@@ -199,6 +199,7 @@ export interface StoryState {
   activeStoryId: string | null;
   storyPaneHeight: number;
   storyPaneCollapsed: boolean;
+  storyPaneMaximized: boolean;
 
   // Story management
   createStory: (name?: string) => string;
@@ -216,6 +217,7 @@ export interface StoryState {
   // UI state
   setStoryPaneHeight: (height: number) => void;
   setStoryPaneCollapsed: (collapsed: boolean) => void;
+  setStoryPaneMaximized: (maximized: boolean) => void;
 
   // Helper to get hashes from active story (for highlighting in log viewer)
   getActiveStoryHashes: () => string[];

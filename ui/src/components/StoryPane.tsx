@@ -11,6 +11,8 @@ import {
   Check,
   Pencil,
   Coffee,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { JsonView } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
@@ -41,10 +43,12 @@ interface StoryPaneProps {
   storyLogs: LogEntry[];
   height: number;
   collapsed: boolean;
+  maximized: boolean;
   onRemoveFromStory: (hash: string) => void;
   onClearStory: () => void;
   onHeightChange: (height: number) => void;
   onToggleCollapsed: () => void;
+  onToggleMaximized: () => void;
   onCreateStory: (name?: string) => void;
   onDeleteStory: (id: string) => void;
   onRenameStory: (id: string, name: string) => void;
@@ -478,10 +482,12 @@ export function StoryPane({
   storyLogs,
   height,
   collapsed,
+  maximized,
   onRemoveFromStory,
   onClearStory,
   onHeightChange,
   onToggleCollapsed,
+  onToggleMaximized,
   onCreateStory,
   onDeleteStory,
   onRenameStory,
@@ -525,16 +531,19 @@ export function StoryPane({
   const activeStory = stories.find((s) => s.id === activeStoryId);
   const isEmpty = storyLogs.length === 0;
 
+  // Calculate height based on state
+  const paneHeight = collapsed ? "auto" : maximized ? "100vh" : height;
+
   return (
     <div
-      className="flex flex-col shrink-0"
+      className={`flex flex-col shrink-0 ${maximized ? "fixed inset-0 z-50" : ""}`}
       style={{
-        height: collapsed ? "auto" : height,
+        height: paneHeight,
         background: "var(--mocha-surface)",
       }}
     >
-      {/* Resize handle */}
-      {!collapsed && <ResizeHandle onDrag={handleDrag} />}
+      {/* Resize handle - hidden when maximized */}
+      {!collapsed && !maximized && <ResizeHandle onDrag={handleDrag} />}
 
       {/* Header with tabs - darker to transition from log viewer */}
       <div
@@ -605,27 +614,43 @@ export function StoryPane({
         </div>
 
         {/* Right: Actions */}
-        {!collapsed && activeStory && !isEmpty && (
+        {!collapsed && (
           <div className="flex items-center gap-1 pb-1">
+            {activeStory && !isEmpty && (
+              <>
+                <button
+                  onClick={handleCopy}
+                  className="p-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.1)] transition-all duration-200 flex items-center gap-1"
+                  style={{ color: "var(--mocha-text-secondary)" }}
+                  title="Copy all"
+                >
+                  {copyFeedback ? (
+                    <Check className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
+                <button
+                  onClick={onClearStory}
+                  className="p-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.1)] transition-colors"
+                  style={{ color: "var(--mocha-text-secondary)" }}
+                  title="Clear all"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </>
+            )}
             <button
-              onClick={handleCopy}
-              className="p-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.1)] transition-all duration-200 flex items-center gap-1"
-              style={{ color: "var(--mocha-text-secondary)" }}
-              title="Copy all"
-            >
-              {copyFeedback ? (
-                <Check className="w-4 h-4 text-green-400" />
-              ) : (
-                <Copy className="w-4 h-4" />
-              )}
-            </button>
-            <button
-              onClick={onClearStory}
+              onClick={onToggleMaximized}
               className="p-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.1)] transition-colors"
               style={{ color: "var(--mocha-text-secondary)" }}
-              title="Clear all"
+              title={maximized ? "Restore" : "Maximize"}
             >
-              <Trash2 className="w-4 h-4" />
+              {maximized ? (
+                <Minimize2 className="w-4 h-4" />
+              ) : (
+                <Maximize2 className="w-4 h-4" />
+              )}
             </button>
           </div>
         )}
