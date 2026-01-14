@@ -606,15 +606,25 @@ export function StoryPane({
   const [copyFeedback, setCopyFeedback] = useState(false);
 
   const handleCopy = useCallback(() => {
-    const text = storyLogs
-      .map((log, i) => {
-        const timestamp = log.parsed?.timestamp || "";
-        const service = getServiceName(log);
-        const content = log.parsed?.content || log.data;
-        return `[${String(i + 1).padStart(2, "0")}] ${timestamp} | ${service}\n    ${content}`;
-      })
-      .join("\n\n");
+    // Build output with file headers whenever the source file changes
+    const lines: string[] = [];
+    let currentFile: string | null = null;
 
+    for (const log of storyLogs) {
+      const filePath = log.name;
+
+      // Add header when file changes
+      if (filePath !== currentFile) {
+        const headerBase = `LOGFILE: ${filePath} `;
+        const padding = "=".repeat(Math.max(0, 72 - headerBase.length));
+        lines.push(`${headerBase}${padding}|`);
+        currentFile = filePath;
+      }
+
+      lines.push(log.data);
+    }
+
+    const text = lines.join("\n");
     navigator.clipboard.writeText(text);
     setCopyFeedback(true);
     setTimeout(() => setCopyFeedback(false), 2000);
