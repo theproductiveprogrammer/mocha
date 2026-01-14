@@ -662,9 +662,9 @@ function App() {
                     />
                   </div>
 
-                  {/* Orbiting particles - very slow, spread apart radially */}
-                  {/* Outer orbit */}
-                  <div className="absolute inset-0 animate-orbit" style={{ animationDuration: '90s' }}>
+                  {/* Orbiting particles - very slow, spread apart radially, offset starting positions */}
+                  {/* Outer orbit - 12 o'clock start */}
+                  <div className="absolute inset-0 animate-orbit" style={{ animationDuration: '140s', animationDelay: '0s' }}>
                     <div
                       className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full"
                       style={{
@@ -674,23 +674,34 @@ function App() {
                       }}
                     />
                   </div>
-                  {/* Middle orbit */}
-                  <div className="absolute inset-10 animate-orbit" style={{ animationDuration: '120s', animationDirection: 'reverse' }}>
+                  {/* Middle-outer orbit - 4 o'clock start (120°) */}
+                  <div className="absolute inset-8 animate-orbit" style={{ animationDuration: '170s', animationDelay: '-56.7s', animationDirection: 'reverse' }}>
                     <div
                       className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
                       style={{
                         background: 'var(--mocha-info)',
-                        opacity: 0.4,
-                        boxShadow: '0 0 4px var(--mocha-info)',
+                        opacity: 0.45,
+                        boxShadow: '0 0 5px var(--mocha-info)',
                       }}
                     />
                   </div>
-                  {/* Inner orbit */}
-                  <div className="absolute inset-20 animate-orbit" style={{ animationDuration: '75s' }}>
+                  {/* Middle-inner orbit - 7 o'clock start (210°) */}
+                  <div className="absolute inset-16 animate-orbit" style={{ animationDuration: '130s', animationDelay: '-75.8s' }}>
+                    <div
+                      className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
+                      style={{
+                        background: 'var(--mocha-accent)',
+                        opacity: 0.35,
+                        boxShadow: '0 0 4px var(--mocha-accent)',
+                      }}
+                    />
+                  </div>
+                  {/* Inner orbit - 10 o'clock start (300°) */}
+                  <div className="absolute inset-[68px] animate-orbit" style={{ animationDuration: '110s', animationDelay: '-91.7s', animationDirection: 'reverse' }}>
                     <div
                       className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
                       style={{
-                        background: 'var(--mocha-accent)',
+                        background: 'var(--mocha-info)',
                         opacity: 0.3,
                       }}
                     />
