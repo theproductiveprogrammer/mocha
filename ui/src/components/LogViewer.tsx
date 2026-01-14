@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useMemo, useRef, useEffect, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Search, FilterX } from 'lucide-react'
+import { Search, FilterX, ChevronUp } from 'lucide-react'
 import type { LogEntry } from '../types'
 import { useLogViewerStore, useStoryStore, filterLogs } from '../store'
 import { LogLine, getServiceName } from './LogLine'
@@ -23,6 +23,11 @@ function getThreadId(log: LogEntry): string | null {
  */
 export function LogViewer({ logs }: LogViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Buffer new logs when user is scrolled down
+  const [displayedLogs, setDisplayedLogs] = useState<LogEntry[]>([])
+  const [newLogsCount, setNewLogsCount] = useState(0)
+  const isScrolledRef = useRef(false)
 
   // Log viewer store (filters and service visibility)
   const { inactiveNames, filters } = useLogViewerStore()
@@ -79,14 +84,56 @@ export function LogViewer({ logs }: LogViewerProps) {
     return result
   }, [logs, filters, inactiveNames, isSameGroup])
 
-  // Virtualizer with dynamic measurement
+  // Virtualizer with dynamic measurement - uses displayedLogs (not filteredLogs)
   const virtualizer = useVirtualizer({
-    count: filteredLogs.length,
+    count: displayedLogs.length,
     getScrollElement: () => containerRef.current,
     estimateSize: () => 44,
     overscan: 10,
     measureElement: (element) => element.getBoundingClientRect().height,
   })
+
+  // Track if user is scrolled away from top
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const handleScroll = () => {
+      isScrolledRef.current = container.scrollTop > 100
+
+      // If scrolled to top, show any buffered logs
+      if (container.scrollTop < 50 && newLogsCount > 0) {
+        setDisplayedLogs(filteredLogs)
+        setNewLogsCount(0)
+      }
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [filteredLogs, newLogsCount])
+
+  // Handle log updates - buffer if scrolled, show immediately if at top
+  useEffect(() => {
+    if (!isScrolledRef.current || displayedLogs.length === 0) {
+      // At top or first load - show all logs
+      setDisplayedLogs(filteredLogs)
+      setNewLogsCount(0)
+    } else {
+      // Scrolled down - calculate how many new logs
+      const newCount = filteredLogs.length - displayedLogs.length
+      if (newCount > 0) {
+        setNewLogsCount(prev => prev + newCount)
+      }
+    }
+  }, [filteredLogs])
+
+  // Show buffered logs when clicking the indicator
+  const showNewLogs = useCallback(() => {
+    setDisplayedLogs(filteredLogs)
+    setNewLogsCount(0)
+    // Scroll to top
+    containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [filteredLogs])
 
   // Handle story toggle
   const handleToggleStory = useCallback(
@@ -101,12 +148,27 @@ export function LogViewer({ logs }: LogViewerProps) {
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-auto"
+      className="flex-1 overflow-auto relative"
       style={{ background: 'var(--mocha-bg)' }}
       tabIndex={0}
       data-testid="log-viewer"
     >
-      {filteredLogs.length === 0 ? (
+      {/* New logs indicator */}
+      {newLogsCount > 0 && (
+        <button
+          onClick={showNewLogs}
+          className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium shadow-lg transition-all hover:scale-105"
+          style={{
+            background: 'var(--mocha-accent)',
+            color: 'var(--mocha-bg)',
+          }}
+        >
+          <ChevronUp className="w-4 h-4" />
+          {newLogsCount} new log{newLogsCount > 1 ? 's' : ''}
+        </button>
+      )}
+
+      {displayedLogs.length === 0 ? (
         <div
           className="flex items-center justify-center h-full animate-fade-in"
           style={{ color: 'var(--mocha-text-secondary)' }}
@@ -170,9 +232,9 @@ export function LogViewer({ logs }: LogViewerProps) {
           }}
         >
           {virtualItems.map((virtualItem) => {
-            const log = filteredLogs[virtualItem.index]
-            const prev = virtualItem.index > 0 ? filteredLogs[virtualItem.index - 1] : null
-            const next = virtualItem.index < filteredLogs.length - 1 ? filteredLogs[virtualItem.index + 1] : null
+            const log = displayedLogs[virtualItem.index]
+            const prev = virtualItem.index > 0 ? displayedLogs[virtualItem.index - 1] : null
+            const next = virtualItem.index < displayedLogs.length - 1 ? displayedLogs[virtualItem.index + 1] : null
             const isInStory = log.hash ? storyHashSet.has(log.hash) : false
 
             // Is this line a continuation of the previous?
