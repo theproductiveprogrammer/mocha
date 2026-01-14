@@ -5,98 +5,128 @@
 ```
 App
 ├── Sidebar
+│   ├── Logo/Branding
 │   ├── OpenFileButton
 │   └── RecentFilesList
+│       └── RecentFileItem (with remove button)
 ├── MainContent
 │   ├── Toolbar
-│   │   ├── ServiceBadges
-│   │   ├── ActiveFilters
-│   │   ├── FilterInput
+│   │   ├── ActiveFileCount
+│   │   ├── SearchBar (with up/down/close)
 │   │   └── WatchToggle
-│   ├── FileInfo
-│   └── LogViewer
-│       ├── DropZone
-│       └── LogLine (virtualized list)
+│   ├── LogViewer
+│   │   ├── DropZone
+│   │   └── LogLine (virtualized list)
+│   └── StoryPane (resizable)
+│       ├── StoryTabs (multiple logbooks)
+│       └── StoryEntries (draggable for reorder)
 ```
 
 ## Component Specifications
 
 ### App (`App.tsx`)
 
-**Purpose**: Root component managing file state and routing data flow.
+**Purpose**: Root component managing file state, search, and routing data flow.
 
-**State**:
+**State** (uses Zustand stores):
 ```typescript
-interface AppState {
-  logs: LogEntry[];
-  currentFile: OpenedFile | null;
-  recentFiles: RecentFile[];
-  isLoading: boolean;
-  error: string | null;
-}
+// From useFileStore
+openedFiles: Map<string, OpenedFileWithLogs>;  // Multi-file support
+recentFiles: RecentFile[];
+isLoading: boolean;
+error: string | null;
+
+// Local state
+searchQuery: string;
+searchIsRegex: boolean;
+currentMatchIndex: number;
+searchMatches: Array<{ hash: string; matchIndex: number }>;
 ```
 
 **Responsibilities**:
-- Load recent files on mount
+- Load recent files on mount from Tauri backend
 - Handle file opening (dialog, drag-drop, recent)
-- Register `window.onFileUpdate` callback
-- Coordinate Sidebar and LogViewer
+- Handle multi-file drag-drop with proper state management
+- Manage search state and match navigation
+- Coordinate Sidebar, LogViewer, and StoryPane
+- Poll for file updates
 
 **Key Functions**:
 ```typescript
 async function handleOpenFile(path?: string): Promise<void>;
 async function handleToggleWatch(): Promise<void>;
-function handleFileDrop(content: string, fileName: string): void;
+function handleFileDrop(files: FileList): void;
+function handleClearRecent(): void;  // Clears both localStorage and Tauri backend
+function handleRemoveFile(path: string): void;  // Remove individual file
+function handleSearchChange(query: string, isRegex: boolean): void;
+function handleSearchNext(): void;
+function handleSearchPrev(): void;
 ```
 
 ---
 
 ### Sidebar (`components/Sidebar.tsx`)
 
-**Purpose**: Display recent files and provide file open button.
+**Purpose**: Display recent/opened files and provide file open button. Supports multi-file viewing.
 
 **Props**:
 ```typescript
 interface SidebarProps {
   recentFiles: RecentFile[];
-  currentFile: OpenedFile | null;
+  openedFiles: Map<string, OpenedFileWithLogs>;
   onSelectFile: (path?: string) => void;
+  onToggleFile: (path: string) => void;  // Toggle visibility in merged view
+  onRemoveFile: (path: string) => void;  // Remove individual file
   onClearRecent: () => void;
 }
 ```
 
 **UI Elements**:
-- "Open File..." button (calls `onSelectFile()` with no args)
-- Recent files list with:
-  - File name
-  - Last opened timestamp (relative, e.g., "2 hours ago")
-  - Active indicator for current file
-- "Clear" button for recent files
+- **Logo/Branding**: Mocha logo with coffee icon
+- **"Open File..." button**: Calls `onSelectFile()` with no args
+- **Recent files list** with RecentFileItem components:
+  - File name (truncated if long)
+  - Status indicator (checkbox if opened, clock if recent only)
+  - Line count badge (if opened)
+  - Last opened timestamp (relative, e.g., "2h ago")
+  - **Remove button (X)**: Appears on hover, removes individual file
+- **"Clear" button**: Clears all recent files (trash icon)
+- **Footer**: Shows active file count (e.g., "3 of 5 active")
+
+**RecentFileItem States**:
+| State | Indicator | Background |
+|-------|-----------|------------|
+| Not opened | FileText icon | transparent |
+| Opened but inactive | Circle dot | surface-raised |
+| Opened and active | Checkmark | selection with accent border |
 
 **Styling**:
 - Width: 256px (w-64)
-- Border-right separator
-- Light gray background (bg-gray-50)
+- Border-right separator (--mocha-border-subtle)
+- Surface background (--mocha-surface)
 - Scrollable if many recent files
+- Slide-in animation with staggered delays
 
 ---
 
 ### Toolbar (`components/Toolbar.tsx`)
 
-**Purpose**: Display filters, service badges, and file controls.
+**Purpose**: Display search, file info, and watch controls.
 
 **Props**:
 ```typescript
 interface ToolbarProps {
-  serviceNames: string[];
-  inactiveNames: Set<string>;
-  filters: ParsedFilter[];
-  filterInput: string;
-  currentFile: OpenedFile | null;
-  onToggleService: (name: string) => void;
-  onAddFilter: (filter: ParsedFilter) => void;
-  onRemoveFilter: (index: number) => void;
-  onFilterInputChange: (value: string) => void;
+  activeFileCount: number;
+  totalLines: number;
+  searchQuery: string;
+  searchIsRegex: boolean;
+  currentMatchIndex: number;
+  totalMatches: number;
+  isWatching: boolean;
+  onSearchChange: (query: string, isRegex: boolean) => void;
+  onSearchNext: () => void;
+  onSearchPrev: () => void;
+  onSearchClear: () => void;
   onToggleWatch: () => void;
 }
 ```
@@ -104,45 +134,43 @@ interface ToolbarProps {
 **UI Sections**:
 
 1. **File Info** (left):
-   - File name or "No file open"
-   - Line count badge
-   - Truncation indicator ("last 2000 lines")
+   - Active file count badge (e.g., "3 files")
+   - Total line count
 
-2. **Service Badges** (center):
-   - Clickable badges for each service
-   - Grayed out when inactive
-   - Color-coded per service
+2. **Search Bar** (center):
+   - Text input with placeholder "Search..."
+   - Regex toggle button (slashed circle icon)
+   - Match counter (e.g., "3 of 15")
+   - Up/Down navigation buttons (ChevronUp/ChevronDown)
+   - Clear button (X)
+   - Keyboard shortcuts: Enter for next, Shift+Enter for prev, Escape to clear
 
-3. **Active Filters** (center-right):
-   - Removable filter chips
-   - Show filter text (truncated if long)
-   - X button to remove
-
-4. **Filter Input** (right):
-   - Text input with placeholder "Filter..."
-   - Enter to add filter
-   - Help text: "Use /regex/ or -exclude"
-
-5. **Watch Toggle** (far right):
+3. **Watch Toggle** (right):
    - Toggle button with eye icon
-   - Active state indicator
+   - Active state with accent color
 
 ---
 
 ### LogViewer (`components/LogViewer.tsx`)
 
-**Purpose**: Virtualized log display with filtering, selection, and keyboard shortcuts.
+**Purpose**: Virtualized log display with filtering, search highlighting, and story support.
 
 **Props**:
 ```typescript
 interface LogViewerProps {
   logs: LogEntry[];
+  searchQuery: string;
+  searchIsRegex: boolean;
+  currentMatchIndex: number;
+  searchMatches: Array<{ hash: string; matchIndex: number }>;
+  onToggleStory: (log: LogEntry) => void;
 }
 ```
 
 **Zustand Stores Used**:
 - `useLogViewerStore`: filters, service visibility (inactiveNames)
 - `useSelectionStore`: selection, deleted hashes, wrapped hashes
+- `useStoryStore`: active story hashes for highlighting
 
 ---
 
@@ -266,23 +294,70 @@ Shortcuts are disabled when focus is in input/textarea/select elements.
 - Overlay appears when dragging files
 - Accepts `.log`, `.txt` files
 - Parses and displays dropped content
+- Supports multi-file drop (processes each file)
+
+---
+
+### StoryPane (`components/StoryPane.tsx`)
+
+**Purpose**: Resizable pane for building curated "logbooks" (stories) of important log entries.
+
+**Features**:
+- Multiple named stories (logbooks) with tabs
+- Drag-and-drop reordering of entries within a story
+- Maximize/minimize toggle
+- Resizable height via drag handle
+- Collapse/expand functionality
+
+**Props**:
+```typescript
+interface StoryPaneProps {
+  stories: Story[];
+  activeStoryId: string | null;
+  height: number;
+  isCollapsed: boolean;
+  isMaximized: boolean;
+  onCreateStory: () => void;
+  onDeleteStory: (id: string) => void;
+  onRenameStory: (id: string, name: string) => void;
+  onSelectStory: (id: string) => void;
+  onRemoveEntry: (hash: string) => void;
+  onClearStory: () => void;
+  onReorderStory: (fromIndex: number, toIndex: number) => void;
+  onHeightChange: (height: number) => void;
+  onToggleCollapse: () => void;
+  onToggleMaximize: () => void;
+}
+```
+
+**Story Naming**:
+- Default names: "Logbook 1", "Logbook 2", etc.
+- When creating new story, finds next available number (avoids duplicates after deletion)
+- Click to rename inline
+
+**UI Elements**:
+- **Header**: Collapse toggle, story tabs, new story button (+), maximize toggle
+- **Tabs**: One per story, with close button on hover
+- **Entry List**: Draggable log entries with timestamp, service badge, content
+- **Drag Handle**: Resize pane height
 
 ---
 
 ### LogLine (`components/LogLine.tsx`)
 
-**Purpose**: Render individual log entry with two-column layout.
+**Purpose**: Render individual log entry with two-column layout and story support.
 
 **Props**:
 ```typescript
 interface LogLineProps {
   log: LogEntry;
-  isSelected: boolean;
-  isWrapped: boolean;
+  isInStory: boolean;       // Highlighted if in active story
   isContinuation: boolean;  // Hide timestamp/badge when true
   isLastInGroup: boolean;   // Show bottom border when true (end of group)
-  onSelect: (hash: string, event: React.MouseEvent) => void;
-  onToggleWrap: (hash: string) => void;
+  searchQuery?: string;     // For search highlighting
+  searchIsRegex?: boolean;
+  isCurrentMatch?: boolean; // Yellow highlight for current search match
+  onToggleStory: (hash: string) => void;  // Add/remove from story
 }
 ```
 
@@ -534,18 +609,65 @@ interface SelectionState {
 
 ```typescript
 interface FileState {
-  currentFile: OpenedFile | null;
+  openedFiles: Map<string, OpenedFileWithLogs>;  // Multi-file support
   recentFiles: RecentFile[];
   isLoading: boolean;
   error: string | null;
 
-  setCurrentFile: (file: OpenedFile | null) => void;
+  openFile: (file: OpenedFileWithLogs) => void;
+  toggleFileActive: (path: string) => void;
+  updateFileLogs: (path: string, logs: LogEntry[]) => void;
+  appendFileLogs: (path: string, newLogs: LogEntry[], newSize?: number) => void;
   setRecentFiles: (files: RecentFile[]) => void;
+  addRecentFile: (file: RecentFile) => void;  // Uses get() to avoid race conditions
+  removeRecentFile: (path: string) => void;   // Removes from recent AND opened
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 }
 
 // Persisted to localStorage: mocha-file-state (recentFiles only)
+```
+
+### useStoryStore
+
+```typescript
+interface Story {
+  id: string;
+  name: string;
+  entries: LogEntry[];  // Full log entries (independent of source files)
+  createdAt: number;
+}
+
+interface StoryState {
+  stories: Story[];
+  activeStoryId: string | null;
+  storyPaneHeight: number;
+  storyPaneCollapsed: boolean;
+  storyPaneMaximized: boolean;
+
+  // Story management
+  createStory: (name?: string) => string;  // Returns new story ID
+  deleteStory: (id: string) => void;
+  renameStory: (id: string, name: string) => void;
+  setActiveStory: (id: string | null) => void;
+
+  // Entry management (operates on active story)
+  addToStory: (log: LogEntry) => void;
+  removeFromStory: (hash: string) => void;
+  toggleStory: (log: LogEntry) => void;
+  clearStory: () => void;
+  reorderStory: (fromIndex: number, toIndex: number) => void;
+
+  // UI state
+  setStoryPaneHeight: (height: number) => void;
+  setStoryPaneCollapsed: (collapsed: boolean) => void;
+  setStoryPaneMaximized: (maximized: boolean) => void;
+
+  // Helper
+  getActiveStoryHashes: () => string[];
+}
+
+// Persisted to localStorage: mocha-story-state
 ```
 
 ---
@@ -555,14 +677,22 @@ interface FileState {
 | Icon | Usage |
 |------|-------|
 | `FolderOpen` | Open file button |
-| `X` | Remove filter, close |
+| `X` | Remove filter/file, close, clear search |
 | `XCircle` | Clear error |
-| `Check` | Selection indicator |
+| `Check` | Selection indicator, active file checkbox |
 | `Eye` / `EyeOff` | Watch toggle |
-| `FileText` | File indicator |
-| `Clock` | Recent files |
-| `Trash2` | Clear recent |
-| `ChevronDown` / `ChevronUp` | Expand/collapse |
+| `FileText` | File indicator (not opened) |
+| `Clock` | Recent files timestamp |
+| `Trash2` | Clear recent, delete story |
+| `ChevronDown` / `ChevronUp` | Search navigation, expand/collapse |
+| `Coffee` | App logo |
+| `Plus` | Create new story |
+| `Maximize2` / `Minimize2` | Story pane maximize toggle |
+| `Book` | Story/logbook icon |
+| `GripVertical` | Drag handle for reordering |
+| `Search` | Search input icon |
+| `CircleSlash` | Regex toggle (off) |
+| `CircleDot` | Regex toggle (on) |
 
 ---
 

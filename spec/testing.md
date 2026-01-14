@@ -2,31 +2,32 @@
 
 ## E2E Testing Approach
 
-Run the actual compiled app, not Vite dev server.
+Run the actual compiled Tauri app, not Vite dev server.
 
 ### Build & Run
 ```bash
-# 1. Build React frontend
-cd ui && npm run build
+# Using mise (recommended)
+mise run build          # Production build
+mise run build-debug    # Debug build (faster)
+mise run launch-mac     # Open the built app
 
-# 2. Compile C backend
-make
-
-# 3. Run app (opens browser window)
-./mocha
+# Or manually:
+cd ui && npm run build  # Build React frontend
+cargo tauri build       # Build Tauri app
+open src-tauri/target/release/bundle/macos/Mocha.app
 ```
 
 ### Why This Approach
-- Tests real C backend bindings (`readFile`, `getRecentFiles`, `addRecentFile`)
-- Tests WebUI ↔ frontend communication
+- Tests real Rust backend bindings (`read_file`, `get_recent_files`, `add_recent_file`, `clear_recent_files`)
+- Tests Tauri IPC communication
 - Tests differential file reads with real files
 - Tests polling with actual file changes
 - What users actually experience
 
 ### Playwright MCP Test Flow
-1. Start `./mocha` binary (opens browser window)
+1. Start Mocha.app via `mise run launch-mac` or open directly
 2. Use `browser_snapshot` to see UI state
-3. Use `browser_file_upload` to test file loading
+3. Use `browser_file_upload` to test file loading (supports multi-file)
 4. Use `browser_type` and `browser_press_key` for interactions
 5. Use `browser_click` for UI elements
 6. Use Bash to append to log files, then verify polling picks up changes
@@ -91,6 +92,25 @@ All test log files are located in `_tmp/logs/`:
 4. browser_snapshot → verify regex matches only
 ```
 
+### Search
+```
+1. Load test file
+2. browser_click on search input
+3. browser_type: "ERROR"
+4. browser_snapshot → verify match counter shows "1 of X"
+5. browser_press_key: "Enter" → navigate to next match
+6. browser_press_key: "Shift+Enter" → navigate to previous match
+7. browser_click on X button → clear search
+```
+
+### Regex Search
+```
+1. Load test file
+2. browser_click on regex toggle button
+3. browser_type: "Controller.*Error"
+4. browser_snapshot → verify matches highlighted
+```
+
 ### Selection & Keyboard Shortcuts
 ```
 1. Load test file
@@ -120,28 +140,96 @@ All test log files are located in `_tmp/logs/`:
 6. browser_snapshot → verify file loads
 ```
 
+### Multi-File Support
+```
+1. browser_file_upload with multiple files (select multiple)
+2. browser_snapshot → verify all files in sidebar
+3. browser_snapshot → verify "X of Y active" count
+4. browser_click on file to toggle active state
+5. browser_snapshot → verify logs filtered
+```
+
+### Individual File Removal
+```
+1. Load multiple files
+2. browser_hover on file item → reveal X button
+3. browser_click on X button
+4. browser_snapshot → verify file removed from list
+```
+
+### Clear Recent Files
+```
+1. Load multiple files
+2. browser_click on trash icon (clear button)
+3. browser_snapshot → verify all files cleared
+4. browser_navigate (reload page)
+5. browser_snapshot → verify files not restored (Tauri backend cleared)
+```
+
+### Story/Logbook
+```
+1. Load test file
+2. browser_click on log line gutter → add to story
+3. browser_snapshot → verify story pane shows entry
+4. browser_click on + button → create new logbook
+5. browser_snapshot → verify new tab "Logbook 2"
+6. browser_click on entry X → remove from story
+```
+
 ---
 
 ## Verification Checklist
 
-Each PRD task marked `passes: "YYYY-MM-DD"` should be verified:
+Each feature should be verified:
 
 ```
+File Management:
 [ ] File loads via file input
+[ ] Multi-file drag-drop works
 [ ] Large files truncated to 2000 lines
+[ ] Recent files list works
+[ ] Recent files persist across reload
+[ ] Individual file removal works
+[ ] Clear all recent files works
+[ ] Toggle file active/inactive in merged view
+
+Parsing:
 [ ] SalesBox format parses correctly
 [ ] IWF/Spring format parses correctly
 [ ] Genie/Rust format parses correctly
 [ ] Maven error format parses correctly
+[ ] Grafana export format parses correctly
+
+Search:
+[ ] Text search finds matches
+[ ] Regex search works (toggle)
+[ ] Match counter shows X of Y
+[ ] Up/Down navigation between matches
+[ ] Current match highlighted in yellow
+[ ] Search highlighting integrates with tokenization
+
+Filtering:
 [ ] Text filter works
 [ ] Regex filter works
 [ ] Exclude filter works
 [ ] Service badges toggle visibility
+
+Selection:
 [ ] Ctrl+A selects all
 [ ] Ctrl+C copies to clipboard
 [ ] Delete hides selected
 [ ] Line click toggles wrap
+
+Stories/Logbook:
+[ ] Create new logbook
+[ ] Add logs to logbook (click gutter)
+[ ] Remove logs from logbook
+[ ] Multiple logbooks with tabs
+[ ] Rename logbook
+[ ] Delete logbook
+[ ] Drag-reorder entries
+[ ] Maximize/minimize pane
+
+Polling:
 [ ] Polling fetches new content (differential read)
-[ ] Recent files list works
-[ ] Recent files persist across reload
 ```

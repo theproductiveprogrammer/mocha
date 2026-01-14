@@ -6,7 +6,8 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                       Rust Backend (Tauri)                      │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │  3 commands: read_file, get_recent_files, add_recent_file │  │
+│  │  4 commands: read_file, get_recent_files, add_recent_file │  │
+│  │              clear_recent_files                           │  │
 │  └───────────────────────────────────────────────────────────┘  │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ Tauri IPC (invoke)
@@ -14,9 +15,10 @@
 │                      React Frontend                             │
 │  ┌───────────────┐  ┌───────────────┐  ┌────────────────────┐  │
 │  │   App.tsx     │  │  LogViewer    │  │  Zustand Stores    │  │
-│  │  file input   │  │  parsing      │  │  state/persist     │  │
-│  │  drag-drop    │  │  filtering    │  │                    │  │
-│  │  polling      │  │  display      │  │                    │  │
+│  │  multi-file   │  │  parsing      │  │  file state        │  │
+│  │  drag-drop    │  │  filtering    │  │  stories           │  │
+│  │  polling      │  │  search       │  │  selection         │  │
+│  │  search       │  │  display      │  │  filters           │  │
 │  └───────────────┘  └───────────────┘  └────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -41,21 +43,23 @@ mocha/
 │   ├── index.html
 │   └── src/
 │       ├── main.tsx
-│       ├── App.tsx
-│       ├── types.ts
-│       ├── store.ts
+│       ├── App.tsx              # Main app, search state, file handling
+│       ├── types.ts             # TypeScript type definitions
+│       ├── store.ts             # Zustand stores (file, story, selection, filters)
 │       ├── api.ts               # Tauri invoke wrappers
-│       ├── parser.ts            # Log parsing
+│       ├── parser.ts            # Log parsing (11+ formats)
 │       └── components/
-│           ├── LogViewer.tsx
-│           ├── Sidebar.tsx
-│           └── Toolbar.tsx
+│           ├── LogViewer.tsx    # Virtualized log display
+│           ├── LogLine.tsx      # Individual log entry rendering
+│           ├── Sidebar.tsx      # File list with multi-file support
+│           ├── Toolbar.tsx      # Search bar, file info, watch toggle
+│           └── StoryPane.tsx    # Logbook/story builder
 └── dist/                        # Built React app
 ```
 
 ## Rust Backend (Minimal)
 
-The Rust backend is intentionally minimal. Only 3 commands:
+The Rust backend is intentionally minimal. Only 4 commands:
 
 ```rust
 // commands.rs
@@ -74,18 +78,25 @@ pub fn get_recent_files() -> Vec<RecentFile> {
 pub fn add_recent_file(path: String) -> bool {
     // Update ~/.mocha/recent.json
 }
+
+#[tauri::command]
+pub fn clear_recent_files() -> bool {
+    // Truncate ~/.mocha/recent.json to empty array
+}
 ```
 
 ## Frontend Responsibilities
 
 The React frontend handles:
 - File selection (browser `<input type="file">`)
-- Drag-and-drop
+- Multi-file drag-and-drop
 - Log parsing (11+ formats)
+- Search with regex support and match navigation
 - Filtering (text, regex, exclude)
 - Selection and clipboard
 - Polling for updates
-- State persistence (localStorage)
+- Stories/Logbooks (curated log collections)
+- State persistence (localStorage + Tauri backend for recent files)
 
 ## Data Flow
 

@@ -328,4 +328,65 @@ interface ParsedLogFileResult {
 
 // Parse a single log line
 function parseLogLine(data: string): ParsedLogLine;
+
+// Tokenize log content for syntax highlighting
+function tokenizeContent(content: string): TokenizeResult;
+
+// Apply search highlighting to tokens
+function highlightSearchInTokens(
+  tokens: LogToken[],
+  searchQuery: string,
+  isRegex: boolean
+): LogToken[];
 ```
+
+## Content Tokenization
+
+Log content is tokenized for syntax highlighting. Each token has a type that determines its color/style.
+
+### Token Types
+
+```typescript
+type TokenType =
+  | 'timestamp'      // Time values in content
+  | 'level'          // Log level keywords (ERROR, WARN, INFO, DEBUG, TRACE)
+  | 'service'        // Service/logger names
+  | 'symbol'         // Brackets, punctuation
+  | 'url'            // URLs and endpoints
+  | 'message'        // General text content
+  | 'data'           // Data values
+  | 'json'           // JSON objects/arrays
+  | 'marker.error'   // [ERROR] markers
+  | 'marker.warn'    // [WARN] markers
+  | 'marker.info'    // [INFO] markers
+  | 'search.match';  // Highlighted search match
+
+interface LogToken {
+  text: string;
+  type: TokenType;
+}
+
+interface TokenizeResult {
+  tokens: LogToken[];
+  detectedLevel?: LogLevel;  // Level detected at start of content
+}
+```
+
+### Search Highlighting
+
+When search is active, tokens are split at match boundaries to create `search.match` tokens:
+
+```typescript
+// Before search highlighting:
+[{text: "api call to /users with ", type: "message"}, {text: '{"id":1}', type: "json"}]
+
+// After applying search "users":
+[
+  {text: "api call to /", type: "message"},
+  {text: "users", type: "search.match"},
+  {text: " with ", type: "message"},
+  {text: '{"id":1}', type: "json"}
+]
+```
+
+This approach ensures search highlighting integrates with existing tokenization, preserving syntax colors while highlighting matches.

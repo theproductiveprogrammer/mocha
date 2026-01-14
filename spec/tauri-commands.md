@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Rust backend exposes only 3 commands via Tauri's IPC. Everything else happens in the React frontend.
+The Rust backend exposes only 4 commands via Tauri's IPC. Everything else happens in the React frontend.
 
 ## Command Summary
 
@@ -11,6 +11,7 @@ The Rust backend exposes only 3 commands via Tauri's IPC. Everything else happen
 | `read_file` | `path: String, offset: u64` | `FileResult` | Read file contents (differential) |
 | `get_recent_files` | none | `Vec<RecentFile>` | Get recent files list |
 | `add_recent_file` | `path: String` | `bool` | Add to recent files |
+| `clear_recent_files` | none | `bool` | Clear all recent files |
 
 ## Type Definitions
 
@@ -93,6 +94,12 @@ pub fn get_recent_files() -> Vec<RecentFile> {
 pub fn add_recent_file(path: String) -> bool {
     // ... implementation
 }
+
+/// Clear all recent files
+#[tauri::command]
+pub fn clear_recent_files() -> bool {
+    // Truncate ~/.mocha/recent.json to empty array
+}
 ```
 
 ### lib.rs
@@ -100,7 +107,7 @@ pub fn add_recent_file(path: String) -> bool {
 ```rust
 mod commands;
 
-use commands::{read_file, get_recent_files, add_recent_file};
+use commands::{read_file, get_recent_files, add_recent_file, clear_recent_files};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -109,7 +116,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             read_file,
             get_recent_files,
-            add_recent_file
+            add_recent_file,
+            clear_recent_files
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -150,6 +158,11 @@ export async function getRecentFiles(): Promise<RecentFile[]> {
 export async function addRecentFile(path: string): Promise<void> {
   if (!isTauri()) return;
   await invoke<boolean>('add_recent_file', { path });
+}
+
+export async function clearRecentFiles(): Promise<void> {
+  if (!isTauri()) return;
+  await invoke<boolean>('clear_recent_files');
 }
 ```
 
