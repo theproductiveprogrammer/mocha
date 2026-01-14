@@ -111,6 +111,8 @@ function App() {
   }, [mergedLogs, filters, inactiveNames])
 
   // Search matches in filtered logs
+  // Note: filteredLogs is in ascending order (oldest first), but LogViewer displays
+  // newest-first. So we reverse the matches to match visual order (top to bottom).
   const searchMatches = useMemo(() => {
     if (!searchQuery.trim()) return []
 
@@ -131,7 +133,8 @@ function App() {
       // Invalid regex
     }
 
-    return matches
+    // Reverse to match visual order (newest/top first)
+    return matches.reverse()
   }, [searchQuery, searchIsRegex, filteredLogs])
 
   // Reset search index when query changes

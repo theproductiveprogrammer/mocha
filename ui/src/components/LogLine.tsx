@@ -116,9 +116,16 @@ function getServiceAbbrev(name: string): string {
 /**
  * Render a single token with appropriate styling
  */
-function TokenSpan({ token }: { token: LogToken }) {
+function TokenSpan({ token, isCurrentMatch }: { token: LogToken; isCurrentMatch?: boolean }) {
   const getTokenStyle = (): React.CSSProperties => {
     switch (token.type) {
+      case 'search.match':
+        return {
+          background: isCurrentMatch ? '#eab308' : '#eab30880',
+          color: '#000',
+          padding: '0 1px',
+          borderRadius: '2px',
+        }
       case 'marker.error':
         return { color: 'var(--mocha-error)', fontWeight: 600 }
       case 'marker.warn':
@@ -145,14 +152,60 @@ function TokenSpan({ token }: { token: LogToken }) {
 /**
  * Render tokenized content
  */
-function TokenizedContent({ tokens }: { tokens: LogToken[] }) {
+function TokenizedContent({ tokens, isCurrentMatch }: { tokens: LogToken[]; isCurrentMatch?: boolean }) {
   return (
     <>
       {tokens.map((token, i) => (
-        <TokenSpan key={i} token={token} />
+        <TokenSpan key={i} token={token} isCurrentMatch={isCurrentMatch} />
       ))}
     </>
   )
+}
+
+/**
+ * Split tokens at search matches, creating new search.match tokens
+ */
+function highlightSearchInTokens(
+  tokens: LogToken[],
+  searchQuery: string,
+  isRegex: boolean
+): LogToken[] {
+  if (!searchQuery?.trim()) return tokens
+
+  try {
+    const regex = isRegex
+      ? new RegExp(`(${searchQuery})`, 'gi')
+      : new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+
+    const result: LogToken[] = []
+
+    for (const token of tokens) {
+      // Reset regex state
+      regex.lastIndex = 0
+
+      // Split token text by matches
+      const parts = token.text.split(regex)
+
+      for (const part of parts) {
+        if (!part) continue
+
+        // Check if this part is a match
+        regex.lastIndex = 0
+        if (regex.test(part)) {
+          result.push({ text: part, type: 'search.match' })
+        } else {
+          // Keep original token type for non-matching parts
+          result.push({ text: part, type: token.type })
+        }
+        regex.lastIndex = 0
+      }
+    }
+
+    return result
+  } catch {
+    // Invalid regex - return original tokens
+    return tokens
+  }
 }
 
 export interface LogLineProps {
@@ -195,40 +248,10 @@ function LogLineComponent({
     }
   }, [log, onToggleStory])
 
-  // Helper to highlight search matches in text
-  const highlightMatches = useCallback((text: string): React.ReactNode => {
-    if (!searchQuery?.trim()) return text
-
-    try {
-      const regex = searchIsRegex
-        ? new RegExp(`(${searchQuery})`, 'gi')
-        : new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
-
-      const parts = text.split(regex)
-      return parts.map((part, i) => {
-        if (regex.test(part)) {
-          regex.lastIndex = 0
-          return (
-            <mark
-              key={i}
-              style={{
-                background: isCurrentMatch ? '#eab308' : '#eab30880',
-                color: '#000',
-                padding: '0 1px',
-                borderRadius: '2px',
-              }}
-            >
-              {part}
-            </mark>
-          )
-        }
-        regex.lastIndex = 0
-        return part
-      })
-    } catch {
-      return text
-    }
-  }, [searchQuery, searchIsRegex, isCurrentMatch])
+  // Apply search highlighting to tokens
+  const displayTokens = searchQuery
+    ? highlightSearchInTokens(tokens, searchQuery, searchIsRegex ?? false)
+    : tokens
 
   // Format timestamp for display
   const displayTimestamp = log.parsed?.timestamp
@@ -298,7 +321,7 @@ function LogLineComponent({
         style={{ color: rowStyle.text }}
       >
         <div className="flex-1 min-w-0 truncate">
-          {searchQuery ? highlightMatches(content) : <TokenizedContent tokens={tokens} />}
+          <TokenizedContent tokens={displayTokens} isCurrentMatch={isCurrentMatch} />
         </div>
 
         {/* Story indicator icon */}

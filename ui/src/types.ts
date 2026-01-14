@@ -54,7 +54,8 @@ export interface ParsedLogLine {
  */
 export type TokenType =
   | 'timestamp' | 'level' | 'service' | 'symbol' | 'url' | 'message' | 'data' | 'json'
-  | 'marker.error' | 'marker.warn' | 'marker.info';  // Log level markers like [ERROR], [WARN], [INFO]
+  | 'marker.error' | 'marker.warn' | 'marker.info'  // Log level markers like [ERROR], [WARN], [INFO]
+  | 'search.match';  // Highlighted search match
 
 /**
  * A single token from tokenized log content
