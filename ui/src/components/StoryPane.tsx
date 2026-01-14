@@ -61,7 +61,7 @@ function TokenSpan({ token }: { token: LogToken }) {
       case "marker.error":
         return { color: "#e85c5c", fontWeight: 600 };
       case "marker.warn":
-        return { color: "#d4a054", fontWeight: 600 };
+        return { color: "#b8860b", fontWeight: 600 };
       case "marker.info":
         return { color: "#8b8b8b" };
       case "url":
@@ -102,6 +102,15 @@ const EvidenceCard = memo(function EvidenceCard({
       ? log.parsed.timestamp.split(" ")[1]?.slice(0, 8)
       : log.parsed.timestamp.slice(0, 8)
     : null;
+  const level = log.parsed?.level?.toUpperCase();
+
+  // Level-based styling
+  const getLevelIndicator = () => {
+    if (level === 'ERROR') return { color: '#e85c5c', label: 'ERR' };
+    if (level === 'WARN' || level === 'WARNING') return { color: '#eab308', label: 'WARN' };
+    return null;
+  };
+  const levelIndicator = getLevelIndicator();
 
   const { tokens } = tokenizeContent(content);
 
@@ -123,7 +132,7 @@ const EvidenceCard = memo(function EvidenceCard({
             : "1px solid rgba(0,0,0,0.06)",
         }}
       >
-        {/* Evidence number */}
+        {/* Evidence number with level indicator */}
         <div
           className="absolute -left-0 top-0 bottom-0 w-10 flex items-center justify-center"
           style={{
@@ -133,6 +142,7 @@ const EvidenceCard = memo(function EvidenceCard({
             borderRight: showRaw
               ? "1px solid rgba(255,255,255,0.1)"
               : "1px solid rgba(0,0,0,0.08)",
+            borderLeft: levelIndicator ? `3px solid ${levelIndicator.color}` : undefined,
           }}
         >
           <span
@@ -159,6 +169,17 @@ const EvidenceCard = memo(function EvidenceCard({
                 }}
               >
                 {timestamp}
+              </span>
+            )}
+            {levelIndicator && (
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"
+                style={{
+                  background: showRaw ? `${levelIndicator.color}33` : `${levelIndicator.color}22`,
+                  color: levelIndicator.color,
+                }}
+              >
+                {levelIndicator.label}
               </span>
             )}
             <span
