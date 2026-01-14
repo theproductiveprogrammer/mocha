@@ -644,59 +644,57 @@ function App() {
               />
 
               <div className="relative z-10 text-center max-w-lg px-8 animate-fade-in-up">
-                {/* Iconic illustration */}
-                <div className="relative mb-10">
-                  {/* Outer ring */}
+                {/* Iconic illustration with distant orbiting particles */}
+                <div className="relative mb-10 w-72 h-72 mx-auto">
+                  {/* Center icon */}
                   <div
-                    className="w-32 h-32 mx-auto rounded-full flex items-center justify-center"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex items-center justify-center"
                     style={{
                       background: 'linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface) 100%)',
                       border: '1px solid var(--mocha-border)',
-                      boxShadow: '0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
                     }}
                   >
-                    {/* Inner glow ring */}
-                    <div
-                      className="w-24 h-24 rounded-full flex items-center justify-center"
-                      style={{
-                        background: 'linear-gradient(135deg, var(--mocha-surface-hover) 0%, var(--mocha-surface-raised) 100%)',
-                        border: '1px solid var(--mocha-border-subtle)',
-                        boxShadow: 'inset 0 0 20px rgba(232, 168, 84, 0.1)',
-                      }}
-                    >
-                      <FileSearch
-                        className="w-10 h-10"
-                        style={{ color: 'var(--mocha-accent)' }}
-                        strokeWidth={1.5}
-                      />
-                    </div>
+                    <FileSearch
+                      className="w-9 h-9"
+                      style={{ color: 'var(--mocha-accent)' }}
+                      strokeWidth={1.5}
+                    />
                   </div>
 
-                  {/* Floating particles */}
-                  <div
-                    className="absolute top-0 left-1/4 w-2 h-2 rounded-full animate-float"
-                    style={{
-                      background: 'var(--mocha-accent)',
-                      opacity: 0.4,
-                      animationDelay: '0s',
-                    }}
-                  />
-                  <div
-                    className="absolute bottom-4 right-1/4 w-1.5 h-1.5 rounded-full animate-float"
-                    style={{
-                      background: 'var(--mocha-info)',
-                      opacity: 0.4,
-                      animationDelay: '1s',
-                    }}
-                  />
-                  <div
-                    className="absolute top-1/4 right-8 w-1 h-1 rounded-full animate-float"
-                    style={{
-                      background: 'var(--mocha-accent)',
-                      opacity: 0.3,
-                      animationDelay: '0.5s',
-                    }}
-                  />
+                  {/* Orbiting particles - very slow, spread apart radially */}
+                  {/* Outer orbit */}
+                  <div className="absolute inset-0 animate-orbit" style={{ animationDuration: '90s' }}>
+                    <div
+                      className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full"
+                      style={{
+                        background: 'var(--mocha-accent)',
+                        opacity: 0.5,
+                        boxShadow: '0 0 6px var(--mocha-accent)',
+                      }}
+                    />
+                  </div>
+                  {/* Middle orbit */}
+                  <div className="absolute inset-10 animate-orbit" style={{ animationDuration: '120s', animationDirection: 'reverse' }}>
+                    <div
+                      className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
+                      style={{
+                        background: 'var(--mocha-info)',
+                        opacity: 0.4,
+                        boxShadow: '0 0 4px var(--mocha-info)',
+                      }}
+                    />
+                  </div>
+                  {/* Inner orbit */}
+                  <div className="absolute inset-20 animate-orbit" style={{ animationDuration: '75s' }}>
+                    <div
+                      className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                      style={{
+                        background: 'var(--mocha-accent)',
+                        opacity: 0.3,
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <h2
