@@ -1,47 +1,7 @@
 import { memo, useCallback } from 'react'
-import { Check, ArrowLeft, ArrowRight } from 'lucide-react'
+import { Check } from 'lucide-react'
 import type { LogEntry, LogToken, LogLevel } from '../types'
 import { tokenizeContent } from '../parser'
-
-/**
- * Parse API call from log content (compact version for log stream)
- */
-interface ApiCallParsed {
-  url: string
-  direction: 'in' | 'out' | null
-  body: string | null
-}
-
-function parseApiCall(content: string): ApiCallParsed | null {
-  // Match URL patterns like /user-token/get-access-token
-  const urlMatch = content.match(/(\/[a-zA-Z0-9\-_\/]+)/)
-  if (!urlMatch) return null
-
-  const url = urlMatch[1]
-  const urlIndex = content.indexOf(url)
-  const afterUrl = content.slice(urlIndex + url.length)
-
-  // Detect direction
-  let direction: 'in' | 'out' | null = null
-  let bodyStart = 0
-
-  if (afterUrl.includes('<-') || afterUrl.includes('←')) {
-    direction = 'in'
-    bodyStart = Math.max(afterUrl.indexOf('<-'), afterUrl.indexOf('←')) + 2
-  } else if (afterUrl.includes('->') || afterUrl.includes('→')) {
-    direction = 'out'
-    bodyStart = Math.max(afterUrl.indexOf('->'), afterUrl.indexOf('→')) + 2
-  }
-
-  // Extract body
-  let body: string | null = null
-  if (bodyStart > 0) {
-    body = afterUrl.slice(bodyStart).trim()
-    if (body.startsWith(':')) body = body.slice(1).trim()
-  }
-
-  return { url, direction, body }
-}
 
 // Service colors - vibrant but not overwhelming
 const SERVICE_COLORS: Record<string, string> = {
@@ -195,64 +155,12 @@ function TokenizedContent({ tokens }: { tokens: LogToken[] }) {
   )
 }
 
-/**
- * Compact inline API call display for log stream
- */
-function ApiCallInline({ parsed }: { parsed: ApiCallParsed }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      {/* Direction badge */}
-      {parsed.direction && (
-        <span
-          className={`
-            inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider shrink-0
-            ${parsed.direction === 'in'
-              ? 'bg-emerald-500/20 text-emerald-400'
-              : 'bg-blue-500/20 text-blue-400'
-            }
-          `}
-        >
-          {parsed.direction === 'in' ? (
-            <>
-              <ArrowLeft className="w-2.5 h-2.5" />
-              IN
-            </>
-          ) : (
-            <>
-              <ArrowRight className="w-2.5 h-2.5" />
-              OUT
-            </>
-          )}
-        </span>
-      )}
-
-      {/* URL */}
-      <span
-        className="font-semibold"
-        style={{ color: 'var(--mocha-info)' }}
-      >
-        {parsed.url}
-      </span>
-
-      {/* Truncated body preview */}
-      {parsed.body && (
-        <span
-          className="truncate"
-          style={{ color: 'var(--mocha-text-muted)' }}
-        >
-          {parsed.body.length > 80 ? parsed.body.slice(0, 80) + '…' : parsed.body}
-        </span>
-      )}
-    </span>
-  )
-}
-
 export interface LogLineProps {
   log: LogEntry
   isInStory: boolean
   isContinuation: boolean
   isLastInGroup: boolean
-  onToggleStory: (hash: string) => void
+  onToggleStory: (log: LogEntry) => void
 }
 
 function LogLineComponent({
@@ -270,18 +178,15 @@ function LogLineComponent({
   const content = log.parsed?.content || log.data
   const { tokens, detectedLevel } = tokenizeContent(content)
 
-  // Check if this is an API call
-  const apiCall = parseApiCall(content)
-
   // Use parsed level if available, otherwise use level detected from content prefix
   const effectiveLevel = log.parsed?.level || detectedLevel
   const rowStyle = getRowStyle(effectiveLevel)
 
   const handleClick = useCallback(() => {
     if (log.hash) {
-      onToggleStory(log.hash)
+      onToggleStory(log)
     }
-  }, [log.hash, onToggleStory])
+  }, [log, onToggleStory])
 
   // Format timestamp for display
   const displayTimestamp = log.parsed?.timestamp
@@ -343,7 +248,7 @@ function LogLineComponent({
         )}
       </div>
 
-      {/* Right column: log content (API call or tokenized) */}
+      {/* Right column: tokenized log content */}
       <div
         className={`flex-1 px-3 font-mono text-[12px] leading-relaxed flex items-center ${
           isContinuation ? 'py-0.5' : 'py-1.5'
@@ -351,11 +256,7 @@ function LogLineComponent({
         style={{ color: rowStyle.text }}
       >
         <div className="flex-1 truncate">
-          {apiCall ? (
-            <ApiCallInline parsed={apiCall} />
-          ) : (
-            <TokenizedContent tokens={tokens} />
-          )}
+          <TokenizedContent tokens={tokens} />
         </div>
 
         {/* Story indicator icon */}

@@ -180,12 +180,13 @@ export interface LogViewerState {
 }
 
 /**
- * A single story (notebook) containing curated log entries
+ * A story/investigation containing curated log entries
+ * Stores full log data so entries persist even when source files are unloaded
  */
 export interface Story {
   id: string;
   name: string;
-  hashes: string[];
+  entries: LogEntry[];  // Full log entries (independent of source files)
   createdAt: number;
 }
 
@@ -205,10 +206,10 @@ export interface StoryState {
   renameStory: (id: string, name: string) => void;
   setActiveStory: (id: string | null) => void;
 
-  // Log management (operates on active story)
-  addToStory: (hash: string) => void;
+  // Log management (operates on active story) - now takes full LogEntry
+  addToStory: (log: LogEntry) => void;
   removeFromStory: (hash: string) => void;
-  toggleStory: (hash: string) => void;
+  toggleStory: (log: LogEntry) => void;
   clearStory: () => void;
   reorderStory: (fromIndex: number, toIndex: number) => void;
 
@@ -216,7 +217,7 @@ export interface StoryState {
   setStoryPaneHeight: (height: number) => void;
   setStoryPaneCollapsed: (collapsed: boolean) => void;
 
-  // Legacy compatibility - get hashes from active story
+  // Helper to get hashes from active story (for highlighting in log viewer)
   getActiveStoryHashes: () => string[];
 }
 

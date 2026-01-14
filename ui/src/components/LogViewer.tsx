@@ -38,7 +38,8 @@ export function LogViewer({ logs }: LogViewerProps) {
   // Get active story hashes and convert to Set for fast lookup
   const storyHashSet = useMemo(() => {
     const activeStory = stories.find(s => s.id === activeStoryId)
-    return new Set(activeStory?.hashes || [])
+    const hashes = activeStory?.entries.map(e => e.hash).filter((h): h is string => !!h) || []
+    return new Set(hashes)
   }, [stories, activeStoryId])
 
   // Check if two logs belong to same group (within 300ms + same service + same thread)
@@ -138,10 +139,10 @@ export function LogViewer({ logs }: LogViewerProps) {
     containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [filteredLogs])
 
-  // Handle story toggle
+  // Handle story toggle - now passes full log entry
   const handleToggleStory = useCallback(
-    (hash: string) => {
-      toggleStory(hash)
+    (log: LogEntry) => {
+      toggleStory(log)
     },
     [toggleStory]
   )

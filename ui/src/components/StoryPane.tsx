@@ -460,7 +460,7 @@ function StoryTab({
             color: '#6b635a',
           }}
         >
-          {story.hashes.length}
+          {story.entries.length}
         </span>
 
         {isActive && (

@@ -43,12 +43,11 @@ function App() {
     setStoryPaneCollapsed,
   } = useStoryStore()
 
-  // Get active story's hashes
+  // Get active story
   const activeStory = useMemo(
     () => stories.find(s => s.id === activeStoryId),
     [stories, activeStoryId]
   )
-  const storyHashes = activeStory?.hashes || []
 
   // File store - now with multi-file support
   const {
@@ -88,25 +87,12 @@ function App() {
     return allLogs.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
   }, [safeOpenedFiles])
 
-  // Build hash -> log lookup for story
-  const logsByHash = useMemo(() => {
-    const map = new Map<string, LogEntry>()
-    mergedLogs.forEach((log) => {
-      if (log.hash) {
-        map.set(log.hash, log)
-      }
-    })
-    return map
-  }, [mergedLogs])
-
-  // Get story logs in chronological order
+  // Story logs come directly from the story (independent of loaded files)
   const storyLogs = useMemo(() => {
-    const logs = storyHashes
-      .map((hash) => logsByHash.get(hash))
-      .filter((log): log is LogEntry => !!log)
-    // Sort by timestamp (chronological)
-    return logs.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
-  }, [storyHashes, logsByHash])
+    const entries = activeStory?.entries || []
+    // Sort by timestamp (chronological order)
+    return [...entries].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
+  }, [activeStory])
 
   // Count of active files
   const activeFileCount = useMemo(() => {

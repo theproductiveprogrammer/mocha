@@ -210,7 +210,7 @@ export const useStoryStore = create<StoryState>()(
         const newStory: Story = {
           id,
           name: name || `Investigation ${storyNumber}`,
-          hashes: [],
+          entries: [],  // Store full log entries
           createdAt: Date.now(),
         }
         set({
@@ -244,10 +244,11 @@ export const useStoryStore = create<StoryState>()(
         set({ activeStoryId: id })
       },
 
-      // Log management (operates on active story)
+      // Log management (operates on active story) - stores full LogEntry
 
-      addToStory: (hash: string) => {
+      addToStory: (log: LogEntry) => {
         const { stories, activeStoryId, createStory } = get()
+        if (!log.hash) return  // Need hash for deduplication
 
         // Auto-create a story if none exists
         let targetId = activeStoryId
@@ -255,12 +256,16 @@ export const useStoryStore = create<StoryState>()(
           targetId = createStory()
         }
 
+        // Re-fetch stories after potential create
+        const currentStories = get().stories
+
         set({
-          stories: stories.map(s =>
-            s.id === targetId && !s.hashes.includes(hash)
-              ? { ...s, hashes: [...s.hashes, hash] }
-              : s
-          ),
+          stories: currentStories.map(s => {
+            if (s.id !== targetId) return s
+            // Check if already in story by hash
+            if (s.entries.some(e => e.hash === log.hash)) return s
+            return { ...s, entries: [...s.entries, log] }
+          }),
         })
       },
 
@@ -271,29 +276,30 @@ export const useStoryStore = create<StoryState>()(
         set({
           stories: stories.map(s =>
             s.id === activeStoryId
-              ? { ...s, hashes: s.hashes.filter(h => h !== hash) }
+              ? { ...s, entries: s.entries.filter(e => e.hash !== hash) }
               : s
           ),
         })
       },
 
-      toggleStory: (hash: string) => {
+      toggleStory: (log: LogEntry) => {
         const { stories, activeStoryId, createStory, addToStory, removeFromStory } = get()
+        if (!log.hash) return
 
         // Auto-create a story if none exists
         if (!activeStoryId || !stories.find(s => s.id === activeStoryId)) {
           createStory()
-          addToStory(hash)
+          addToStory(log)
           return
         }
 
         const activeStory = stories.find(s => s.id === activeStoryId)
         if (!activeStory) return
 
-        if (activeStory.hashes.includes(hash)) {
-          removeFromStory(hash)
+        if (activeStory.entries.some(e => e.hash === log.hash)) {
+          removeFromStory(log.hash)
         } else {
-          addToStory(hash)
+          addToStory(log)
         }
       },
 
@@ -304,7 +310,7 @@ export const useStoryStore = create<StoryState>()(
         set({
           stories: stories.map(s =>
             s.id === activeStoryId
-              ? { ...s, hashes: [] }
+              ? { ...s, entries: [] }
               : s
           ),
         })
@@ -317,10 +323,10 @@ export const useStoryStore = create<StoryState>()(
         set({
           stories: stories.map(s => {
             if (s.id !== activeStoryId) return s
-            const newHashes = [...s.hashes]
-            const [removed] = newHashes.splice(fromIndex, 1)
-            newHashes.splice(toIndex, 0, removed)
-            return { ...s, hashes: newHashes }
+            const newEntries = [...s.entries]
+            const [removed] = newEntries.splice(fromIndex, 1)
+            newEntries.splice(toIndex, 0, removed)
+            return { ...s, entries: newEntries }
           }),
         })
       },
@@ -335,11 +341,11 @@ export const useStoryStore = create<StoryState>()(
         set({ storyPaneCollapsed: collapsed })
       },
 
-      // Helper to get active story hashes
+      // Helper to get hashes from active story (for highlighting in log viewer)
       getActiveStoryHashes: () => {
         const { stories, activeStoryId } = get()
         const activeStory = stories.find(s => s.id === activeStoryId)
-        return activeStory?.hashes || []
+        return activeStory?.entries.map(e => e.hash).filter((h): h is string => !!h) || []
       },
     }),
     {
