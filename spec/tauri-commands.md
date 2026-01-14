@@ -205,7 +205,7 @@ function useFilePolling(
 The Rust backend returns `FileResult` with `success: false` and `error` message on failure:
 
 ```json
-{"success": false, "error": "Cannot stat file"}
+{"success": false, "error": "Failed to open file"}
 {"success": false, "error": "File too large (max 10MB)"}
 ```
 

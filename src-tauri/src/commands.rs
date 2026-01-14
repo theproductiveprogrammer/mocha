@@ -74,7 +74,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
                 name: None,
                 size: None,
                 prev_size: None,
-                error: Some("Cannot stat file".to_string()),
+                error: Some("Cannot open file".to_string()),
             };
         }
     };
