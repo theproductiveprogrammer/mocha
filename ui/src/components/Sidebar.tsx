@@ -1,5 +1,5 @@
 import { memo, useCallback, useState } from 'react'
-import { FolderOpen, FileText, Clock, Trash2, Check, X, Radio, ChevronRight } from 'lucide-react'
+import { FolderOpen, FileText, Clock, Trash2, Check, X, Radio, ChevronRight, PanelLeftClose, PanelLeft } from 'lucide-react'
 import type { SidebarProps, RecentFile, OpenedFileWithLogs } from '../types'
 
 /**
@@ -29,6 +29,7 @@ interface RecentFileItemProps {
   onClick: () => void
   onRemove: () => void
   index: number
+  isCollapsed: boolean
 }
 
 const RecentFileItem = memo(function RecentFileItem({
@@ -37,6 +38,7 @@ const RecentFileItem = memo(function RecentFileItem({
   onClick,
   onRemove,
   index,
+  isCollapsed,
 }: RecentFileItemProps) {
   const [isHovered, setIsHovered] = useState(false)
   const isOpened = !!openedFile
@@ -47,6 +49,42 @@ const RecentFileItem = memo(function RecentFileItem({
     onRemove()
   }, [onRemove])
 
+  // Collapsed view - just the icon
+  if (isCollapsed) {
+    return (
+      <div
+        className="animate-fade-in"
+        style={{ animationDelay: `${index * 30}ms` }}
+      >
+        <button
+          onClick={onClick}
+          className="w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 mx-auto"
+          style={{
+            background: isActive
+              ? 'var(--mocha-info)'
+              : isOpened
+                ? 'var(--mocha-surface-active)'
+                : 'var(--mocha-surface-raised)',
+            boxShadow: isActive
+              ? '0 0 12px var(--mocha-selection-glow)'
+              : 'none',
+          }}
+          title={file.name}
+          data-testid={`recent-file-${file.name}`}
+        >
+          {isActive ? (
+            <Check className="w-4 h-4" style={{ color: 'var(--mocha-bg)' }} />
+          ) : isOpened ? (
+            <Radio className="w-4 h-4" style={{ color: 'var(--mocha-text-muted)' }} />
+          ) : (
+            <FileText className="w-4 h-4" style={{ color: 'var(--mocha-text-muted)' }} />
+          )}
+        </button>
+      </div>
+    )
+  }
+
+  // Expanded view - full item
   return (
     <div
       className="group relative animate-slide-in"
@@ -173,7 +211,7 @@ const RecentFileItem = memo(function RecentFileItem({
 })
 
 /**
- * Sidebar component - refined control panel
+ * Sidebar component - refined control panel with collapse support
  */
 export const Sidebar = memo(function Sidebar({
   recentFiles,
@@ -182,14 +220,18 @@ export const Sidebar = memo(function Sidebar({
   onToggleFile,
   onRemoveFile,
   onClearRecent,
+  isCollapsed,
+  onToggleCollapsed,
 }: SidebarProps) {
   const activeCount = Array.from(openedFiles.values()).filter(f => f.isActive).length
   const openedCount = openedFiles.size
 
   return (
     <aside
-      className="w-64 flex flex-col h-full relative"
+      className="flex flex-col h-full relative transition-all duration-300 ease-out"
       style={{
+        width: isCollapsed ? '64px' : '256px',
+        minWidth: isCollapsed ? '64px' : '256px',
         background: 'var(--mocha-surface)',
         borderRight: '1px solid var(--mocha-border)',
       }}
@@ -205,13 +247,16 @@ export const Sidebar = memo(function Sidebar({
 
       {/* Header */}
       <div
-        className="relative z-10 p-5"
-        style={{ borderBottom: '1px solid var(--mocha-border-subtle)' }}
+        className="relative z-10 p-4 transition-all duration-300"
+        style={{
+          borderBottom: '1px solid var(--mocha-border-subtle)',
+          padding: isCollapsed ? '16px 12px' : '20px',
+        }}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 mb-5">
+        <div className={`flex items-center mb-4 transition-all duration-300 ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
             style={{
               background: 'linear-gradient(135deg, var(--mocha-accent) 0%, #c4854a 50%, #a06830 100%)',
               boxShadow: '0 4px 16px var(--mocha-accent-glow)',
@@ -248,7 +293,15 @@ export const Sidebar = memo(function Sidebar({
               />
             </svg>
           </div>
-          <div>
+
+          {/* Title - only show when expanded */}
+          <div
+            className="overflow-hidden transition-all duration-300"
+            style={{
+              width: isCollapsed ? 0 : 'auto',
+              opacity: isCollapsed ? 0 : 1,
+            }}
+          >
             <h1
               style={{
                 color: 'var(--mocha-text)',
@@ -257,13 +310,14 @@ export const Sidebar = memo(function Sidebar({
                 fontSize: '24px',
                 letterSpacing: '0.35px',
                 fontVariationSettings: '"WONK" 1, "opsz" 50',
+                whiteSpace: 'nowrap',
               }}
             >
               Mocha
             </h1>
             <p
               className="text-[10px] uppercase tracking-widest font-medium"
-              style={{ color: 'var(--mocha-text-muted)' }}
+              style={{ color: 'var(--mocha-text-muted)', whiteSpace: 'nowrap' }}
             >
               Log Viewer
             </p>
@@ -273,12 +327,15 @@ export const Sidebar = memo(function Sidebar({
         {/* Open File button */}
         <button
           onClick={() => onSelectFile()}
-          className="w-full px-4 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+          className={`rounded-xl font-medium text-sm flex items-center justify-center transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${
+            isCollapsed ? 'w-10 h-10 p-0' : 'w-full px-4 py-3 gap-2'
+          }`}
           style={{
             background: 'linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface-hover) 100%)',
             border: '1px solid var(--mocha-border)',
             color: 'var(--mocha-text)',
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            margin: isCollapsed ? '0 auto' : undefined,
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = 'var(--mocha-accent)'
@@ -289,46 +346,53 @@ export const Sidebar = memo(function Sidebar({
             e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)'
           }}
           data-testid="open-file-button"
+          title={isCollapsed ? 'Open Log File' : undefined}
         >
-          <FolderOpen className="w-4 h-4" />
-          Open Log File
+          <FolderOpen className="w-4 h-4 shrink-0" />
+          {!isCollapsed && <span>Open Log File</span>}
         </button>
       </div>
 
       {/* Recent files section */}
       <div className="relative z-10 flex-1 overflow-hidden flex flex-col">
-        <div className="px-5 py-4 flex items-center justify-between">
-          <h2
-            className="text-[11px] font-semibold uppercase tracking-widest"
-            style={{ color: 'var(--mocha-text-muted)' }}
-          >
-            Recent Files
-          </h2>
-          {recentFiles.length > 0 && (
-            <button
-              onClick={onClearRecent}
-              className="p-1.5 rounded-md transition-all duration-200"
+        {/* Section header - only show when expanded */}
+        {!isCollapsed && (
+          <div className="px-5 py-4 flex items-center justify-between">
+            <h2
+              className="text-[11px] font-semibold uppercase tracking-widest"
               style={{ color: 'var(--mocha-text-muted)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--mocha-error-bg)'
-                e.currentTarget.style.color = 'var(--mocha-error)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = 'var(--mocha-text-muted)'
-              }}
-              title="Clear all recent files"
-              data-testid="clear-recent-button"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+              Recent Files
+            </h2>
+            {recentFiles.length > 0 && (
+              <button
+                onClick={onClearRecent}
+                className="p-1.5 rounded-md transition-all duration-200"
+                style={{ color: 'var(--mocha-text-muted)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--mocha-error-bg)'
+                  e.currentTarget.style.color = 'var(--mocha-error)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = 'var(--mocha-text-muted)'
+                }}
+                title="Clear all recent files"
+                data-testid="clear-recent-button"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Scrollable file list */}
-        <div className="flex-1 overflow-y-auto px-3 pb-4" data-testid="recent-files-list">
+        <div
+          className={`flex-1 overflow-y-auto pb-4 ${isCollapsed ? 'px-2 pt-4' : 'px-3'}`}
+          data-testid="recent-files-list"
+        >
           {recentFiles.length > 0 ? (
-            <div className="space-y-1">
+            <div className={isCollapsed ? 'space-y-2' : 'space-y-1'}>
               {recentFiles.map((file, index) => {
                 const openedFile = openedFiles.get(file.path)
                 return (
@@ -337,6 +401,7 @@ export const Sidebar = memo(function Sidebar({
                     file={file}
                     openedFile={openedFile}
                     index={index}
+                    isCollapsed={isCollapsed}
                     onClick={() => {
                       if (openedFile) {
                         onToggleFile(file.path)
@@ -349,7 +414,7 @@ export const Sidebar = memo(function Sidebar({
                 )
               })}
             </div>
-          ) : (
+          ) : !isCollapsed ? (
             <div
               className="text-center py-16 animate-fade-in"
               data-testid="empty-recent"
@@ -379,50 +444,82 @@ export const Sidebar = memo(function Sidebar({
                 Open or drop a log file
               </p>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {/* Footer - status bar */}
+      {/* Footer - status bar with collapse toggle */}
       <div
-        className="relative z-10 px-5 py-3"
+        className="relative z-10 px-3 py-3 flex items-center"
         style={{
           borderTop: '1px solid var(--mocha-border-subtle)',
           background: 'var(--mocha-bg-elevated)',
+          justifyContent: isCollapsed ? 'center' : 'space-between',
         }}
       >
-        {openedCount > 0 ? (
-          <div className="flex items-center justify-center gap-3">
-            <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
-              style={{
-                background: 'var(--mocha-selection)',
-                border: '1px solid var(--mocha-selection-border)',
-                color: 'var(--mocha-info)',
-              }}
-            >
+        {/* Collapse toggle button */}
+        <button
+          onClick={onToggleCollapsed}
+          className="p-2 rounded-lg transition-all duration-200"
+          style={{
+            color: 'var(--mocha-text-muted)',
+            background: 'transparent',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--mocha-surface-hover)'
+            e.currentTarget.style.color = 'var(--mocha-text)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = 'var(--mocha-text-muted)'
+          }}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? (
+            <PanelLeft className="w-4 h-4" />
+          ) : (
+            <PanelLeftClose className="w-4 h-4" />
+          )}
+        </button>
+
+        {/* Status - only show when expanded */}
+        {!isCollapsed && (
+          <div className="flex-1 flex justify-center">
+            {openedCount > 0 ? (
               <div
-                className="w-2 h-2 rounded-full animate-pulse"
-                style={{ background: 'var(--mocha-info)' }}
-              />
-              {activeCount} of {openedCount} active
-            </div>
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
+                style={{
+                  background: 'var(--mocha-selection)',
+                  border: '1px solid var(--mocha-selection-border)',
+                  color: 'var(--mocha-info)',
+                }}
+              >
+                <div
+                  className="w-2 h-2 rounded-full animate-pulse"
+                  style={{ background: 'var(--mocha-info)' }}
+                />
+                {activeCount} of {openedCount} active
+              </div>
+            ) : recentFiles.length > 0 ? (
+              <p
+                className="text-xs text-center"
+                style={{ color: 'var(--mocha-text-muted)' }}
+              >
+                {recentFiles.length} recent {recentFiles.length === 1 ? 'file' : 'files'}
+              </p>
+            ) : (
+              <p
+                className="text-xs text-center"
+                style={{ color: 'var(--mocha-text-faint)' }}
+              >
+                Ready to analyze
+              </p>
+            )}
           </div>
-        ) : recentFiles.length > 0 ? (
-          <p
-            className="text-xs text-center"
-            style={{ color: 'var(--mocha-text-muted)' }}
-          >
-            {recentFiles.length} recent {recentFiles.length === 1 ? 'file' : 'files'}
-          </p>
-        ) : (
-          <p
-            className="text-xs text-center"
-            style={{ color: 'var(--mocha-text-faint)' }}
-          >
-            Ready to analyze
-          </p>
         )}
+
+        {/* Spacer for alignment when expanded */}
+        {!isCollapsed && <div className="w-8" />}
       </div>
     </aside>
   )

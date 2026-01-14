@@ -262,6 +262,8 @@ export interface SidebarProps {
   onToggleFile: (path: string) => void;
   onRemoveFile: (path: string) => void;
   onClearRecent: () => void;
+  isCollapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
 /**

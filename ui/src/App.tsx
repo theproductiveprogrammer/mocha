@@ -78,6 +78,9 @@ function App() {
   // Drag/drop hover state
   const [isDragging, setIsDragging] = useState(false)
 
+  // Sidebar collapsed state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
   // Search state for log stream
   const [searchQuery, setSearchQuery] = useState('')
   const [searchIsRegex, setSearchIsRegex] = useState(false)
@@ -545,6 +548,8 @@ function App() {
         onToggleFile={handleToggleFile}
         onRemoveFile={handleRemoveFile}
         onClearRecent={handleClearRecent}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
