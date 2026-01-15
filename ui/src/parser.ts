@@ -864,8 +864,12 @@ export function parseLogFile(
   // Lines without real timestamps inherit previous timestamp with incremented sortIndex
   let lastTimestamp = 0;
   let lastSortIndex = 0;
+  let firstRealTimestamp: number | null = null;
 
-  const logs = normalized.map((log) => {
+  const logs: LogEntry[] = [];
+
+  for (let i = 0; i < normalized.length; i++) {
+    const log = normalized[i];
     const parsed = parseLogLine(log.data);
 
     // Check if this line has a real parseable timestamp with date
@@ -885,22 +889,37 @@ export function parseLogFile(
       timestamp = parsedEpoch;
       sortIndex = 0;
       lastSortIndex = 0;
-    } else {
-      // No real timestamp - inherit previous timestamp, increment sortIndex
-      // This ensures lines stay in file order even when timestamps can't be parsed
-      lastSortIndex++;
-      timestamp = lastTimestamp || log.timestamp || Date.now();
-      sortIndex = lastSortIndex;
-    }
-    lastTimestamp = timestamp;
 
-    return {
+      // First real timestamp found - backfill previous lines
+      if (firstRealTimestamp === null) {
+        firstRealTimestamp = parsedEpoch;
+        for (let j = 0; j < i; j++) {
+          logs[j].timestamp = firstRealTimestamp;
+          logs[j].sortIndex = j - i; // Negative: -i, -i+1, ..., -1
+        }
+      }
+    } else {
+      // No real timestamp - increment sortIndex
+      lastSortIndex++;
+      sortIndex = lastSortIndex;
+
+      if (firstRealTimestamp !== null) {
+        // After first real timestamp - inherit from previous
+        timestamp = lastTimestamp;
+      } else {
+        // Before first real timestamp - leave as 0 (will be fixed when we find first)
+        timestamp = 0;
+      }
+    }
+    lastTimestamp = timestamp || lastTimestamp;
+
+    logs.push({
       ...log,
       parsed,
       timestamp,
       sortIndex,
-    };
-  });
+    });
+  }
 
   return { logs, totalLines, truncated };
 }
