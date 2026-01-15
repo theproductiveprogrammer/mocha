@@ -364,6 +364,18 @@ const patterns: LogPattern[] = [
         };
       }
 
+      // [service] ERROR message
+      match = line.match(
+        /^\[([^\]]+)\]\s+(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\s+(.*)$/i,
+      );
+      if (match) {
+        return {
+          level: normalizeLevel(match[2]),
+          logger: match[1],
+          content: match[3],
+        };
+      }
+
       // INFO message
       match = line.match(/^(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\s+(.*)$/i);
       if (match) {
