@@ -63,7 +63,6 @@ function App() {
     error,
     openFile,
     toggleFileActive,
-    appendFileLogs,
     setRecentFiles,
     addRecentFile: addRecentFileToStore,
     removeRecentFile,
@@ -95,7 +94,8 @@ function App() {
     [openedFiles]
   )
 
-  // Merged logs from all active files, sorted by timestamp
+  // Merged logs from all active files, sorted by (timestamp, sortIndex)
+  // sortIndex ensures stable ordering for lines without parseable timestamps
   const mergedLogs = useMemo(() => {
     const allLogs: LogEntry[] = []
     safeOpenedFiles.forEach((file) => {
@@ -103,8 +103,12 @@ function App() {
         allLogs.push(...file.logs)
       }
     })
-    // Sort by timestamp (ascending - LogViewer will reverse for newest-first)
-    return allLogs.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
+    // Sort by timestamp first, then by sortIndex for stable ordering within same timestamp
+    return allLogs.sort((a, b) => {
+      const timestampDiff = (a.timestamp ?? 0) - (b.timestamp ?? 0)
+      if (timestampDiff !== 0) return timestampDiff
+      return (a.sortIndex ?? 0) - (b.sortIndex ?? 0)
+    })
   }, [safeOpenedFiles])
 
   // Story logs come directly from the story (independent of loaded files)
@@ -493,18 +497,25 @@ function App() {
     // TODO: Implement multi-file watching
   }, [])
 
-  // Polling effect for all active files
+  // Polling effect for active files
+  // Note: We get fresh state inside the callback to avoid stale closure issues
+  // that could cause lines to be skipped or duplicated
   useEffect(() => {
     if (!isTauri()) return
 
-    // Get active files with Tauri paths (not browser files)
-    const activeFiles = Array.from(safeOpenedFiles.values()).filter(
+    // Only run polling if we have active files (quick check)
+    const hasActiveFiles = Array.from(safeOpenedFiles.values()).some(
       f => f.isActive && f.path.startsWith('/')
     )
-
-    if (activeFiles.length === 0) return
+    if (!hasActiveFiles) return
 
     const pollInterval = window.setInterval(async () => {
+      // Get FRESH state inside callback to avoid stale closures
+      const currentFiles = useFileStore.getState().openedFiles
+      const activeFiles = Array.from(currentFiles.values()).filter(
+        f => f.isActive && f.path.startsWith('/')
+      )
+
       for (const file of activeFiles) {
         try {
           const result = await readFile(file.path, file.lastModified)
@@ -513,7 +524,8 @@ function App() {
 
           if (result.content && newSize > file.lastModified) {
             const newLines = parseLogFile(result.content, file.name, file.path)
-            appendFileLogs(file.path, newLines.logs, newSize)
+            // Use store action directly to avoid stale closure
+            useFileStore.getState().appendFileLogs(file.path, newLines.logs, newSize)
           }
         } catch (err) {
           console.error(`Polling error for ${file.name}:`, err)
@@ -522,7 +534,7 @@ function App() {
     }, 5000) // Poll every 5 seconds
 
     return () => window.clearInterval(pollInterval)
-  }, [safeOpenedFiles, appendFileLogs])
+  }, [safeOpenedFiles]) // Only re-create interval when files change
 
   // Compute visible count from current filters
   const visibleCount = useMemo(() => {

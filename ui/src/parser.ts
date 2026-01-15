@@ -825,24 +825,45 @@ export function parseLogFile(content: string, fileName: string, filePath?: strin
   const hashKey = filePath || fileName;
   const { logs: rawLogs, totalLines, truncated } = parseFileLines(content, fileName, hashKey, filePath);
   const normalized = normalize(rawLogs);
+
+  // Track timestamp and sortIndex for stable ordering
+  // Lines without real timestamps inherit previous timestamp with incremented sortIndex
+  let lastTimestamp = 0;
+  let lastSortIndex = 0;
+
   const logs = normalized.map((log) => {
     const parsed = parseLogLine(log.data);
-    // Determine final timestamp:
-    // - If log.timestamp is a "real" epoch (extracted from file format like Grafana 3-part), keep it
-    // - If log.timestamp is a "fake" epoch (generated from line order, close to now), use parsed timestamp
-    //   BUT only if the parsed timestamp includes a date (not time-only)
-    // Fake timestamps are within 1 hour of now (line order × 1000ms)
-    const now = Date.now();
-    const isFakeTimestamp = log.timestamp && Math.abs(now - log.timestamp) < 3600000;
+
+    // Check if this line has a real parseable timestamp with date
     const parsedEpoch = parsed.timestamp ? parseTimestampToEpoch(parsed.timestamp) : null;
-    // Only use parsed timestamp if it has a date - time-only timestamps break sorting across day boundaries
     const parsedHasDate = parsed.timestamp ? timestampHasDate(parsed.timestamp) : false;
+    const hasRealTimestamp = parsedEpoch !== null && parsedHasDate;
+
+    let timestamp: number;
+    let sortIndex: number;
+
+    if (hasRealTimestamp) {
+      // Line has a real timestamp - use it and reset sortIndex
+      timestamp = parsedEpoch;
+      sortIndex = 0;
+      lastTimestamp = timestamp;
+      lastSortIndex = 0;
+    } else {
+      // No real timestamp - inherit previous timestamp, increment sortIndex
+      // This ensures lines stay in file order even when timestamps can't be parsed
+      lastSortIndex++;
+      timestamp = lastTimestamp || log.timestamp || Date.now();
+      sortIndex = lastSortIndex;
+    }
+
     return {
       ...log,
       parsed,
-      timestamp: (isFakeTimestamp && parsedHasDate) ? (parsedEpoch ?? log.timestamp) : log.timestamp,
+      timestamp,
+      sortIndex,
     };
   });
+
   return { logs, totalLines, truncated };
 }
 

@@ -83,7 +83,8 @@ export interface LogEntry {
   data: string;           // Original line (for clipboard)
   isErr: boolean;         // Whether from stderr
   hash?: string;          // Unique identifier
-  timestamp?: number;     // Unix timestamp
+  timestamp?: number;     // Unix timestamp (for sorting)
+  sortIndex?: number;     // Secondary sort key within same timestamp
   parsed?: ParsedLogLine; // Parsed log information
 }
 
