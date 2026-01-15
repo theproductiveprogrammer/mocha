@@ -128,6 +128,7 @@ export interface RecentFile {
   path: string;        // Full file path
   name: string;        // Filename only
   lastOpened: number;  // Unix timestamp in milliseconds
+  mtime?: number;      // File modification time (Unix millis)
 }
 
 /**
@@ -141,6 +142,7 @@ export interface FileResult {
   size?: number;      // Current file size in bytes
   prevSize?: number;  // Offset that was passed in
   mtime?: number;     // File modification time (Unix millis)
+  truncated?: boolean; // True if file was truncated/replaced
   error?: string;     // Error message if failed
 }
 

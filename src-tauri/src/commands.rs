@@ -24,6 +24,8 @@ pub struct FileResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mtime: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub truncated: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
@@ -34,6 +36,8 @@ pub struct RecentFile {
     pub path: String,
     pub name: String,
     pub last_opened: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mtime: Option<i64>,
 }
 
 /// Get the path to ~/.mocha/recent.json
@@ -62,6 +66,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
             size: None,
             prev_size: None,
             mtime: None,
+            truncated: None,
             error: Some("No path provided".to_string()),
         };
     }
@@ -78,6 +83,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
                 size: None,
                 prev_size: None,
                 mtime: None,
+                truncated: None,
                 error: Some("Cannot open file".to_string()),
             };
         }
@@ -89,8 +95,8 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as i64);
 
-    // If file hasn't grown since last read, return empty content
-    if offset > 0 && current_size <= offset {
+    // If file size unchanged since last read, return empty (no new content)
+    if offset > 0 && current_size == offset {
         return FileResult {
             success: true,
             content: Some(String::new()),
@@ -99,12 +105,19 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
             size: Some(current_size),
             prev_size: Some(offset),
             mtime,
+            truncated: Some(false),
             error: None,
         };
     }
 
-    // Calculate read parameters
-    let read_start = if offset > 0 { offset } else { 0 };
+    // If file shrunk since last read, it was truncated/replaced - read from start
+    let (read_start, is_truncated) = if offset > 0 && current_size < offset {
+        (0, true)  // Read entire file from beginning
+    } else if offset > 0 {
+        (offset, false)  // Normal differential read
+    } else {
+        (0, false)  // Initial read
+    };
     let read_size = current_size - read_start;
 
     if read_size > MAX_FILE_SIZE {
@@ -116,6 +129,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
             size: None,
             prev_size: None,
             mtime: None,
+            truncated: None,
             error: Some("File too large (max 10MB)".to_string()),
         };
     }
@@ -132,6 +146,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
                 size: None,
                 prev_size: None,
                 mtime: None,
+                truncated: None,
                 error: Some("Cannot open file".to_string()),
             };
         }
@@ -148,6 +163,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
                 size: None,
                 prev_size: None,
                 mtime: None,
+                truncated: None,
                 error: Some("Cannot seek in file".to_string()),
             };
         }
@@ -174,6 +190,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
         size: Some(current_size),
         prev_size: Some(offset),
         mtime,
+        truncated: Some(is_truncated),
         error: None,
     }
 }
@@ -195,10 +212,20 @@ pub fn get_recent_files() -> Vec<RecentFile> {
         Err(_) => return vec![],
     };
 
-    match serde_json::from_str(&content) {
-        Ok(files) => files,
-        Err(_) => vec![],
-    }
+    let files: Vec<RecentFile> = match serde_json::from_str(&content) {
+        Ok(f) => f,
+        Err(_) => return vec![],
+    };
+
+    // Refresh mtime from filesystem for each file
+    files.into_iter().map(|mut f| {
+        f.mtime = fs::metadata(&f.path)
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as i64);
+        f
+    }).collect()
 }
 
 /// Add a file to the recent files list
@@ -235,11 +262,19 @@ pub fn add_recent_file(path: String) -> bool {
     // Remove existing entry for this path (if any)
     recent_files.retain(|f| f.path != path);
 
+    // Get file modification time
+    let mtime = fs::metadata(&path)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as i64);
+
     // Create new entry
     let new_entry = RecentFile {
         path: path.clone(),
         name: get_filename(&path),
         last_opened: Utc::now().timestamp_millis(),
+        mtime,
     };
 
     // Prepend new entry

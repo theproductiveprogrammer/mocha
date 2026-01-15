@@ -523,9 +523,19 @@ function App() {
           if (!result.success) continue
           const newSize = result.size ?? 0
 
-          if (result.content && newSize > file.lastModified) {
+          if (result.truncated && result.content) {
+            // File was replaced/truncated - reload entirely
             const newLines = parseLogFile(result.content, file.name, file.path)
-            // Use store action directly to avoid stale closure
+            useFileStore.getState().updateFileLogs(file.path, newLines.logs)
+            // Also update the lastModified (size) for next poll
+            const currentFiles = useFileStore.getState().openedFiles
+            const updatedFile = currentFiles.get(file.path)
+            if (updatedFile) {
+              useFileStore.getState().openFile({ ...updatedFile, lastModified: newSize, mtime: result.mtime })
+            }
+          } else if (result.content && newSize > file.lastModified) {
+            // Normal append - file grew
+            const newLines = parseLogFile(result.content, file.name, file.path)
             useFileStore.getState().appendFileLogs(file.path, newLines.logs, newSize)
           }
         } catch (err) {

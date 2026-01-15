@@ -151,10 +151,12 @@ const RecentFileItem = memo(function RecentFileItem({
             className="text-xs flex items-center gap-2 mt-0.5"
             style={{ color: 'var(--mocha-text-muted)' }}
           >
-            <>
-              <Clock className="w-3 h-3" />
-              <span>{formatRelativeTime(openedFile?.mtime ?? file.lastOpened)}</span>
-            </>
+            {(openedFile?.mtime ?? file.mtime) ? (
+              <>
+                <Clock className="w-3 h-3" />
+                <span>{formatRelativeTime(openedFile?.mtime ?? file.mtime!)}</span>
+              </>
+            ) : null}
           </div>
         </div>
 
