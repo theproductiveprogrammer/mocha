@@ -36,6 +36,16 @@ recentFiles: RecentFile[];
 isLoading: boolean;
 error: string | null;
 
+// OpenedFileWithLogs type
+interface OpenedFileWithLogs {
+  path: string;           // Full file path
+  name: string;           // Filename only
+  logs: LogEntry[];       // Parsed log entries
+  isActive: boolean;      // Whether shown in merged view
+  lastModified: number;   // For polling - last known file size
+  mtime?: number;         // File modification time (Unix millis)
+}
+
 // Local state
 searchQuery: string;
 searchIsRegex: boolean;
@@ -84,11 +94,12 @@ interface SidebarProps {
 **UI Elements**:
 - **Logo/Branding**: Mocha logo with coffee icon
 - **"Open File..." button**: Calls `onSelectFile()` with no args
-- **Recent files list** with RecentFileItem components:
-  - File name (truncated if long)
+- **Recent files list** with RecentFileItem components (sorted alphabetically):
+  - File name (truncated if long, full path in tooltip)
   - Status indicator (checkbox if opened, clock if recent only)
-  - Line count badge (if opened)
-  - Last opened timestamp (relative, e.g., "2h ago")
+  - File modification time (relative, e.g., "2h ago") - from `mtime`, not `lastOpened`
+  - File size (e.g., "3.0 MB")
+  - **`[not found]`**: Shown in red for deleted files (`exists: false`)
   - **Remove button (X)**: Appears on hover, removes individual file
 - **"Clear" button**: Clears all recent files (trash icon)
 - **Footer**: Shows active file count (e.g., "3 of 5 active")
@@ -99,6 +110,7 @@ interface SidebarProps {
 | Not opened | FileText icon | transparent |
 | Opened but inactive | Circle dot | surface-raised |
 | Opened and active | Checkmark | selection with accent border |
+| File deleted | `[not found]` in red | transparent |
 
 **Styling**:
 - Width: 256px (w-64)

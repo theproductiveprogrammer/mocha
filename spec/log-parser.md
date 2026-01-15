@@ -17,7 +17,8 @@ interface LogEntry {
   data: string;          // Original line (used for clipboard)
   isErr: boolean;        // Whether from stderr
   hash?: string;         // Unique identifier
-  timestamp?: number;    // Unix timestamp
+  timestamp?: number;    // Unix timestamp (epoch ms)
+  sortIndex?: number;    // Secondary sort key within same timestamp
   parsed?: ParsedLogLine;
 }
 
@@ -173,14 +174,21 @@ All patterns use `[-–—]` to match any of these dash characters.
 **Pattern**: `level-only`
 ```
 [INFO] message
+[service] ERROR message
 INFO message
 ```
 
 **Regex** (multiple):
 ```regex
 /^\[(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\]\s*(.*)$/i
+/^\[([^\]]+)\]\s+(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\s+(.*)$/i
 /^(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\s+(.*)$/i
 ```
+
+The second regex matches `[service] LEVEL message` format (e.g., `[start] ERROR task failed`), extracting:
+- `match[1]`: service/logger name
+- `match[2]`: log level
+- `match[3]`: message content
 
 ### 11. Genie/Rust Format
 **Pattern**: `genie-rust`
@@ -287,8 +295,34 @@ The parser:
 ### Plain Log File
 - Lines parsed individually
 - Parsed timestamps converted to epoch when possible
-- Fake timestamps assigned based on line order as fallback
 - Last 2000 lines kept if file exceeds limit
+
+### Timestamp Assignment and Ordering
+
+Logs are sorted by `timestamp` (primary) and `sortIndex` (secondary) to support multi-file interleaving while maintaining file order.
+
+**For lines with real timestamps (date + time):**
+- `timestamp` = parsed epoch milliseconds
+- `sortIndex` = 0
+
+**For lines without timestamps (after first real timestamp):**
+- `timestamp` = inherited from previous line
+- `sortIndex` = incrementing (1, 2, 3, ...)
+
+**For lines before the first real timestamp:**
+These are backfilled when the first real timestamp is found:
+- `timestamp` = first real timestamp value
+- `sortIndex` = negative values (-N, -N+1, ..., -1)
+
+This ensures lines before the first timestamp sort **before** it, maintaining original file order.
+
+```typescript
+// Example: file starts with non-timestamped lines
+// Line 0: "[start] $ ./mvnw mn:run"     -> timestamp=T, sortIndex=-2
+// Line 1: "[start] Building..."         -> timestamp=T, sortIndex=-1
+// Line 2: "2025-12-19 09:00:00 INFO..." -> timestamp=T, sortIndex=0 (first real)
+// Line 3: "continuation line..."        -> timestamp=T, sortIndex=1
+```
 
 ## Level Normalization
 

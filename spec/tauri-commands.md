@@ -26,6 +26,8 @@ pub struct FileResult {
     pub name: Option<String>,
     pub size: Option<u64>,
     pub prev_size: Option<u64>,
+    pub mtime: Option<i64>,       // File modification time (Unix millis)
+    pub truncated: Option<bool>,  // True if file was truncated/replaced since last read
     pub error: Option<String>,
 }
 
@@ -35,10 +37,13 @@ pub struct RecentFile {
     pub path: String,
     pub name: String,
     pub last_opened: i64,
+    pub mtime: Option<i64>,   // File modification time (Unix millis)
+    pub size: Option<u64>,    // File size in bytes
+    pub exists: bool,         // Whether file exists on disk
 }
 ```
 
-### Frontend Types (ui/src/api.ts)
+### Frontend Types (ui/src/types.ts)
 
 ```typescript
 interface FileResult {
@@ -48,6 +53,8 @@ interface FileResult {
   name?: string;
   size?: number;
   prevSize?: number;
+  mtime?: number;      // File modification time (Unix millis)
+  truncated?: boolean; // True if file was truncated/replaced since last read
   error?: string;
 }
 
@@ -55,6 +62,9 @@ interface RecentFile {
   path: string;
   name: string;
   lastOpened: number;
+  mtime?: number;   // File modification time (Unix millis)
+  size?: number;    // File size in bytes
+  exists: boolean;  // Whether file exists on disk
 }
 ```
 
@@ -78,15 +88,24 @@ fn get_recent_file_path() -> Option<PathBuf> {
 }
 
 /// Read file with optional offset for differential/polling reads
+/// - offset=0: read entire file
+/// - offset>0: read only new content since offset
+/// - If file shrunk (current_size < offset): file was truncated/replaced
+///   Returns truncated=true and reads from beginning
 #[tauri::command]
 pub fn read_file(path: String, offset: u64) -> FileResult {
     // ... implementation
 }
 
 /// Get list of recently opened files
+/// Refreshes mtime, size, and exists from filesystem for each file
 #[tauri::command]
 pub fn get_recent_files() -> Vec<RecentFile> {
-    // ... implementation
+    // Read from ~/.mocha/recent.json
+    // For each file, refresh metadata from filesystem:
+    // - exists: check if file exists
+    // - size: current file size
+    // - mtime: current modification time
 }
 
 /// Add a file to the recent files list
