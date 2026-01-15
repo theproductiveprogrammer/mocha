@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 import { FolderOpen, FileText, Clock, Trash2, Check, X, Radio, ChevronRight, PanelLeftClose, PanelLeft } from 'lucide-react'
 import type { SidebarProps, RecentFile, OpenedFileWithLogs } from '../types'
 
@@ -18,6 +18,15 @@ function formatRelativeTime(timestamp: number): string {
   if (hours > 0) return hours === 1 ? '1h ago' : `${hours}h ago`
   if (minutes > 0) return minutes === 1 ? '1m ago' : `${minutes}m ago`
   return 'Just now'
+}
+
+/**
+ * Format file size in human-readable format
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 /**
@@ -149,14 +158,23 @@ const RecentFileItem = memo(function RecentFileItem({
           </div>
           <div
             className="text-xs flex items-center gap-2 mt-0.5"
-            style={{ color: 'var(--mocha-text-muted)' }}
+            style={{ color: file.exists === false ? 'var(--mocha-error)' : 'var(--mocha-text-muted)' }}
           >
-            {(openedFile?.mtime ?? file.mtime) ? (
+            {file.exists === false ? (
+              <span>[not found]</span>
+            ) : (
               <>
-                <Clock className="w-3 h-3" />
-                <span>{formatRelativeTime(openedFile?.mtime ?? file.mtime!)}</span>
+                {(openedFile?.mtime ?? file.mtime) && (
+                  <>
+                    <Clock className="w-3 h-3" />
+                    <span>{formatRelativeTime(openedFile?.mtime ?? file.mtime!)}</span>
+                  </>
+                )}
+                {file.size != null && (
+                  <span style={{ opacity: 0.7 }}>{formatFileSize(file.size)}</span>
+                )}
               </>
-            ) : null}
+            )}
           </div>
         </div>
 
@@ -212,6 +230,12 @@ export const Sidebar = memo(function Sidebar({
 }: SidebarProps) {
   const activeCount = Array.from(openedFiles.values()).filter(f => f.isActive).length
   const openedCount = openedFiles.size
+
+  // Sort recent files alphabetically by name
+  const sortedRecentFiles = useMemo(() =>
+    [...recentFiles].sort((a, b) => a.name.localeCompare(b.name)),
+    [recentFiles]
+  )
 
   return (
     <aside
@@ -378,9 +402,9 @@ export const Sidebar = memo(function Sidebar({
           className={`flex-1 overflow-y-auto pb-4 ${isCollapsed ? 'px-2 pt-4' : 'px-3'}`}
           data-testid="recent-files-list"
         >
-          {recentFiles.length > 0 ? (
+          {sortedRecentFiles.length > 0 ? (
             <div className={isCollapsed ? 'space-y-2' : 'space-y-1'}>
-              {recentFiles.map((file, index) => {
+              {sortedRecentFiles.map((file, index) => {
                 const openedFile = openedFiles.get(file.path)
                 return (
                   <RecentFileItem

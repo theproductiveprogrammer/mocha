@@ -298,7 +298,7 @@ function App() {
         // Background updates - use store action to avoid race conditions with multiple drops
         setTimeout(() => {
           addRecentFile(filePath)  // Persist to Tauri backend
-          addRecentFileToStore({ path: filePath, name: fileName, lastOpened: Date.now() })
+          addRecentFileToStore({ path: filePath, name: fileName, lastOpened: Date.now(), exists: true, size: fileSize, mtime: result.mtime })
         }, 0)
 
       } catch (err) {
@@ -411,7 +411,7 @@ function App() {
         openFile(newFile)
 
         setTimeout(() => {
-          addRecentFileToStore({ path: file.name, name: file.name, lastOpened: Date.now() })
+          addRecentFileToStore({ path: file.name, name: file.name, lastOpened: Date.now(), exists: true, size: content.length })
         }, 0)
 
       } catch (err) {

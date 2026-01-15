@@ -38,6 +38,10 @@ pub struct RecentFile {
     pub last_opened: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mtime: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<u64>,
+    #[serde(default)]
+    pub exists: bool,
 }
 
 /// Get the path to ~/.mocha/recent.json
@@ -217,13 +221,20 @@ pub fn get_recent_files() -> Vec<RecentFile> {
         Err(_) => return vec![],
     };
 
-    // Refresh mtime from filesystem for each file
+    // Refresh mtime, size, and exists from filesystem for each file
     files.into_iter().map(|mut f| {
-        f.mtime = fs::metadata(&f.path)
-            .ok()
-            .and_then(|m| m.modified().ok())
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_millis() as i64);
+        if let Ok(metadata) = fs::metadata(&f.path) {
+            f.exists = true;
+            f.size = Some(metadata.len());
+            f.mtime = metadata.modified()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_millis() as i64);
+        } else {
+            f.exists = false;
+            f.size = None;
+            f.mtime = None;
+        }
         f
     }).collect()
 }
@@ -262,12 +273,13 @@ pub fn add_recent_file(path: String) -> bool {
     // Remove existing entry for this path (if any)
     recent_files.retain(|f| f.path != path);
 
-    // Get file modification time
-    let mtime = fs::metadata(&path)
-        .ok()
+    // Get file metadata
+    let metadata = fs::metadata(&path).ok();
+    let mtime = metadata.as_ref()
         .and_then(|m| m.modified().ok())
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as i64);
+    let size = metadata.as_ref().map(|m| m.len());
 
     // Create new entry
     let new_entry = RecentFile {
@@ -275,6 +287,8 @@ pub fn add_recent_file(path: String) -> bool {
         name: get_filename(&path),
         last_opened: Utc::now().timestamp_millis(),
         mtime,
+        size,
+        exists: metadata.is_some(),
     };
 
     // Prepend new entry

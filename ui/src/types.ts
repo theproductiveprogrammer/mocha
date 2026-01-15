@@ -129,6 +129,8 @@ export interface RecentFile {
   name: string;        // Filename only
   lastOpened: number;  // Unix timestamp in milliseconds
   mtime?: number;      // File modification time (Unix millis)
+  size?: number;       // File size in bytes
+  exists: boolean;     // Whether file exists on disk
 }
 
 /**
