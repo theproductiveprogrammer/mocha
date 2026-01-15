@@ -118,6 +118,7 @@ export interface OpenedFileWithLogs extends OpenedFile {
   logs: LogEntry[];       // Parsed log entries from this file
   isActive: boolean;      // Whether logs are shown in merged view
   lastModified: number;   // For polling - last known file size
+  mtime?: number;         // File modification time (Unix millis)
 }
 
 /**
@@ -139,6 +140,7 @@ export interface FileResult {
   name?: string;      // Filename only
   size?: number;      // Current file size in bytes
   prevSize?: number;  // Offset that was passed in
+  mtime?: number;     // File modification time (Unix millis)
   error?: string;     // Error message if failed
 }
 

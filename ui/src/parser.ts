@@ -5,8 +5,17 @@
  * Supports multiple log formats and continuation line merging.
  */
 
-import murmurhash from 'murmurhash';
-import type { LogEntry, ParsedLogLine, LogLevel, ApiCallInfo, ParsedLogFileResult, LogToken, TokenType, TokenizeResult } from './types';
+import murmurhash from "murmurhash";
+import type {
+  LogEntry,
+  ParsedLogLine,
+  LogLevel,
+  ApiCallInfo,
+  ParsedLogFileResult,
+  LogToken,
+  TokenType,
+  TokenizeResult,
+} from "./types";
 
 // ============================================================================
 // Log Pattern Interface
@@ -26,7 +35,7 @@ interface LogPattern {
  */
 function normalizeLevel(level: string): LogLevel {
   const upper = level.toUpperCase();
-  if (upper === 'WARNING') return 'WARN';
+  if (upper === "WARNING") return "WARN";
   return upper as LogLevel;
 }
 
@@ -62,7 +71,7 @@ export function isContinuationLine(line: string): boolean {
   const trimmed = line.trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return false;
   // Indented lines
-  if (line.startsWith(' ') || line.startsWith('\t')) {
+  if (line.startsWith(" ") || line.startsWith("\t")) {
     return true;
   }
   // ASCII art lines
@@ -72,7 +81,8 @@ export function isContinuationLine(line: string): boolean {
 
   // Java stack trace patterns (often not indented)
   // Exception class with message: java.net.SocketTimeoutException: timeout
-  if (/^[a-z]+(\.[a-z]+)*\.[A-Z][A-Za-z]*(Exception|Error):/.test(trimmed)) return true;
+  if (/^[a-z]+(\.[a-z]+)*\.[A-Z][A-Za-z]*(Exception|Error):/.test(trimmed))
+    return true;
   // Caused by line
   if (/^Caused by:/.test(trimmed)) return true;
   // Stack frame: at java.base/java.lang.Thread.run(Thread.java:1583)
@@ -91,38 +101,38 @@ const patterns: LogPattern[] = [
   // 0. SalesBox Core Format (dual timestamp - ISO + human readable)
   // 2025-12-19T09:53:23.333Z 2025-12-19 09:53:23.110 [default-nioEventLoopGroup-1-5] INFO c.s.c.c.bizlogic.MCPController [MCPController.java:466] [default] - message
   {
-    name: 'salesbox-core',
+    name: "salesbox-core",
     parse: (line: string): ParsedLogLine | null => {
       // Full format with [context]
       // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
       let match = line.match(
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+\[[^\]]*\]\s+[-–—]\s*(.*)$/i
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+\[[^\]]*\]\s+[-–—]\s*(.*)$/i,
       );
       if (match) {
         return {
           timestamp: match[1],
           level: normalizeLevel(match[3]),
-          logger: `${match[4]}:${match[5].split(':')[1]}`,
+          logger: `${match[4]}:${match[5].split(":")[1]}`,
           content: match[6],
         };
       }
 
       // Simpler format without [context]
       match = line.match(
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+[-–—]\s*(.*)$/i
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+[-–—]\s*(.*)$/i,
       );
       if (match) {
         return {
           timestamp: match[1],
           level: normalizeLevel(match[3]),
-          logger: `${match[4]}:${match[5].split(':')[1]}`,
+          logger: `${match[4]}:${match[5].split(":")[1]}`,
           content: match[6],
         };
       }
 
       // Even simpler - dual timestamp with just level and logger
       match = line.match(
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+[-–—]\s*(.*)$/i
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+[-–—]\s*(.*)$/i,
       );
       if (match) {
         return {
@@ -142,10 +152,10 @@ const patterns: LogPattern[] = [
   // Note: There may be extra spaces before/after the level (e.g., "INFO  " with double space)
   // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
   {
-    name: 'salesbox-app',
+    name: "salesbox-app",
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]\d+)\s+\d+\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+[-–—]\s*(.*)$/i
+        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]\d+)\s+\d+\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+[-–—]\s*(.*)$/i,
       );
       if (!match) return null;
       return {
@@ -161,10 +171,10 @@ const patterns: LogPattern[] = [
   // [http-nio-3004-exec-5] WARN i.i.w.u.StateWaitForLeads [StateWaitForLeads.java:133] [default] - message
   // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
   {
-    name: 'iwf-spring',
+    name: "iwf-spring",
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+\[[^\]]*\]\s+[-–—]\s*(.*)$/i
+        /^\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+\[[^\]]*\]\s+[-–—]\s*(.*)$/i,
       );
       if (!match) return null;
       return {
@@ -179,10 +189,10 @@ const patterns: LogPattern[] = [
   // 2025-12-18 08:21:56.203 [thread] LEVEL logger [Source.java:line] [context] - message
   // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
   {
-    name: 'logback-with-source',
+    name: "logback-with-source",
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+\[[^\]]*\]\s+[-–—]\s*(.*)$/i
+        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+\[([^\]]+\.java:\d+)\]\s+\[[^\]]*\]\s+[-–—]\s*(.*)$/i,
       );
       if (!match) return null;
       return {
@@ -198,10 +208,10 @@ const patterns: LogPattern[] = [
   // 13:42:38,400 |-INFO in ch.qos.logback...AppenderAction - message
   // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
   {
-    name: 'logback-internal',
+    name: "logback-internal",
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^(\d{2}:\d{2}:\d{2}[,.]\d+)\s+\|-(ERROR|WARN|INFO|DEBUG|TRACE)\s+in\s+(\S+)\s+[-–—]\s*(.*)$/i
+        /^(\d{2}:\d{2}:\d{2}[,.]\d+)\s+\|-(ERROR|WARN|INFO|DEBUG|TRACE)\s+in\s+(\S+)\s+[-–—]\s*(.*)$/i,
       );
       if (!match) return null;
       return {
@@ -215,11 +225,11 @@ const patterns: LogPattern[] = [
 
   // 5. Maven Format (multiple patterns)
   {
-    name: 'maven',
+    name: "maven",
     parse: (line: string): ParsedLogLine | null => {
       // [INFO] --- mn:3.5.4:run (default-cli) @ salesboxai-platform ---
       let match = line.match(
-        /^\[(ERROR|WARN|WARNING|INFO|DEBUG)\]\s+---\s+(\S+)\s+@\s+(\S+)\s+---\s*$/i
+        /^\[(ERROR|WARN|WARNING|INFO|DEBUG)\]\s+---\s+(\S+)\s+@\s+(\S+)\s+---\s*$/i,
       );
       if (match) {
         return {
@@ -230,7 +240,9 @@ const patterns: LogPattern[] = [
       }
 
       // [INFO] /path/to/File.java: warning message
-      match = line.match(/^\[(ERROR|WARN|WARNING|INFO|DEBUG)\]\s+(\/[^:]+\.java):\s*(.*)$/i);
+      match = line.match(
+        /^\[(ERROR|WARN|WARNING|INFO|DEBUG)\]\s+(\/[^:]+\.java):\s*(.*)$/i,
+      );
       if (match) {
         return {
           level: normalizeLevel(match[1]),
@@ -255,10 +267,10 @@ const patterns: LogPattern[] = [
   // 6. Logback Standard
   // 2025-12-19 13:15:41,545 WARN [c.r.u.d.RedashApiUtil:37] message
   {
-    name: 'logback',
+    name: "logback",
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]\d+)\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+\[([^\]]+)\]\s*(.*)$/i
+        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]\d+)\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+\[([^\]]+)\]\s*(.*)$/i,
       );
       if (!match) return null;
       return {
@@ -273,10 +285,10 @@ const patterns: LogPattern[] = [
   // 7. Bracketed Level
   // 2025-12-18 05:32:18.541 [INFO] message
   {
-    name: 'bracketed',
+    name: "bracketed",
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:[,.]\d+)?)\s*\[(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\]\s*(.*)$/i
+        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:[,.]\d+)?)\s*\[(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\]\s*(.*)$/i,
       );
       if (!match) return null;
       return {
@@ -289,11 +301,11 @@ const patterns: LogPattern[] = [
 
   // 8. Simple Format (multiple patterns)
   {
-    name: 'simple',
+    name: "simple",
     parse: (line: string): ParsedLogLine | null => {
       // With level: 2025-12-18 05:32:18.541 INFO message
       let match = line.match(
-        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:[,.]\d+)?)\s+(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\s+(.*)$/i
+        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:[,.]\d+)?)\s+(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\s+(.*)$/i,
       );
       if (match) {
         return {
@@ -304,7 +316,9 @@ const patterns: LogPattern[] = [
       }
 
       // Without level: 2025-12-18 05:32:18.541 message
-      match = line.match(/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:[,.]\d+)?)\s+(.*)$/);
+      match = line.match(
+        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:[,.]\d+)?)\s+(.*)$/,
+      );
       if (match) {
         return {
           timestamp: match[1],
@@ -320,10 +334,10 @@ const patterns: LogPattern[] = [
   // 13:15:39.047 [main] WARN c.s.platform.util.CryptKeyUtil - message
   // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
   {
-    name: 'logback-time-only',
+    name: "logback-time-only",
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^(\d{2}:\d{2}:\d{2}[,.]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+[-–—]\s*(.*)$/i
+        /^(\d{2}:\d{2}:\d{2}[,.]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+[-–—]\s*(.*)$/i,
       );
       if (!match) return null;
       return {
@@ -337,10 +351,12 @@ const patterns: LogPattern[] = [
 
   // 10. Level Only (multiple patterns)
   {
-    name: 'level-only',
+    name: "level-only",
     parse: (line: string): ParsedLogLine | null => {
       // [INFO] message
-      let match = line.match(/^\[(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\]\s*(.*)$/i);
+      let match = line.match(
+        /^\[(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\]\s*(.*)$/i,
+      );
       if (match) {
         return {
           level: normalizeLevel(match[1]),
@@ -364,10 +380,10 @@ const patterns: LogPattern[] = [
   // 11. Genie/Rust Format
   // [2026-01-09][05:12:22][app_lib::core::setup][INFO] Installing extensions...
   {
-    name: 'genie-rust',
+    name: "genie-rust",
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^\[(\d{4}-\d{2}-\d{2})\]\[(\d{2}:\d{2}:\d{2})\]\[([^\]]+)\]\[(ERROR|WARN|INFO|DEBUG|TRACE)\]\s*(.*)$/i
+        /^\[(\d{4}-\d{2}-\d{2})\]\[(\d{2}:\d{2}:\d{2})\]\[([^\]]+)\]\[(ERROR|WARN|INFO|DEBUG|TRACE)\]\s*(.*)$/i,
       );
       if (!match) return null;
       return {
@@ -383,10 +399,10 @@ const patterns: LogPattern[] = [
   // 2025-12-19T09:53:52.155Z java.net.SocketTimeoutException: timeout
   // 2025-12-19T09:53:52.155Z at okio.SocketAsyncTimeout.newTimeoutException(JvmOkio.kt:147)
   {
-    name: 'iso-timestamp',
+    name: "iso-timestamp",
     parse: (line: string): ParsedLogLine | null => {
       const match = line.match(
-        /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?)\s+(.+)$/
+        /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.,]\d+Z?)\s+(.+)$/,
       );
       if (!match) return null;
 
@@ -396,7 +412,7 @@ const patterns: LogPattern[] = [
 
       return {
         timestamp: match[1],
-        level: isException ? 'ERROR' : undefined,
+        level: isException ? "ERROR" : undefined,
         content: content,
       };
     },
@@ -415,9 +431,9 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
   let match = content.match(/api call \(no params\) to (\S+)/i);
   if (match) {
     return {
-      direction: 'outgoing',
-      phase: 'request',
-      method: 'GET',
+      direction: "outgoing",
+      phase: "request",
+      method: "GET",
       endpoint: match[1],
     };
   }
@@ -426,9 +442,9 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
   match = content.match(/api call to (\S+) with (.+)/i);
   if (match) {
     return {
-      direction: 'outgoing',
-      phase: 'request',
-      method: 'GET',
+      direction: "outgoing",
+      phase: "request",
+      method: "GET",
       endpoint: match[1],
       requestBody: match[2],
     };
@@ -438,9 +454,9 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
   match = content.match(/api DELETE call \(no params\) to (\S+)/i);
   if (match) {
     return {
-      direction: 'outgoing',
-      phase: 'request',
-      method: 'DELETE',
+      direction: "outgoing",
+      phase: "request",
+      method: "DELETE",
       endpoint: match[1],
     };
   }
@@ -449,9 +465,9 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
   match = content.match(/api DELETE call to (\S+) with (.+)/i);
   if (match) {
     return {
-      direction: 'outgoing',
-      phase: 'request',
-      method: 'DELETE',
+      direction: "outgoing",
+      phase: "request",
+      method: "DELETE",
       endpoint: match[1],
       requestBody: match[2],
     };
@@ -461,9 +477,9 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
   match = content.match(/api call -> (\S+) with \[([^\]]*)\]:\s*(.+)/i);
   if (match) {
     return {
-      direction: 'outgoing',
-      phase: 'request',
-      method: 'POST',
+      direction: "outgoing",
+      phase: "request",
+      method: "POST",
       endpoint: match[1],
       requestBody: match[3],
     };
@@ -473,20 +489,22 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
   match = content.match(/api multipart call -> (\S+) with (.+)/i);
   if (match) {
     return {
-      direction: 'outgoing',
-      phase: 'request',
-      method: 'POST',
+      direction: "outgoing",
+      phase: "request",
+      method: "POST",
       endpoint: match[1],
       requestBody: match[2],
     };
   }
 
   // HTTP status response: HTTP POST https://api.example.com/users -> 200 (45ms)
-  match = content.match(/HTTP (GET|POST|PUT|DELETE|PATCH) (\S+) -> (\d+)(?: \((\d+m?s)\))?/i);
+  match = content.match(
+    /HTTP (GET|POST|PUT|DELETE|PATCH) (\S+) -> (\d+)(?: \((\d+m?s)\))?/i,
+  );
   if (match) {
     return {
-      direction: 'outgoing',
-      phase: 'response',
+      direction: "outgoing",
+      phase: "response",
       method: match[1].toUpperCase(),
       endpoint: match[2],
       status: parseInt(match[3], 10),
@@ -498,9 +516,9 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
   match = content.match(/api call (\S+) (\{[^}]*\}) response:\s*(.+)/i);
   if (match) {
     return {
-      direction: 'outgoing',
-      phase: 'complete',
-      method: 'GET',
+      direction: "outgoing",
+      phase: "complete",
+      method: "GET",
       endpoint: match[1],
       requestBody: match[2],
       responseBody: match[3],
@@ -511,9 +529,9 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
   match = content.match(/api call -> (\S+) with (.+?) -> response:\s*(.+)/i);
   if (match) {
     return {
-      direction: 'outgoing',
-      phase: 'complete',
-      method: 'POST',
+      direction: "outgoing",
+      phase: "complete",
+      method: "POST",
       endpoint: match[1],
       requestBody: match[2],
       responseBody: match[3],
@@ -524,9 +542,9 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
   match = content.match(/api multipart call -> (\S+) -> response:\s*(.+)/i);
   if (match) {
     return {
-      direction: 'outgoing',
-      phase: 'complete',
-      method: 'POST',
+      direction: "outgoing",
+      phase: "complete",
+      method: "POST",
       endpoint: match[1],
       responseBody: match[2],
     };
@@ -534,10 +552,10 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
 
   // Incoming request: /api/users <- {...}
   match = content.match(/^(\S+) <- (.+)$/);
-  if (match && match[1].startsWith('/')) {
+  if (match && match[1].startsWith("/")) {
     return {
-      direction: 'incoming',
-      phase: 'request',
+      direction: "incoming",
+      phase: "request",
       endpoint: match[1],
       requestBody: match[2],
     };
@@ -545,10 +563,10 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
 
   // Incoming response: /api/users -> {...}
   match = content.match(/^(\S+) -> (.+)$/);
-  if (match && match[1].startsWith('/')) {
+  if (match && match[1].startsWith("/")) {
     return {
-      direction: 'incoming',
-      phase: 'response',
+      direction: "incoming",
+      phase: "response",
       endpoint: match[1],
       responseBody: match[2],
     };
@@ -556,10 +574,10 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
 
   // Complete incoming: /api/users <- {...} -> {...}
   match = content.match(/^(\S+) <- (.+?) -> (.+)$/);
-  if (match && match[1].startsWith('/')) {
+  if (match && match[1].startsWith("/")) {
     return {
-      direction: 'incoming',
-      phase: 'complete',
+      direction: "incoming",
+      phase: "complete",
       endpoint: match[1],
       requestBody: match[2],
       responseBody: match[3],
@@ -578,7 +596,7 @@ export function parseApiCall(content: string): ApiCallInfo | undefined {
  */
 export function parseLogLine(data: string): ParsedLogLine {
   // Strip trailing whitespace including \r (Windows line endings)
-  const cleanData = data.replace(/\s+$/, '');
+  const cleanData = data.replace(/\s+$/, "");
 
   for (const pattern of patterns) {
     const result = pattern.parse(cleanData);
@@ -602,7 +620,7 @@ export function normalize(logs: LogEntry[]): LogEntry[] {
     if (isContinuationLine(log.data) && result.length > 0) {
       // Merge with previous log
       const prev = result[result.length - 1];
-      prev.data = prev.data + '\n' + log.data;
+      prev.data = prev.data + "\n" + log.data;
     } else {
       result.push({ ...log });
     }
@@ -618,7 +636,7 @@ function generateHash(
   serviceName: string,
   content: string,
   index: number,
-  existingHashes: Set<string>
+  existingHashes: Set<string>,
 ): string {
   const base = murmurhash.v3(`${serviceName}|${content}`).toString();
   if (existingHashes.has(base)) {
@@ -631,22 +649,25 @@ function generateHash(
  * Get the last N lines from content efficiently
  * Avoids splitting the entire file into an array
  */
-function getLastNLines(content: string, n: number): { lines: string[]; totalLines: number; truncated: boolean } {
+function getLastNLines(
+  content: string,
+  n: number,
+): { lines: string[]; totalLines: number; truncated: boolean } {
   // Count total lines by counting newlines (fast)
   let totalLines = 1;
   for (let i = 0; i < content.length; i++) {
-    if (content[i] === '\n') totalLines++;
+    if (content[i] === "\n") totalLines++;
   }
 
   if (totalLines <= n) {
-    return { lines: content.split('\n'), totalLines, truncated: false };
+    return { lines: content.split("\n"), totalLines, truncated: false };
   }
 
   // Find the start position for last N lines by scanning from the end
   let newlineCount = 0;
   let startPos = content.length;
   for (let i = content.length - 1; i >= 0; i--) {
-    if (content[i] === '\n') {
+    if (content[i] === "\n") {
       newlineCount++;
       if (newlineCount === n) {
         startPos = i + 1;
@@ -656,7 +677,7 @@ function getLastNLines(content: string, n: number): { lines: string[]; totalLine
   }
 
   return {
-    lines: content.slice(startPos).split('\n'),
+    lines: content.slice(startPos).split("\n"),
     totalLines,
     truncated: true,
   };
@@ -670,13 +691,13 @@ function getLastNLines(content: string, n: number): { lines: string[]; totalLine
  * - Common labels: {"filename":"/var/log/..."}
  */
 function isGrafanaHeader(line: string): boolean {
-  const trimmed = line.trim()
-  if (!trimmed) return false
+  const trimmed = line.trim();
+  if (!trimmed) return false;
   return (
     /^:\s*"[\d,]+\s+lines?\s+displayed"$/i.test(trimmed) ||
     /^Total\s+bytes\s+processed:/i.test(trimmed) ||
     /^Common\s+labels:/i.test(trimmed)
-  )
+  );
 }
 
 /**
@@ -686,10 +707,14 @@ function parseFileLines(
   content: string,
   fileName: string,
   hashKey: string,
-  filePath?: string
+  filePath?: string,
 ): { logs: LogEntry[]; totalLines: number; truncated: boolean } {
   const maxLines = 2000;
-  const { lines: linesToProcess, totalLines, truncated } = getLastNLines(content, maxLines);
+  const {
+    lines: linesToProcess,
+    totalLines,
+    truncated,
+  } = getLastNLines(content, maxLines);
 
   const logs: LogEntry[] = [];
   const existingHashes = new Set<string>();
@@ -705,12 +730,13 @@ function parseFileLines(
 
     // Skip timestamp-only lines (metadata/sorting keys in some log formats)
     const trimmedLine = line.trim();
-    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d{3}\s*$/.test(trimmedLine)) continue;
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d{3}\s*$/.test(trimmedLine))
+      continue;
 
     // Handle tab-separated epoch format:
     // 1735123456789\t2025-12-25T10:30:00Z\t[INFO] Log message here
     // Also seen: 2026-01-09 10:18:09.249\t followed by the actual log line
-    const tabParts = line.split('\t');
+    const tabParts = line.split("\t");
     let timestamp: number | undefined;
 
     if (tabParts.length >= 2) {
@@ -722,21 +748,21 @@ function parseFileLines(
         /^\d{4}-\d{2}-\d{2}T/.test(tabParts[1].trim())
       ) {
         timestamp = parseInt(tabParts[0].trim(), 10);
-        line = tabParts.slice(2).join('\t'); // Skip both epoch and ISO prefix
+        line = tabParts.slice(2).join("\t"); // Skip both epoch and ISO prefix
       }
       // Check if first part is epoch timestamp (10+ digits) - 2-part format
       else if (/^\d{10,}$/.test(tabParts[0].trim())) {
         timestamp = parseInt(tabParts[0].trim(), 10);
-        line = tabParts.slice(1).join('\t');
+        line = tabParts.slice(1).join("\t");
       }
       // Check if first part is ISO date or timestamp-like
       else if (/^\d{4}-\d{2}-\d{2}/.test(tabParts[0].trim())) {
         // Try parsing as date
         const dateStr = tabParts[0].trim();
         // Replace space with T for ISO format, and comma with dot for milliseconds
-        const parsed = Date.parse(dateStr.replace(' ', 'T').replace(',', '.'));
+        const parsed = Date.parse(dateStr.replace(" ", "T").replace(",", "."));
         if (!isNaN(parsed)) {
-          const remainder = tabParts.slice(1).join('\t').trim();
+          const remainder = tabParts.slice(1).join("\t").trim();
           // Skip if remaining line is empty (timestamp-only metadata line)
           if (!remainder) continue;
           // Check if remainder looks like a log entry continuation (starts with digits + space)
@@ -797,17 +823,17 @@ function parseTimestampToEpoch(timestamp: string): number | null {
   if (!timestamp) return null;
 
   // Normalize: comma → dot for milliseconds
-  let normalized = timestamp.replace(',', '.');
+  let normalized = timestamp.replace(",", ".");
 
   // If it's time-only (no date), prepend today's date
-  if (/^\d{2}:\d{2}:\d{2}/.test(normalized) && !normalized.includes('-')) {
-    const today = new Date().toISOString().split('T')[0];
+  if (/^\d{2}:\d{2}:\d{2}/.test(normalized) && !normalized.includes("-")) {
+    const today = new Date().toISOString().split("T")[0];
     normalized = `${today} ${normalized}`;
   }
 
   // Normalize: space → T for ISO format if needed
   if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/.test(normalized)) {
-    normalized = normalized.replace(/\s+/, 'T');
+    normalized = normalized.replace(/\s+/, "T");
   }
 
   const parsed = Date.parse(normalized);
@@ -820,10 +846,18 @@ function parseTimestampToEpoch(timestamp: string): number | null {
  * @param fileName - The filename (used for display)
  * @param filePath - Optional full file path (used for hash uniqueness in multi-file mode)
  */
-export function parseLogFile(content: string, fileName: string, filePath?: string): ParsedLogFileResult {
+export function parseLogFile(
+  content: string,
+  fileName: string,
+  filePath?: string,
+): ParsedLogFileResult {
   // Use filePath for hash generation to ensure uniqueness across files
   const hashKey = filePath || fileName;
-  const { logs: rawLogs, totalLines, truncated } = parseFileLines(content, fileName, hashKey, filePath);
+  const {
+    logs: rawLogs,
+    totalLines,
+    truncated,
+  } = parseFileLines(content, fileName, hashKey, filePath);
   const normalized = normalize(rawLogs);
 
   // Track timestamp and sortIndex for stable ordering
@@ -835,8 +869,12 @@ export function parseLogFile(content: string, fileName: string, filePath?: strin
     const parsed = parseLogLine(log.data);
 
     // Check if this line has a real parseable timestamp with date
-    const parsedEpoch = parsed.timestamp ? parseTimestampToEpoch(parsed.timestamp) : null;
-    const parsedHasDate = parsed.timestamp ? timestampHasDate(parsed.timestamp) : false;
+    const parsedEpoch = parsed.timestamp
+      ? parseTimestampToEpoch(parsed.timestamp)
+      : null;
+    const parsedHasDate = parsed.timestamp
+      ? timestampHasDate(parsed.timestamp)
+      : false;
     const hasRealTimestamp = parsedEpoch !== null && parsedHasDate;
 
     let timestamp: number;
@@ -846,7 +884,6 @@ export function parseLogFile(content: string, fileName: string, filePath?: strin
       // Line has a real timestamp - use it and reset sortIndex
       timestamp = parsedEpoch;
       sortIndex = 0;
-      lastTimestamp = timestamp;
       lastSortIndex = 0;
     } else {
       // No real timestamp - inherit previous timestamp, increment sortIndex
@@ -855,6 +892,7 @@ export function parseLogFile(content: string, fileName: string, filePath?: strin
       timestamp = lastTimestamp || log.timestamp || Date.now();
       sortIndex = lastSortIndex;
     }
+    lastTimestamp = timestamp;
 
     return {
       ...log,
@@ -876,19 +914,19 @@ export function parseLogFile(content: string, fileName: string, filePath?: strin
  */
 function classifyToken(text: string): TokenType {
   // URL - starts with / or http
-  if (/^(https?:\/\/|\/[a-zA-Z])/.test(text)) return 'url';
+  if (/^(https?:\/\/|\/[a-zA-Z])/.test(text)) return "url";
 
   // JSON - balanced braces (simple check)
-  if (/^\{.*\}$/.test(text) || /^\[.*\]$/.test(text)) return 'json';
+  if (/^\{.*\}$/.test(text) || /^\[.*\]$/.test(text)) return "json";
 
   // Symbol - arrows, colons, equals
-  if (/^(<-|->|←|→|=)$/.test(text)) return 'symbol';
+  if (/^(<-|->|←|→|=)$/.test(text)) return "symbol";
 
   // Data: pure numbers, or number followed by comma
-  if (/^\d+,?$/.test(text)) return 'data';
+  if (/^\d+,?$/.test(text)) return "data";
 
   // Default: message
-  return 'message';
+  return "message";
 }
 
 /**
@@ -896,9 +934,9 @@ function classifyToken(text: string): TokenType {
  * Returns the index after the closing bracket, or -1 if not valid JSON
  */
 function findJsonEnd(str: string): number {
-  if (!str || (str[0] !== '{' && str[0] !== '[')) return -1;
+  if (!str || (str[0] !== "{" && str[0] !== "[")) return -1;
 
-  const endChar = str[0] === '{' ? '}' : ']';
+  const endChar = str[0] === "{" ? "}" : "]";
   let depth = 0;
   let inString = false;
   let escaped = false;
@@ -911,7 +949,7 @@ function findJsonEnd(str: string): number {
       continue;
     }
 
-    if (char === '\\') {
+    if (char === "\\") {
       escaped = true;
       continue;
     }
@@ -969,7 +1007,7 @@ function tokenizeSegment(segment: string): LogToken[] {
       // Verify it parses
       try {
         JSON.parse(jsonText);
-        tokens.push({ text: jsonText, type: 'json' });
+        tokens.push({ text: jsonText, type: "json" });
         remaining = jsonStr.slice(jsonEnd);
         continue;
       } catch {
@@ -978,7 +1016,7 @@ function tokenizeSegment(segment: string): LogToken[] {
     }
 
     // Not valid JSON, tokenize just the bracket and continue
-    tokens.push({ text: remaining[jsonStart], type: 'message' });
+    tokens.push({ text: remaining[jsonStart], type: "message" });
     remaining = remaining.slice(jsonStart + 1);
   }
 
@@ -996,13 +1034,13 @@ function tokenizeSimpleParts(text: string, tokens: LogToken[]): void {
 
     // Whitespace
     if (/^\s+$/.test(part)) {
-      tokens.push({ text: part, type: 'message' });
+      tokens.push({ text: part, type: "message" });
       continue;
     }
 
     // Labels ending with colon
-    if (part.endsWith(':') && part.length > 1) {
-      tokens.push({ text: part, type: 'message' });
+    if (part.endsWith(":") && part.length > 1) {
+      tokens.push({ text: part, type: "message" });
       continue;
     }
 
@@ -1031,15 +1069,15 @@ export function tokenizeContent(content: string): TokenizeResult {
 
     // Check if this part is a marker
     const upperPart = part.toUpperCase();
-    if (upperPart === '[ERROR]') {
-      tokens.push({ text: part, type: 'marker.error' });
-    } else if (upperPart === '[WARN]' || upperPart === '[WARNING]') {
-      tokens.push({ text: part, type: 'marker.warn' });
-    } else if (upperPart === '[INFO]') {
-      tokens.push({ text: part, type: 'marker.info' });
-    } else if (upperPart === '[DEBUG]' || upperPart === '[TRACE]') {
+    if (upperPart === "[ERROR]") {
+      tokens.push({ text: part, type: "marker.error" });
+    } else if (upperPart === "[WARN]" || upperPart === "[WARNING]") {
+      tokens.push({ text: part, type: "marker.warn" });
+    } else if (upperPart === "[INFO]") {
+      tokens.push({ text: part, type: "marker.info" });
+    } else if (upperPart === "[DEBUG]" || upperPart === "[TRACE]") {
       // Debug/trace markers - style as muted
-      tokens.push({ text: part, type: 'marker.info' });
+      tokens.push({ text: part, type: "marker.info" });
     } else {
       // Tokenize the rest normally
       tokens.push(...tokenizeSegment(part));

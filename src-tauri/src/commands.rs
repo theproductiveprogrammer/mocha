@@ -22,6 +22,8 @@ pub struct FileResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_size: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub mtime: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
@@ -59,6 +61,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
             name: None,
             size: None,
             prev_size: None,
+            mtime: None,
             error: Some("No path provided".to_string()),
         };
     }
@@ -74,12 +77,17 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
                 name: None,
                 size: None,
                 prev_size: None,
+                mtime: None,
                 error: Some("Cannot open file".to_string()),
             };
         }
     };
 
     let current_size = metadata.len();
+    let mtime = metadata.modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as i64);
 
     // If file hasn't grown since last read, return empty content
     if offset > 0 && current_size <= offset {
@@ -90,6 +98,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
             name: Some(get_filename(&path)),
             size: Some(current_size),
             prev_size: Some(offset),
+            mtime,
             error: None,
         };
     }
@@ -106,6 +115,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
             name: None,
             size: None,
             prev_size: None,
+            mtime: None,
             error: Some("File too large (max 10MB)".to_string()),
         };
     }
@@ -121,6 +131,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
                 name: None,
                 size: None,
                 prev_size: None,
+                mtime: None,
                 error: Some("Cannot open file".to_string()),
             };
         }
@@ -136,6 +147,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
                 name: None,
                 size: None,
                 prev_size: None,
+                mtime: None,
                 error: Some("Cannot seek in file".to_string()),
             };
         }
@@ -161,6 +173,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
         name: Some(get_filename(&path)),
         size: Some(current_size),
         prev_size: Some(offset),
+        mtime,
         error: None,
     }
 }

@@ -366,6 +366,20 @@ export const useStoryStore = create<StoryState>()(
     {
       name: 'mocha-stories',
       storage: createJSONStorage(() => localStorage),
+      // Don't persist maximized state - always start non-maximized
+      partialize: (state) => ({
+        stories: state.stories,
+        activeStoryId: state.activeStoryId,
+        storyPaneHeight: state.storyPaneHeight,
+        storyPaneCollapsed: state.storyPaneCollapsed,
+        // storyPaneMaximized intentionally excluded
+      }),
+      // Force maximized to false on hydration (ignore any stale stored value)
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...(persistedState as Partial<StoryState>),
+        storyPaneMaximized: false, // Always start non-maximized
+      }),
     }
   )
 )

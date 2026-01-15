@@ -661,7 +661,7 @@ export function StoryPane({
       className={`flex flex-col shrink-0 ${maximized ? 'fixed inset-0 z-50' : ''}`}
       style={{
         height: paneHeight,
-        background: 'var(--mocha-surface)',
+        background: maximized ? '#f5f2ed' : 'var(--mocha-surface)',
       }}
     >
       {/* Resize handle */}
@@ -678,9 +678,10 @@ export function StoryPane({
         {/* Left side */}
         <div className="flex items-center gap-2">
           <button
-            onClick={onToggleCollapsed}
+            onClick={maximized ? onToggleMaximized : onToggleCollapsed}
             className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-colors"
             style={{ color: 'var(--mocha-text-secondary)' }}
+            title={maximized ? 'Exit maximized' : collapsed ? 'Expand' : 'Collapse'}
           >
             {collapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>

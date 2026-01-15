@@ -289,6 +289,7 @@ function App() {
           logs: parsed.logs,
           isActive: true,
           lastModified: fileSize,
+          mtime: result.mtime,
         }
         openFile(newFile)
 

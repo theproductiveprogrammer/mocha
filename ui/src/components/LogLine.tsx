@@ -68,14 +68,39 @@ function getRowStyle(effectiveLevel?: LogLevel): {
   }
 }
 
+// Known source file extensions for detecting file paths vs class names
+const SOURCE_EXTENSIONS = /\.(java|kt|scala|groovy|py|js|ts|tsx|jsx|rb|go|rs|c|cpp|hpp|cs|swift|php|sh)$/i
+// Pattern for [SourceFile.ext:lineNum] suffix with known extensions
+const SOURCE_FILE_SUFFIX = /\s*\[([^\]]+)\.(java|kt|scala|groovy|py|js|ts|tsx|jsx|rb|go|rs|c|cpp|hpp|cs|swift|php|sh):(\d+)\]$/i
+
 /**
  * Get short service name from log entry
  */
 export function getServiceName(log: LogEntry): string {
   if (log.parsed?.logger) {
-    let logger = log.parsed.logger
-    logger = logger.replace(/\s*\[[^\]]+\.java:\d+\]$/, '')
+    const logger = log.parsed.logger
+
+    // Check for [SourceFile.ext:lineNum] suffix - only strip if it's a known source extension
+    const suffixMatch = logger.match(SOURCE_FILE_SUFFIX)
+    if (suffixMatch) {
+      // Return just the filename without extension
+      return suffixMatch[1]
+    }
+
+    // Strip line number suffix (e.g., ":123")
     const withoutLineNum = logger.split(':')[0]
+
+    // Check if the whole thing is a source file path (has known extension)
+    if (SOURCE_EXTENSIONS.test(withoutLineNum)) {
+      // Get filename (handle paths)
+      const filename = withoutLineNum.includes('/')
+        ? withoutLineNum.split('/').pop() || withoutLineNum
+        : withoutLineNum
+      // Remove extension
+      return filename.replace(SOURCE_EXTENSIONS, '')
+    }
+
+    // Standard logger: com.example.ClassName → ClassName
     const parts = withoutLineNum.split('.')
     return parts[parts.length - 1] || withoutLineNum
   }

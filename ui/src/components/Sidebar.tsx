@@ -108,10 +108,7 @@ const RecentFileItem = memo(function RecentFileItem({
             : '1px solid transparent',
         }}
         data-testid={`recent-file-${file.name}`}
-        title={isOpened
-          ? (isActive ? 'Click to hide logs from this file' : 'Click to show logs from this file')
-          : 'Click to open this file'
-        }
+        title={file.path}
       >
         {/* Status indicator */}
         <div
@@ -154,22 +151,10 @@ const RecentFileItem = memo(function RecentFileItem({
             className="text-xs flex items-center gap-2 mt-0.5"
             style={{ color: 'var(--mocha-text-muted)' }}
           >
-            {isOpened ? (
-              <span
-                className="px-1.5 py-0.5 rounded text-[10px] font-medium tabular-nums"
-                style={{
-                  background: isActive ? 'var(--mocha-info-muted)' : 'var(--mocha-surface-hover)',
-                  color: isActive ? 'var(--mocha-info)' : 'var(--mocha-text-muted)',
-                }}
-              >
-                {(openedFile?.logs.length ?? 0).toLocaleString()} lines
-              </span>
-            ) : (
-              <>
-                <Clock className="w-3 h-3" />
-                <span>{formatRelativeTime(file.lastOpened)}</span>
-              </>
-            )}
+            <>
+              <Clock className="w-3 h-3" />
+              <span>{formatRelativeTime(openedFile?.mtime ?? file.lastOpened)}</span>
+            </>
           </div>
         </div>
 
