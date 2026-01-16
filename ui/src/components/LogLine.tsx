@@ -257,7 +257,12 @@ function LogLineComponent({
   const serviceColor = getServiceColor(serviceName)
 
   const content = log.parsed?.content || log.data
-  const { tokens, detectedLevel } = tokenizeContent(content)
+  const contentLines = content.split('\n')
+  const firstLine = contentLines[0]
+  const previewLines = contentLines.slice(1, 3)  // 2nd and 3rd lines
+  const additionalLineCount = contentLines.length - 3  // Lines beyond first 3
+
+  const { tokens, detectedLevel } = tokenizeContent(firstLine)
 
   const effectiveLevel = log.parsed?.level || detectedLevel
   const rowStyle = getRowStyle(effectiveLevel)
@@ -369,13 +374,36 @@ function LogLineComponent({
 
       {/* Right column: log content */}
       <div
-        className={`flex-1 min-w-0 px-4 font-mono text-[12px] leading-relaxed flex items-center ${
+        className={`flex-1 min-w-0 px-4 font-mono text-[12px] leading-relaxed flex items-start ${
           isContinuation ? 'py-0.5' : 'py-2'
         }`}
         style={{ color: 'var(--mocha-text)' }}
       >
-        <div className="flex-1 min-w-0 truncate">
-          <TokenizedContent tokens={displayTokens} isCurrentMatch={isCurrentMatch} />
+        <div className="flex-1 min-w-0">
+          {/* First line */}
+          <div className="truncate">
+            <TokenizedContent tokens={displayTokens} isCurrentMatch={isCurrentMatch} />
+          </div>
+
+          {/* Preview lines for multi-line content */}
+          {previewLines.length > 0 && (
+            <div
+              className="mt-1 pl-4 text-[10px] font-mono space-y-0.5"
+              style={{ color: 'var(--mocha-text-muted)' }}
+            >
+              {previewLines.map((line, i) => (
+                <div key={i} className="truncate">{line || '\u00A0'}</div>
+              ))}
+              {additionalLineCount > 0 && (
+                <span
+                  className="text-[9px] inline-block mt-0.5"
+                  style={{ color: 'var(--mocha-text-muted)', opacity: 0.7 }}
+                >
+                  +{additionalLineCount} more
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Action buttons - appear on hover */}
