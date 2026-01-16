@@ -268,6 +268,8 @@ export function LogViewer({
   // Handle jump to source from logbook
   useEffect(() => {
     if (!jumpToHash) return
+    // Wait until displayedLogs is populated before trying to jump
+    if (displayedLogs.length === 0) return
 
     // Find the index of the matching log in displayedLogs
     const matchIndex = displayedLogs.findIndex(log => log.hash === jumpToHash)
@@ -278,10 +280,10 @@ export function LogViewer({
       // Flash highlight the row
       setFlashHash(jumpToHash)
       setTimeout(() => setFlashHash(null), 1500)
-    }
 
-    // Notify parent that jump is complete
-    onJumpComplete?.()
+      // Notify parent that jump is complete (only when successful)
+      onJumpComplete?.()
+    }
   }, [jumpToHash, displayedLogs, virtualizer, onJumpComplete])
 
   const virtualItems = virtualizer.getVirtualItems()

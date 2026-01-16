@@ -9,6 +9,7 @@ import { parseLogFile } from './parser'
 import { useLogViewerStore, useStoryStore, useFileStore, filterLogs } from './store'
 import { Sidebar, Toolbar, LogViewer } from './components'
 import { StoryPane } from './components/StoryPane'
+import { LogbookView } from './components/LogbookView'
 
 function App() {
   // Log viewer store
@@ -31,9 +32,9 @@ function App() {
   const {
     stories,
     activeStoryId,
-    storyPaneHeight,
+    storyPaneWidth,
     storyPaneCollapsed,
-    storyPaneMaximized,
+    mainViewMode,
     createStory,
     deleteStory,
     renameStory,
@@ -41,9 +42,9 @@ function App() {
     toggleStory,
     removeFromStory,
     clearStory,
-    setStoryPaneHeight,
+    setStoryPaneWidth,
     setStoryPaneCollapsed,
-    setStoryPaneMaximized,
+    setMainViewMode,
   } = useStoryStore()
 
   // Ref to scroll the story pane content
@@ -87,6 +88,9 @@ function App() {
 
   // Jump-to-source state (from logbook)
   const [jumpToHash, setJumpToHash] = useState<string | null>(null)
+
+  // Remove animation state - tracks hash being removed for scroll-then-fade animation
+  const [removingHash, setRemovingHash] = useState<string | null>(null)
 
   // Ensure openedFiles is a Map (handles hydration)
   const safeOpenedFiles = useMemo(
@@ -223,11 +227,31 @@ function App() {
     // Check if this log is already in the story (will be removed)
     const isRemoving = activeStory?.entries.some(e => e.hash === log.hash)
 
-    // Toggle the log
-    toggleStory(log)
+    if (isRemoving && log.hash) {
+      // Removing - animate first, then remove after delay
+      // Expand pane if collapsed so user can see the animation
+      if (storyPaneCollapsed) {
+        setStoryPaneCollapsed(false)
+      }
 
-    // If adding (not removing), expand pane and scroll to the new entry
-    if (!isRemoving) {
+      // Scroll to the card and set removing state for visual feedback
+      setTimeout(() => {
+        const card = document.querySelector(`[data-story-hash="${log.hash}"]`)
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+        setRemovingHash(log.hash!)
+      }, 100)
+
+      // After animation delay, actually remove
+      setTimeout(() => {
+        toggleStory(log)
+        setRemovingHash(null)
+      }, 600) // 100ms scroll delay + 500ms animation
+    } else {
+      // Adding - toggle immediately, then expand and scroll
+      toggleStory(log)
+
       // Expand if collapsed
       if (storyPaneCollapsed) {
         setStoryPaneCollapsed(false)
@@ -242,6 +266,22 @@ function App() {
       }, 150)
     }
   }, [activeStory, createStory, toggleStory, storyPaneCollapsed, setStoryPaneCollapsed])
+
+  // Handle animated removal from story (used by X button in StoryPane)
+  const handleAnimatedRemove = useCallback((hash: string) => {
+    // Scroll to the card and set removing state for visual feedback
+    const card = document.querySelector(`[data-story-hash="${hash}"]`)
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+    setRemovingHash(hash)
+
+    // After animation delay, actually remove
+    setTimeout(() => {
+      removeFromStory(hash)
+      setRemovingHash(null)
+    }, 500)
+  }, [removeFromStory])
 
   // Count of active files
   const activeFileCount = useMemo(() => {
@@ -361,9 +401,9 @@ function App() {
     const hash = log.hash
     if (!hash) return
 
-    // If maximized, minimize first
-    if (storyPaneMaximized) {
-      setStoryPaneMaximized(false)
+    // If in logbook view, switch to logs view first
+    if (mainViewMode === 'logbook') {
+      setMainViewMode('logs')
     }
 
     // Try to find the file path - use filePath if available, otherwise search recent files by name
@@ -400,7 +440,7 @@ function App() {
       // File is already open and active - just scroll
       setJumpToHash(hash)
     }
-  }, [storyPaneMaximized, setStoryPaneMaximized, safeOpenedFiles, recentFiles, handleOpenFile, toggleFileActive])
+  }, [mainViewMode, setMainViewMode, safeOpenedFiles, recentFiles, handleOpenFile, toggleFileActive])
 
   // Clear jump hash after scroll completes
   const handleJumpComplete = useCallback(() => {
@@ -587,41 +627,64 @@ function App() {
       <Sidebar
         recentFiles={recentFiles}
         openedFiles={safeOpenedFiles}
-        onSelectFile={handleSelectFile}
+        onSelectFile={(path) => {
+          // When selecting a file, switch to logs view if in logbook view
+          if (mainViewMode === 'logbook') {
+            setMainViewMode('logs')
+          }
+          handleSelectFile(path)
+        }}
         onToggleFile={handleToggleFile}
         onRemoveFile={handleRemoveFile}
         onClearRecent={handleClearRecent}
+        // Logbook management
+        stories={stories}
+        activeStoryId={activeStoryId}
+        mainViewMode={mainViewMode}
+        onSelectLogbook={(id) => {
+          setActiveStory(id)
+          setMainViewMode('logbook')
+        }}
+        onCreateLogbook={createStory}
+        onDeleteLogbook={deleteStory}
+        onRenameLogbook={renameStory}
+        // UI state
         isCollapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Toolbar
-          filters={filters}
-          filterInput={input}
-          activeFileCount={activeFileCount}
-          onAddFilter={addFilter}
-          onRemoveFilter={removeFilter}
-          onFilterInputChange={setInput}
-          // Search props
-          searchQuery={searchQuery}
-          searchIsRegex={searchIsRegex}
-          searchMatchCount={searchMatches.length}
-          searchCurrentIndex={searchCurrentIndex}
-          onSearchChange={setSearchQuery}
-          onSearchRegexToggle={() => setSearchIsRegex(!searchIsRegex)}
-          onSearchNext={handleSearchNext}
-          onSearchPrev={handleSearchPrev}
-          // Error/warning navigation - stats come from LogViewer
-          errorCount={errorWarningStats.errorCount}
-          warningCount={errorWarningStats.warningCount}
-          currentErrorIndex={errorWarningStats.currentErrorIndex}
-          currentWarningIndex={errorWarningStats.currentWarningIndex}
-          onJumpToNextError={handleJumpToNextError}
-          onJumpToPrevError={handleJumpToPrevError}
-          onJumpToNextWarning={handleJumpToNextWarning}
-          onJumpToPrevWarning={handleJumpToPrevWarning}
-        />
+        {/* Only show toolbar when viewing logs, not logbook */}
+        {mainViewMode === 'logs' && (
+          <Toolbar
+            filters={filters}
+            filterInput={input}
+            activeFileCount={activeFileCount}
+            onAddFilter={addFilter}
+            onRemoveFilter={removeFilter}
+            onFilterInputChange={setInput}
+            // Search props
+            searchQuery={searchQuery}
+            searchIsRegex={searchIsRegex}
+            searchMatchCount={searchMatches.length}
+            searchCurrentIndex={searchCurrentIndex}
+            onSearchChange={setSearchQuery}
+            onSearchRegexToggle={() => setSearchIsRegex(!searchIsRegex)}
+            onSearchNext={handleSearchNext}
+            onSearchPrev={handleSearchPrev}
+            // Error/warning navigation - stats come from LogViewer
+            errorCount={errorWarningStats.errorCount}
+            warningCount={errorWarningStats.warningCount}
+            currentErrorIndex={errorWarningStats.currentErrorIndex}
+            currentWarningIndex={errorWarningStats.currentWarningIndex}
+            onJumpToNextError={handleJumpToNextError}
+            onJumpToPrevError={handleJumpToPrevError}
+            onJumpToNextWarning={handleJumpToNextWarning}
+            onJumpToPrevWarning={handleJumpToPrevWarning}
+            logbookCollapsed={storyPaneCollapsed}
+            onToggleLogbook={() => setStoryPaneCollapsed(!storyPaneCollapsed)}
+          />
+        )}
 
         <div className="relative flex-1 flex flex-col overflow-hidden h-full">
           {/* Error banner */}
@@ -666,190 +729,212 @@ function App() {
             </div>
           )}
 
-          {/* Virtualized Log viewer */}
-          {mergedLogs.length > 0 ? (
-            <LogViewer
-              logs={mergedLogs}
-              onToggleStory={handleToggleStory}
-              searchQuery={searchQuery}
-              searchIsRegex={searchIsRegex}
-              searchCurrentMatchHash={searchCurrentMatchHash}
-              jumpToHash={jumpToHash}
-              onJumpComplete={handleJumpComplete}
-              // Error/warning navigation - LogViewer handles internally with displayedLogs order
-              onErrorWarningStats={setErrorWarningStats}
-              jumpToNextError={jumpToNextErrorTrigger}
-              jumpToPrevError={jumpToPrevErrorTrigger}
-              jumpToNextWarning={jumpToNextWarningTrigger}
-              jumpToPrevWarning={jumpToPrevWarningTrigger}
-            />
-          ) : (
-            /* Beautiful empty state */
-            <div
-              className="flex-1 flex items-center justify-center relative overflow-hidden"
-              style={{ background: 'var(--mocha-bg)' }}
-            >
-              {/* Ambient background glow */}
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(232, 168, 84, 0.06) 0%, transparent 60%)',
+          {/* Main content area with log viewer and story pane side by side */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Conditional main view - either LogbookView or LogViewer */}
+            {mainViewMode === 'logbook' ? (
+              <LogbookView
+                story={activeStory || null}
+                onClose={() => setMainViewMode('logs')}
+                onMinimizeToPanel={() => {
+                  setMainViewMode('logs')
+                  setStoryPaneCollapsed(false)
                 }}
+                onRemoveFromStory={removeFromStory}
+                onClearStory={clearStory}
+                onRenameStory={renameStory}
+                onJumpToSource={handleJumpToSource}
               />
-
-              {/* Grid pattern overlay */}
-              <div
-                className="absolute inset-0 pointer-events-none opacity-30 grid-pattern"
-              />
-
-              <div className="relative z-10 text-center max-w-lg px-8 animate-fade-in-up">
-                {/* Iconic illustration with distant orbiting particles */}
-                <div className="relative mb-10 w-72 h-72 mx-auto">
-                  {/* Center icon */}
+            ) : (
+            /* Log viewer container */
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Virtualized Log viewer */}
+              {mergedLogs.length > 0 ? (
+                <LogViewer
+                  logs={mergedLogs}
+                  onToggleStory={handleToggleStory}
+                  searchQuery={searchQuery}
+                  searchIsRegex={searchIsRegex}
+                  searchCurrentMatchHash={searchCurrentMatchHash}
+                  jumpToHash={jumpToHash}
+                  onJumpComplete={handleJumpComplete}
+                  // Error/warning navigation - LogViewer handles internally with displayedLogs order
+                  onErrorWarningStats={setErrorWarningStats}
+                  jumpToNextError={jumpToNextErrorTrigger}
+                  jumpToPrevError={jumpToPrevErrorTrigger}
+                  jumpToNextWarning={jumpToNextWarningTrigger}
+                  jumpToPrevWarning={jumpToPrevWarningTrigger}
+                />
+              ) : (
+                /* Beautiful empty state */
+                <div
+                  className="flex-1 flex items-center justify-center relative overflow-hidden"
+                  style={{ background: 'var(--mocha-bg)' }}
+                >
+                  {/* Ambient background glow */}
                   <div
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex items-center justify-center"
+                    className="absolute inset-0 pointer-events-none"
                     style={{
-                      background: 'linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface) 100%)',
-                      border: '1px solid var(--mocha-border)',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+                      background: 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(232, 168, 84, 0.06) 0%, transparent 60%)',
                     }}
-                  >
-                    <FileSearch
-                      className="w-9 h-9"
-                      style={{ color: 'var(--mocha-accent)' }}
-                      strokeWidth={1.5}
-                    />
-                  </div>
+                  />
 
-                  {/* Orbiting particles - very slow, spread apart radially, offset starting positions */}
-                  {/* Outer orbit - 12 o'clock start */}
-                  <div className="absolute inset-0 animate-orbit" style={{ animationDuration: '140s', animationDelay: '0s' }}>
-                    <div
-                      className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full"
+                  {/* Grid pattern overlay */}
+                  <div
+                    className="absolute inset-0 pointer-events-none opacity-30 grid-pattern"
+                  />
+
+                  <div className="relative z-10 text-center max-w-lg px-8 animate-fade-in-up">
+                    {/* Iconic illustration with distant orbiting particles */}
+                    <div className="relative mb-10 w-72 h-72 mx-auto">
+                      {/* Center icon */}
+                      <div
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex items-center justify-center"
+                        style={{
+                          background: 'linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface) 100%)',
+                          border: '1px solid var(--mocha-border)',
+                          boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+                        }}
+                      >
+                        <FileSearch
+                          className="w-9 h-9"
+                          style={{ color: 'var(--mocha-accent)' }}
+                          strokeWidth={1.5}
+                        />
+                      </div>
+
+                      {/* Orbiting particles - very slow, spread apart radially, offset starting positions */}
+                      {/* Outer orbit - 12 o'clock start */}
+                      <div className="absolute inset-0 animate-orbit" style={{ animationDuration: '140s', animationDelay: '0s' }}>
+                        <div
+                          className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full"
+                          style={{
+                            background: 'var(--mocha-accent)',
+                            opacity: 0.5,
+                            boxShadow: '0 0 6px var(--mocha-accent)',
+                          }}
+                        />
+                      </div>
+                      {/* Middle-outer orbit - 4 o'clock start (120°) */}
+                      <div className="absolute inset-8 animate-orbit" style={{ animationDuration: '170s', animationDelay: '-56.7s', animationDirection: 'reverse' }}>
+                        <div
+                          className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
+                          style={{
+                            background: 'var(--mocha-info)',
+                            opacity: 0.45,
+                            boxShadow: '0 0 5px var(--mocha-info)',
+                          }}
+                        />
+                      </div>
+                      {/* Middle-inner orbit - 7 o'clock start (210°) */}
+                      <div className="absolute inset-16 animate-orbit" style={{ animationDuration: '130s', animationDelay: '-75.8s' }}>
+                        <div
+                          className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
+                          style={{
+                            background: 'var(--mocha-accent)',
+                            opacity: 0.35,
+                            boxShadow: '0 0 4px var(--mocha-accent)',
+                          }}
+                        />
+                      </div>
+                      {/* Inner orbit - 10 o'clock start (300°) */}
+                      <div className="absolute inset-[68px] animate-orbit" style={{ animationDuration: '110s', animationDelay: '-91.7s', animationDirection: 'reverse' }}>
+                        <div
+                          className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                          style={{
+                            background: 'var(--mocha-info)',
+                            opacity: 0.3,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <h2
+                      className="text-2xl font-semibold mb-4 font-display"
+                      style={{ color: 'var(--mocha-text)' }}
+                    >
+                      Ready to analyze
+                    </h2>
+
+                    <p
+                      className="text-sm mb-10 leading-relaxed"
+                      style={{ color: 'var(--mocha-text-secondary)' }}
+                    >
+                      Drop a log file anywhere on this window, or use the button below.
+                      <br />
+                      <span style={{ color: 'var(--mocha-text-muted)' }}>
+                        Your recent files are waiting in the sidebar.
+                      </span>
+                    </p>
+
+                    <button
+                      onClick={() => handleOpenFile()}
+                      className="group px-8 py-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-3 mx-auto transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
                       style={{
-                        background: 'var(--mocha-accent)',
-                        opacity: 0.5,
-                        boxShadow: '0 0 6px var(--mocha-accent)',
+                        background: 'linear-gradient(135deg, var(--mocha-accent) 0%, #d49544 100%)',
+                        color: 'var(--mocha-bg)',
+                        boxShadow: '0 4px 24px var(--mocha-accent-glow), 0 8px 32px rgba(0,0,0,0.2)',
                       }}
-                    />
-                  </div>
-                  {/* Middle-outer orbit - 4 o'clock start (120°) */}
-                  <div className="absolute inset-8 animate-orbit" style={{ animationDuration: '170s', animationDelay: '-56.7s', animationDirection: 'reverse' }}>
-                    <div
-                      className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
-                      style={{
-                        background: 'var(--mocha-info)',
-                        opacity: 0.45,
-                        boxShadow: '0 0 5px var(--mocha-info)',
-                      }}
-                    />
-                  </div>
-                  {/* Middle-inner orbit - 7 o'clock start (210°) */}
-                  <div className="absolute inset-16 animate-orbit" style={{ animationDuration: '130s', animationDelay: '-75.8s' }}>
-                    <div
-                      className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
-                      style={{
-                        background: 'var(--mocha-accent)',
-                        opacity: 0.35,
-                        boxShadow: '0 0 4px var(--mocha-accent)',
-                      }}
-                    />
-                  </div>
-                  {/* Inner orbit - 10 o'clock start (300°) */}
-                  <div className="absolute inset-[68px] animate-orbit" style={{ animationDuration: '110s', animationDelay: '-91.7s', animationDirection: 'reverse' }}>
-                    <div
-                      className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-                      style={{
-                        background: 'var(--mocha-info)',
-                        opacity: 0.3,
-                      }}
-                    />
+                      data-testid="open-file-btn"
+                    >
+                      <Zap className="w-5 h-5 transition-transform duration-300 group-hover:rotate-12" />
+                      Open Log File
+                    </button>
+
+                    {/* Keyboard shortcut hint */}
+                    <p
+                      className="mt-8 text-xs flex items-center justify-center gap-2"
+                      style={{ color: 'var(--mocha-text-muted)' }}
+                    >
+                      <span
+                        className="px-2 py-1 rounded text-[10px] font-medium"
+                        style={{
+                          background: 'var(--mocha-surface-raised)',
+                          border: '1px solid var(--mocha-border)',
+                        }}
+                      >
+                        Drag & Drop
+                      </span>
+                      <span>or</span>
+                      <span
+                        className="px-2 py-1 rounded text-[10px] font-medium"
+                        style={{
+                          background: 'var(--mocha-surface-raised)',
+                          border: '1px solid var(--mocha-border)',
+                        }}
+                      >
+                        .log / .txt
+                      </span>
+                    </p>
                   </div>
                 </div>
-
-                <h2
-                  className="text-2xl font-semibold mb-4 font-display"
-                  style={{ color: 'var(--mocha-text)' }}
-                >
-                  Ready to analyze
-                </h2>
-
-                <p
-                  className="text-sm mb-10 leading-relaxed"
-                  style={{ color: 'var(--mocha-text-secondary)' }}
-                >
-                  Drop a log file anywhere on this window, or use the button below.
-                  <br />
-                  <span style={{ color: 'var(--mocha-text-muted)' }}>
-                    Your recent files are waiting in the sidebar.
-                  </span>
-                </p>
-
-                <button
-                  onClick={() => handleOpenFile()}
-                  className="group px-8 py-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-3 mx-auto transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
-                  style={{
-                    background: 'linear-gradient(135deg, var(--mocha-accent) 0%, #d49544 100%)',
-                    color: 'var(--mocha-bg)',
-                    boxShadow: '0 4px 24px var(--mocha-accent-glow), 0 8px 32px rgba(0,0,0,0.2)',
-                  }}
-                  data-testid="open-file-btn"
-                >
-                  <Zap className="w-5 h-5 transition-transform duration-300 group-hover:rotate-12" />
-                  Open Log File
-                </button>
-
-                {/* Keyboard shortcut hint */}
-                <p
-                  className="mt-8 text-xs flex items-center justify-center gap-2"
-                  style={{ color: 'var(--mocha-text-muted)' }}
-                >
-                  <span
-                    className="px-2 py-1 rounded text-[10px] font-medium"
-                    style={{
-                      background: 'var(--mocha-surface-raised)',
-                      border: '1px solid var(--mocha-border)',
-                    }}
-                  >
-                    Drag & Drop
-                  </span>
-                  <span>or</span>
-                  <span
-                    className="px-2 py-1 rounded text-[10px] font-medium"
-                    style={{
-                      background: 'var(--mocha-surface-raised)',
-                      border: '1px solid var(--mocha-border)',
-                    }}
-                  >
-                    .log / .txt
-                  </span>
-                </p>
-              </div>
+              )}
             </div>
-          )}
+            )}
 
-          {/* Story pane - always visible when there are stories or logs */}
-          {(mergedLogs.length > 0 || storyLogs.length > 0 || stories.length > 0) && (
-            <StoryPane
-              stories={stories}
-              activeStoryId={activeStoryId}
-              storyLogs={storyLogs}
-              height={storyPaneHeight}
-              collapsed={storyPaneCollapsed}
-              maximized={storyPaneMaximized}
-              onRemoveFromStory={removeFromStory}
-              onClearStory={clearStory}
-              onHeightChange={setStoryPaneHeight}
-              onToggleCollapsed={() => setStoryPaneCollapsed(!storyPaneCollapsed)}
-              onToggleMaximized={() => setStoryPaneMaximized(!storyPaneMaximized)}
-              onCreateStory={createStory}
-              onDeleteStory={deleteStory}
-              onRenameStory={renameStory}
-              onSetActiveStory={setActiveStory}
-              onJumpToSource={handleJumpToSource}
-              scrollRef={storyPaneScrollRef}
-            />
-          )}
+            {/* Story pane - right side panel (preview) */}
+            {(mergedLogs.length > 0 || storyLogs.length > 0 || stories.length > 0) && !storyPaneCollapsed && mainViewMode === 'logs' && (
+              <StoryPane
+                stories={stories}
+                activeStoryId={activeStoryId}
+                storyLogs={storyLogs}
+                width={storyPaneWidth}
+                collapsed={storyPaneCollapsed}
+                removingHash={removingHash}
+                onRemove={handleAnimatedRemove}
+                onClearStory={clearStory}
+                onWidthChange={setStoryPaneWidth}
+                onToggleCollapsed={() => setStoryPaneCollapsed(!storyPaneCollapsed)}
+                onOpenFullView={() => {
+                  if (activeStoryId) {
+                    setMainViewMode('logbook')
+                  }
+                }}
+                onJumpToSource={handleJumpToSource}
+                scrollRef={storyPaneScrollRef}
+              />
+            )}
+          </div>
 
           {/* Drag overlay */}
           {isDragging && (

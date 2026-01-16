@@ -200,15 +200,20 @@ export interface Story {
 }
 
 /**
+ * Main view mode for the content area
+ */
+export type MainViewMode = 'logs' | 'logbook';
+
+/**
  * Story store state for building curated log narratives
  * Supports multiple named stories (notebooks)
  */
 export interface StoryState {
   stories: Story[];
   activeStoryId: string | null;
-  storyPaneHeight: number;
+  storyPaneWidth: number;
   storyPaneCollapsed: boolean;
-  storyPaneMaximized: boolean;
+  mainViewMode: MainViewMode;
 
   // Story management
   createStory: (name?: string) => string;
@@ -224,9 +229,9 @@ export interface StoryState {
   reorderStory: (fromIndex: number, toIndex: number) => void;
 
   // UI state
-  setStoryPaneHeight: (height: number) => void;
+  setStoryPaneWidth: (width: number) => void;
   setStoryPaneCollapsed: (collapsed: boolean) => void;
-  setStoryPaneMaximized: (maximized: boolean) => void;
+  setMainViewMode: (mode: MainViewMode) => void;
 
   // Helper to get hashes from active story (for highlighting in log viewer)
   getActiveStoryHashes: () => string[];
@@ -263,12 +268,24 @@ export interface FileState {
  * Props for the Sidebar component
  */
 export interface SidebarProps {
+  // File management
   recentFiles: RecentFile[];
   openedFiles: Map<string, OpenedFileWithLogs>;
   onSelectFile: (path?: string) => void;
   onToggleFile: (path: string) => void;
   onRemoveFile: (path: string) => void;
   onClearRecent: () => void;
+
+  // Logbook management
+  stories: Story[];
+  activeStoryId: string | null;
+  mainViewMode: MainViewMode;
+  onSelectLogbook: (id: string) => void;
+  onCreateLogbook: (name?: string) => void;
+  onDeleteLogbook: (id: string) => void;
+  onRenameLogbook: (id: string, name: string) => void;
+
+  // UI state
   isCollapsed: boolean;
   onToggleCollapsed: () => void;
 }

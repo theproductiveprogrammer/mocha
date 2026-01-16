@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect } from 'react'
-import { X, FileText, Files, AlertTriangle, Search, Hash, MinusCircle, ChevronUp, ChevronDown, Command, CircleAlert, TriangleAlert } from 'lucide-react'
+import { X, FileText, Files, AlertTriangle, Search, Hash, MinusCircle, ChevronUp, ChevronDown, Command, CircleAlert, TriangleAlert, PanelRight, PanelRightClose } from 'lucide-react'
 import type { ToolbarProps, ParsedFilter } from '../types'
 
 /**
@@ -94,6 +94,9 @@ interface ExtendedToolbarProps extends ToolbarProps {
   onJumpToPrevError?: () => void
   onJumpToNextWarning?: () => void
   onJumpToPrevWarning?: () => void
+  // Logbook panel
+  logbookCollapsed?: boolean
+  onToggleLogbook?: () => void
 }
 
 /**
@@ -120,6 +123,8 @@ export const Toolbar = memo(function Toolbar({
   onJumpToPrevError,
   onJumpToNextWarning,
   onJumpToPrevWarning,
+  logbookCollapsed = true,
+  onToggleLogbook,
 }: ExtendedToolbarProps) {
   const [isFocused, setIsFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -433,6 +438,22 @@ export const Toolbar = memo(function Toolbar({
             )}
           </div>
         </>
+      )}
+
+      {/* Logbook panel toggle */}
+      {activeFileCount > 0 && (
+        <button
+          onClick={onToggleLogbook}
+          className="ml-2 p-1.5 rounded-lg transition-colors hover:bg-[var(--mocha-surface-hover)]"
+          style={{ color: 'var(--mocha-text-muted)' }}
+          title={logbookCollapsed ? 'Show logbook panel' : 'Hide logbook panel'}
+        >
+          {logbookCollapsed ? (
+            <PanelRight className="w-4 h-4" />
+          ) : (
+            <PanelRightClose className="w-4 h-4" />
+          )}
+        </button>
       )}
     </div>
   )

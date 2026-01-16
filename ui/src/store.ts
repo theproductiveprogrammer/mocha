@@ -198,9 +198,9 @@ export const useStoryStore = create<StoryState>()(
       // State
       stories: [],
       activeStoryId: null,
-      storyPaneHeight: 250,
-      storyPaneCollapsed: false,
-      storyPaneMaximized: false,
+      storyPaneWidth: 380,
+      storyPaneCollapsed: true,
+      mainViewMode: 'logs' as const,
 
       // Story management
 
@@ -344,16 +344,16 @@ export const useStoryStore = create<StoryState>()(
 
       // UI state
 
-      setStoryPaneHeight: (height: number) => {
-        set({ storyPaneHeight: height })
+      setStoryPaneWidth: (width: number) => {
+        set({ storyPaneWidth: width })
       },
 
       setStoryPaneCollapsed: (collapsed: boolean) => {
         set({ storyPaneCollapsed: collapsed })
       },
 
-      setStoryPaneMaximized: (maximized: boolean) => {
-        set({ storyPaneMaximized: maximized })
+      setMainViewMode: (mode: 'logs' | 'logbook') => {
+        set({ mainViewMode: mode })
       },
 
       // Helper to get hashes from active story (for highlighting in log viewer)
@@ -366,19 +366,19 @@ export const useStoryStore = create<StoryState>()(
     {
       name: 'mocha-stories',
       storage: createJSONStorage(() => localStorage),
-      // Don't persist maximized state - always start non-maximized
+      // Don't persist mainViewMode - always start with logs view
       partialize: (state) => ({
         stories: state.stories,
         activeStoryId: state.activeStoryId,
-        storyPaneHeight: state.storyPaneHeight,
+        storyPaneWidth: state.storyPaneWidth,
         storyPaneCollapsed: state.storyPaneCollapsed,
-        // storyPaneMaximized intentionally excluded
+        // mainViewMode intentionally excluded - always start with 'logs'
       }),
-      // Force maximized to false on hydration (ignore any stale stored value)
+      // Force mainViewMode to 'logs' on hydration
       merge: (persistedState, currentState) => ({
         ...currentState,
         ...(persistedState as Partial<StoryState>),
-        storyPaneMaximized: false, // Always start non-maximized
+        mainViewMode: 'logs' as const,
       }),
     }
   )
