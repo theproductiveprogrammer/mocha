@@ -153,10 +153,12 @@ export function LogViewer({
     return () => container.removeEventListener('scroll', handleScroll)
   }, [filteredLogs, newLogsCount])
 
-  // Handle log updates - buffer if scrolled, show immediately if at top
+  // Handle log updates - buffer if scrolled, show immediately if at top or logs decreased
   useEffect(() => {
-    if (!isScrolledRef.current || displayedLogs.length === 0) {
-      // At top or first load - show all logs
+    const logsDecreased = filteredLogs.length < displayedLogs.length
+
+    if (!isScrolledRef.current || displayedLogs.length === 0 || logsDecreased) {
+      // At top, first load, or logs removed (file closed) - show all logs
       setDisplayedLogs(filteredLogs)
       setNewLogsCount(0)
     } else {
