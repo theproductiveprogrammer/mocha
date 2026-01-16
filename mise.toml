@@ -78,3 +78,37 @@ echo "Clean completed!"
 [tasks.launch-mac]
 description = "Run the existing app"
 run = "open ./src-tauri/target/debug/bundle/macos/Mocha.app"
+
+[tasks.icons]
+description = "Generate app icons from source PNGs in _tmp/icon/"
+run = '''
+#!/usr/bin/env bash
+set -e
+SRC=_tmp/icon
+DEST=src-tauri/icons
+
+mkdir -p $DEST
+
+# Copy base PNGs for Tauri
+cp $SRC/32x32.png $DEST/
+cp $SRC/128x128.png $DEST/
+cp $SRC/256x256.png $DEST/icon.png
+cp $SRC/256x256.png $DEST/128x128@2x.png
+
+# Generate macOS icon.icns
+mkdir -p $DEST/icon.iconset
+cp $SRC/16x16.png $DEST/icon.iconset/icon_16x16.png
+cp $SRC/32x32.png $DEST/icon.iconset/icon_16x16@2x.png
+cp $SRC/32x32.png $DEST/icon.iconset/icon_32x32.png
+cp $SRC/64x64.png $DEST/icon.iconset/icon_32x32@2x.png
+cp $SRC/128x128.png $DEST/icon.iconset/icon_128x128.png
+cp $SRC/256x256.png $DEST/icon.iconset/icon_128x128@2x.png
+cp $SRC/256x256.png $DEST/icon.iconset/icon_256x256.png
+cp $SRC/512x512.png $DEST/icon.iconset/icon_256x256@2x.png
+cp $SRC/512x512.png $DEST/icon.iconset/icon_512x512.png
+cp $SRC/1024x1024.png $DEST/icon.iconset/icon_512x512@2x.png
+iconutil -c icns $DEST/icon.iconset -o $DEST/icon.icns
+rm -rf $DEST/icon.iconset
+
+echo "✓ Generated icons in $DEST"
+'''
