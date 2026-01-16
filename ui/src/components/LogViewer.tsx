@@ -15,6 +15,18 @@ export interface LogViewerProps {
   // Jump to source (from logbook)
   jumpToHash?: string | null
   onJumpComplete?: () => void  // Called after scroll completes
+  // Error/warning stats callback - reports counts and current position
+  onErrorWarningStats?: (stats: {
+    errorCount: number
+    warningCount: number
+    currentErrorIndex: number
+    currentWarningIndex: number
+  }) => void
+  // Navigation commands from parent (increment to trigger)
+  jumpToNextError?: number
+  jumpToPrevError?: number
+  jumpToNextWarning?: number
+  jumpToPrevWarning?: number
 }
 
 /**
@@ -37,6 +49,11 @@ export function LogViewer({
   searchCurrentMatchHash,
   jumpToHash,
   onJumpComplete,
+  onErrorWarningStats,
+  jumpToNextError,
+  jumpToPrevError,
+  jumpToNextWarning,
+  jumpToPrevWarning,
 }: LogViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -44,6 +61,10 @@ export function LogViewer({
   const [displayedLogs, setDisplayedLogs] = useState<LogEntry[]>([])
   const [newLogsCount, setNewLogsCount] = useState(0)
   const isScrolledRef = useRef(false)
+
+  // Error/warning navigation state
+  const [currentErrorIndex, setCurrentErrorIndex] = useState(-1)
+  const [currentWarningIndex, setCurrentWarningIndex] = useState(-1)
 
   // Log viewer store (filters and service visibility)
   const { inactiveNames, filters } = useLogViewerStore()
@@ -154,6 +175,69 @@ export function LogViewer({
     // Scroll to top
     containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [filteredLogs])
+
+  // Calculate error/warning indices from displayedLogs (visual order)
+  const { errorIndices, warningIndices } = useMemo(() => {
+    const errors: number[] = []
+    const warnings: number[] = []
+
+    displayedLogs.forEach((log, index) => {
+      const level = log.parsed?.level?.toUpperCase()
+      if (level === 'ERROR') {
+        errors.push(index)
+      } else if (level === 'WARN' || level === 'WARNING') {
+        warnings.push(index)
+      }
+    })
+
+    return { errorIndices: errors, warningIndices: warnings }
+  }, [displayedLogs])
+
+  // Report stats to parent
+  useEffect(() => {
+    onErrorWarningStats?.({
+      errorCount: errorIndices.length,
+      warningCount: warningIndices.length,
+      currentErrorIndex,
+      currentWarningIndex,
+    })
+  }, [errorIndices.length, warningIndices.length, currentErrorIndex, currentWarningIndex, onErrorWarningStats])
+
+  // Reset indices when logs change
+  useEffect(() => {
+    setCurrentErrorIndex(-1)
+    setCurrentWarningIndex(-1)
+  }, [displayedLogs])
+
+  // Handle error navigation triggers
+  useEffect(() => {
+    if (jumpToNextError === undefined || jumpToNextError === 0 || errorIndices.length === 0) return
+    const nextIndex = currentErrorIndex < 0 ? 0 : (currentErrorIndex + 1) % errorIndices.length
+    setCurrentErrorIndex(nextIndex)
+    virtualizer.scrollToIndex(errorIndices[nextIndex], { align: 'center', behavior: 'smooth' })
+  }, [jumpToNextError])
+
+  useEffect(() => {
+    if (jumpToPrevError === undefined || jumpToPrevError === 0 || errorIndices.length === 0) return
+    const prevIndex = currentErrorIndex <= 0 ? errorIndices.length - 1 : currentErrorIndex - 1
+    setCurrentErrorIndex(prevIndex)
+    virtualizer.scrollToIndex(errorIndices[prevIndex], { align: 'center', behavior: 'smooth' })
+  }, [jumpToPrevError])
+
+  // Handle warning navigation triggers
+  useEffect(() => {
+    if (jumpToNextWarning === undefined || jumpToNextWarning === 0 || warningIndices.length === 0) return
+    const nextIndex = currentWarningIndex < 0 ? 0 : (currentWarningIndex + 1) % warningIndices.length
+    setCurrentWarningIndex(nextIndex)
+    virtualizer.scrollToIndex(warningIndices[nextIndex], { align: 'center', behavior: 'smooth' })
+  }, [jumpToNextWarning])
+
+  useEffect(() => {
+    if (jumpToPrevWarning === undefined || jumpToPrevWarning === 0 || warningIndices.length === 0) return
+    const prevIndex = currentWarningIndex <= 0 ? warningIndices.length - 1 : currentWarningIndex - 1
+    setCurrentWarningIndex(prevIndex)
+    virtualizer.scrollToIndex(warningIndices[prevIndex], { align: 'center', behavior: 'smooth' })
+  }, [jumpToPrevWarning])
 
   // Handle story toggle - use prop if provided, otherwise use store
   const handleToggleStory = useCallback(

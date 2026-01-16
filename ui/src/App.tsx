@@ -182,6 +182,37 @@ function App() {
     }
   }, [searchMatches.length])
 
+  // Error/warning navigation - LogViewer handles the actual navigation,
+  // we just track stats and trigger navigation via counter increments
+  const [errorWarningStats, setErrorWarningStats] = useState({
+    errorCount: 0,
+    warningCount: 0,
+    currentErrorIndex: -1,
+    currentWarningIndex: -1,
+  })
+
+  // Navigation triggers - increment to trigger navigation in LogViewer
+  const [jumpToNextErrorTrigger, setJumpToNextErrorTrigger] = useState(0)
+  const [jumpToPrevErrorTrigger, setJumpToPrevErrorTrigger] = useState(0)
+  const [jumpToNextWarningTrigger, setJumpToNextWarningTrigger] = useState(0)
+  const [jumpToPrevWarningTrigger, setJumpToPrevWarningTrigger] = useState(0)
+
+  const handleJumpToNextError = useCallback(() => {
+    setJumpToNextErrorTrigger(prev => prev + 1)
+  }, [])
+
+  const handleJumpToPrevError = useCallback(() => {
+    setJumpToPrevErrorTrigger(prev => prev + 1)
+  }, [])
+
+  const handleJumpToNextWarning = useCallback(() => {
+    setJumpToNextWarningTrigger(prev => prev + 1)
+  }, [])
+
+  const handleJumpToPrevWarning = useCallback(() => {
+    setJumpToPrevWarningTrigger(prev => prev + 1)
+  }, [])
+
   // Handle toggling a log in/out of story - expand pane and scroll when adding
   const handleToggleStory = useCallback((log: LogEntry) => {
     // If no active story exists, create one first
@@ -493,11 +524,6 @@ function App() {
     removeRecentFile(path)
   }, [removeRecentFile])
 
-  const handleToggleWatch = useCallback(() => {
-    // For now, watching is disabled with multi-file - would need more complex logic
-    // TODO: Implement multi-file watching
-  }, [])
-
   // Polling effect for active files
   // Note: We get fresh state inside the callback to avoid stale closure issues
   // that could cause lines to be skipped or duplicated
@@ -547,12 +573,6 @@ function App() {
     return () => window.clearInterval(pollInterval)
   }, [safeOpenedFiles]) // Only re-create interval when files change
 
-  // Compute visible count from current filters
-  const visibleCount = useMemo(() => {
-    if (mergedLogs.length === 0) return 0
-    return filterLogs(mergedLogs, filters, inactiveNames).length
-  }, [mergedLogs, filters, inactiveNames])
-
   return (
     <div className="h-screen flex" style={{ background: 'var(--mocha-bg)' }}>
       <input
@@ -580,13 +600,9 @@ function App() {
           filters={filters}
           filterInput={input}
           activeFileCount={activeFileCount}
-          totalLines={mergedLogs.length}
           onAddFilter={addFilter}
           onRemoveFilter={removeFilter}
           onFilterInputChange={setInput}
-          onToggleWatch={handleToggleWatch}
-          visibleCount={visibleCount}
-          isWatching={false}
           // Search props
           searchQuery={searchQuery}
           searchIsRegex={searchIsRegex}
@@ -596,6 +612,15 @@ function App() {
           onSearchRegexToggle={() => setSearchIsRegex(!searchIsRegex)}
           onSearchNext={handleSearchNext}
           onSearchPrev={handleSearchPrev}
+          // Error/warning navigation - stats come from LogViewer
+          errorCount={errorWarningStats.errorCount}
+          warningCount={errorWarningStats.warningCount}
+          currentErrorIndex={errorWarningStats.currentErrorIndex}
+          currentWarningIndex={errorWarningStats.currentWarningIndex}
+          onJumpToNextError={handleJumpToNextError}
+          onJumpToPrevError={handleJumpToPrevError}
+          onJumpToNextWarning={handleJumpToNextWarning}
+          onJumpToPrevWarning={handleJumpToPrevWarning}
         />
 
         <div className="relative flex-1 flex flex-col overflow-hidden h-full">
@@ -651,6 +676,12 @@ function App() {
               searchCurrentMatchHash={searchCurrentMatchHash}
               jumpToHash={jumpToHash}
               onJumpComplete={handleJumpComplete}
+              // Error/warning navigation - LogViewer handles internally with displayedLogs order
+              onErrorWarningStats={setErrorWarningStats}
+              jumpToNextError={jumpToNextErrorTrigger}
+              jumpToPrevError={jumpToPrevErrorTrigger}
+              jumpToNextWarning={jumpToNextWarningTrigger}
+              jumpToPrevWarning={jumpToPrevWarningTrigger}
             />
           ) : (
             /* Beautiful empty state */

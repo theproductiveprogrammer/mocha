@@ -280,11 +280,9 @@ export interface ToolbarProps {
   filters: ParsedFilter[];
   filterInput: string;
   activeFileCount: number;
-  totalLines: number;
   onAddFilter: (filter: ParsedFilter) => void;
   onRemoveFilter: (index: number) => void;
   onFilterInputChange: (value: string) => void;
-  onToggleWatch: () => void;
 }
 
 /**

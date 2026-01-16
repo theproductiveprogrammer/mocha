@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect } from 'react'
-import { X, Eye, EyeOff, FileText, Files, AlertTriangle, Search, Hash, MinusCircle, ChevronUp, ChevronDown, Command } from 'lucide-react'
+import { X, FileText, Files, AlertTriangle, Search, Hash, MinusCircle, ChevronUp, ChevronDown, Command, CircleAlert, TriangleAlert } from 'lucide-react'
 import type { ToolbarProps, ParsedFilter } from '../types'
 
 /**
@@ -77,8 +77,6 @@ const FilterChip = memo(function FilterChip({
  */
 interface ExtendedToolbarProps extends ToolbarProps {
   truncated?: boolean
-  visibleCount?: number
-  isWatching?: boolean
   searchQuery?: string
   searchIsRegex?: boolean
   searchMatchCount?: number
@@ -87,6 +85,15 @@ interface ExtendedToolbarProps extends ToolbarProps {
   onSearchRegexToggle?: () => void
   onSearchNext?: () => void
   onSearchPrev?: () => void
+  // Error/warning navigation
+  errorCount?: number
+  warningCount?: number
+  currentErrorIndex?: number
+  currentWarningIndex?: number
+  onJumpToNextError?: () => void
+  onJumpToPrevError?: () => void
+  onJumpToNextWarning?: () => void
+  onJumpToPrevWarning?: () => void
 }
 
 /**
@@ -95,12 +102,8 @@ interface ExtendedToolbarProps extends ToolbarProps {
 export const Toolbar = memo(function Toolbar({
   filters,
   activeFileCount,
-  totalLines,
   onRemoveFilter,
-  onToggleWatch,
   truncated = false,
-  visibleCount,
-  isWatching = false,
   searchQuery = '',
   searchIsRegex = false,
   searchMatchCount = 0,
@@ -109,6 +112,14 @@ export const Toolbar = memo(function Toolbar({
   onSearchRegexToggle,
   onSearchNext,
   onSearchPrev,
+  errorCount = 0,
+  warningCount = 0,
+  currentErrorIndex = -1,
+  currentWarningIndex = -1,
+  onJumpToNextError,
+  onJumpToPrevError,
+  onJumpToNextWarning,
+  onJumpToPrevWarning,
 }: ExtendedToolbarProps) {
   const [isFocused, setIsFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -159,22 +170,6 @@ export const Toolbar = memo(function Toolbar({
             >
               {activeFileCount} {activeFileCount === 1 ? 'file' : 'files'}
             </span>
-            {totalLines > 0 && (
-              <span
-                className="px-2 py-1 rounded-md text-xs font-mono font-medium tabular-nums"
-                style={{
-                  background: 'var(--mocha-surface-raised)',
-                  color: 'var(--mocha-text-secondary)',
-                  border: '1px solid var(--mocha-border-subtle)',
-                }}
-                data-testid="line-count"
-              >
-                {visibleCount !== undefined && visibleCount !== totalLines
-                  ? `${visibleCount.toLocaleString()} / ${totalLines.toLocaleString()}`
-                  : totalLines.toLocaleString()
-                }
-              </span>
-            )}
             {truncated && (
               <span
                 className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium"
@@ -356,45 +351,89 @@ export const Toolbar = memo(function Toolbar({
         )}
       </div>
 
-      {/* Divider before watch */}
-      <div
-        className="h-6 w-px ml-2"
-        style={{ background: 'var(--mocha-border)' }}
-      />
+      {/* Error/Warning Navigation */}
+      {(errorCount > 0 || warningCount > 0) && (
+        <>
+          <div
+            className="h-6 w-px ml-2"
+            style={{ background: 'var(--mocha-border)' }}
+          />
 
-      {/* Watch toggle */}
-      <button
-        onClick={onToggleWatch}
-        className="p-2.5 rounded-xl transition-all duration-200"
-        style={{
-          background: isWatching
-            ? 'var(--mocha-selection)'
-            : 'transparent',
-          border: `1px solid ${isWatching ? 'var(--mocha-selection-border)' : 'transparent'}`,
-          color: isWatching ? 'var(--mocha-info)' : 'var(--mocha-text-muted)',
-          boxShadow: isWatching ? '0 0 16px var(--mocha-selection-glow)' : 'none',
-        }}
-        onMouseEnter={(e) => {
-          if (!isWatching) {
-            e.currentTarget.style.background = 'var(--mocha-surface-hover)'
-            e.currentTarget.style.color = 'var(--mocha-text-secondary)'
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isWatching) {
-            e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.color = 'var(--mocha-text-muted)'
-          }
-        }}
-        title={isWatching ? 'Disable auto-refresh' : 'Enable auto-refresh'}
-        data-testid="watch-toggle"
-      >
-        {isWatching ? (
-          <Eye className="w-5 h-5" />
-        ) : (
-          <EyeOff className="w-5 h-5" />
-        )}
-      </button>
+          <div className="flex items-center gap-2">
+            {/* Error navigation */}
+            {errorCount > 0 && (
+              <div
+                className="flex items-center gap-1"
+                style={{
+                  border: '1px solid var(--mocha-error-border)',
+                  borderRadius: '12px',
+                  padding: '4px 8px',
+                }}
+              >
+                <CircleAlert className="w-4 h-4" style={{ color: 'var(--mocha-error)' }} />
+                <span
+                  className="text-xs tabular-nums font-mono font-medium px-1"
+                  style={{ color: 'var(--mocha-error)' }}
+                >
+                  {currentErrorIndex >= 0 ? `${currentErrorIndex + 1}/` : ''}{errorCount}
+                </span>
+                <button
+                  onClick={onJumpToPrevError}
+                  className="p-1 rounded-md transition-all duration-150 hover:bg-[rgba(255,255,255,0.1)]"
+                  style={{ color: 'var(--mocha-error)' }}
+                  title="Previous error"
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={onJumpToNextError}
+                  className="p-1 rounded-md transition-all duration-150 hover:bg-[rgba(255,255,255,0.1)]"
+                  style={{ color: 'var(--mocha-error)' }}
+                  title="Next error"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Warning navigation */}
+            {warningCount > 0 && (
+              <div
+                className="flex items-center gap-1"
+                style={{
+                  border: '1px solid var(--mocha-warning-border)',
+                  borderRadius: '12px',
+                  padding: '4px 8px',
+                }}
+              >
+                <TriangleAlert className="w-4 h-4" style={{ color: 'var(--mocha-warning)' }} />
+                <span
+                  className="text-xs tabular-nums font-mono font-medium px-1"
+                  style={{ color: 'var(--mocha-warning)' }}
+                >
+                  {currentWarningIndex >= 0 ? `${currentWarningIndex + 1}/` : ''}{warningCount}
+                </span>
+                <button
+                  onClick={onJumpToPrevWarning}
+                  className="p-1 rounded-md transition-all duration-150 hover:bg-[rgba(0,0,0,0.1)]"
+                  style={{ color: 'var(--mocha-warning)' }}
+                  title="Previous warning"
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={onJumpToNextWarning}
+                  className="p-1 rounded-md transition-all duration-150 hover:bg-[rgba(0,0,0,0.1)]"
+                  style={{ color: 'var(--mocha-warning)' }}
+                  title="Next warning"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 })
