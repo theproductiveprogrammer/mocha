@@ -607,34 +607,36 @@ button:active {
 
 /* ========================================
    STORY PANE / LOGBOOK
-   The investigator's notebook
+   Dark observatory evidence panel
    ======================================== */
 
-.logbook-paper {
+.logbook-glass {
   background: linear-gradient(
-    to bottom,
-    #faf8f5 0%,
-    #f5f2ed 50%,
-    #f0ece6 100%
+    180deg,
+    rgba(18, 21, 28, 0.95) 0%,
+    rgba(13, 15, 20, 0.98) 100%
   );
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .logbook-card {
-  background: linear-gradient(
-    145deg,
-    #fdfcfa 0%,
-    #f8f6f2 100%
-  );
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(30, 34, 45, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(232, 168, 84, 0.15);
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.04),
-    0 4px 12px rgba(0, 0, 0, 0.02);
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .logbook-card:hover {
+  background: rgba(37, 43, 56, 0.85);
+  border-color: rgba(232, 168, 84, 0.25);
   box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.06),
-    0 8px 24px rgba(0, 0, 0, 0.04);
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(232, 168, 84, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 /* ========================================
@@ -651,43 +653,43 @@ button:active {
 .jv-logbook-child {
   padding-left: 1em;
   margin-left: 0.3em;
-  border-left: 1px solid rgba(139, 131, 120, 0.15);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .jv-logbook-label {
-  color: #5a544d;
+  color: var(--mocha-text-secondary);
 }
 
 .jv-logbook-string {
-  color: #4a8a5a;
+  color: #6bcb77;
 }
 
 .jv-logbook-number {
-  color: #4a7ba8;
+  color: #4ecdc4;
 }
 
 .jv-logbook-boolean {
-  color: #b8956f;
+  color: var(--mocha-accent);
   font-weight: 600;
 }
 
 .jv-logbook-null {
-  color: #a8a098;
+  color: var(--mocha-text-muted);
   font-style: italic;
 }
 
 .jv-logbook-other {
-  color: #3d3833;
+  color: var(--mocha-text);
 }
 
 .jv-logbook-punctuation {
-  color: #8b8378;
+  color: var(--mocha-text-muted);
 }
 
 .jv-logbook-expand-icon,
 .jv-logbook-collapse-icon {
   cursor: pointer;
-  color: #6b635a;
+  color: var(--mocha-text-muted);
   margin-right: 4px;
   user-select: none;
   display: inline-block;
@@ -708,11 +710,11 @@ button:active {
 
 .jv-logbook-expand-icon:hover,
 .jv-logbook-collapse-icon:hover {
-  color: #3d3833;
+  color: var(--mocha-accent);
 }
 
 .jv-logbook-collapsed {
-  color: #a8a098;
+  color: var(--mocha-text-muted);
   cursor: pointer;
 }
 

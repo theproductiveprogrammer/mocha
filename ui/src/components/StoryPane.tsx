@@ -69,9 +69,8 @@ const EvidenceCard = memo(function EvidenceCard({
       data-story-hash={log.hash}
     >
       <div
-        className={`relative mx-2 mb-2 rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md ${isRemoving ? "ring-2 ring-[var(--mocha-error)]" : ""}`}
+        className={`relative mx-2 mb-2 rounded-lg overflow-hidden transition-all duration-200 logbook-card ${isRemoving ? "ring-2 ring-[var(--mocha-error)]" : ""}`}
         style={{
-          background: "linear-gradient(145deg, #fdfcfa 0%, #f8f6f2 100%)",
           borderLeft: levelIndicator ? `3px solid ${levelIndicator.color}` : "3px solid transparent",
         }}
       >
@@ -80,12 +79,12 @@ const EvidenceCard = memo(function EvidenceCard({
           <div className="flex items-center gap-1.5 mb-1.5">
             <span
               className="text-[9px] font-bold tabular-nums font-mono px-1.5 py-0.5 rounded"
-              style={{ background: "rgba(0,0,0,0.05)", color: "#6b635a" }}
+              style={{ background: "var(--mocha-accent-muted)", color: "var(--mocha-accent)" }}
             >
               {String(index + 1).padStart(2, "0")}
             </span>
             {timestamp && (
-              <span className="text-[9px] tabular-nums font-mono" style={{ color: "#8b8378" }}>
+              <span className="text-[9px] tabular-nums font-mono" style={{ color: "var(--mocha-text-muted)" }}>
                 {timestamp}
               </span>
             )}
@@ -102,7 +101,7 @@ const EvidenceCard = memo(function EvidenceCard({
             )}
             <span
               className="text-[8px] px-1.5 py-0.5 rounded font-semibold uppercase font-mono truncate max-w-[80px]"
-              style={{ background: "#e8e4de", color: "#6b635a" }}
+              style={{ background: "var(--mocha-surface-hover)", color: "var(--mocha-text-secondary)" }}
             >
               {serviceName}
             </span>
@@ -111,7 +110,7 @@ const EvidenceCard = memo(function EvidenceCard({
           {/* Truncated content */}
           <p
             className="text-[11px] leading-snug font-mono truncate"
-            style={{ color: "#3d3833" }}
+            style={{ color: "var(--mocha-text)" }}
             title={firstLine}
           >
             {firstLine}
@@ -126,7 +125,7 @@ const EvidenceCard = memo(function EvidenceCard({
               onJumpToSource();
             }}
             className="p-1 rounded hover:scale-110 transition-all duration-150"
-            style={{ background: "rgba(0,0,0,0.08)", color: "#8b8378" }}
+            style={{ background: "var(--mocha-surface-hover)", color: "var(--mocha-text-secondary)" }}
             title="Jump to source"
           >
             <Crosshair className="w-3 h-3" />
@@ -137,7 +136,7 @@ const EvidenceCard = memo(function EvidenceCard({
               onRemove();
             }}
             className="p-1 rounded hover:scale-110 transition-all duration-150"
-            style={{ background: "rgba(0,0,0,0.08)", color: "#8b8378" }}
+            style={{ background: "var(--mocha-surface-hover)", color: "var(--mocha-text-secondary)" }}
             title="Remove"
           >
             <X className="w-3 h-3" />
@@ -269,8 +268,8 @@ export function StoryPane({
         <div
           className="flex items-center justify-between px-4 py-3 shrink-0"
           style={{
-            background: "linear-gradient(180deg, #fdfcfa 0%, #f5f2ed 100%)",
-            borderBottom: "1px solid rgba(0,0,0,0.06)",
+            background: "var(--mocha-surface)",
+            borderBottom: "1px solid var(--mocha-border)",
           }}
         >
           {/* Left side - title */}
@@ -278,18 +277,18 @@ export function StoryPane({
             {/* Title */}
             {activeStory ? (
               <div className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4" style={{ color: "#c4854a" }} />
+                <BookOpen className="w-4 h-4" style={{ color: "var(--mocha-accent)" }} />
                 <span
                   className="text-sm font-semibold font-display truncate max-w-[120px]"
-                  style={{ color: "#3d3833" }}
+                  style={{ color: "var(--mocha-text)" }}
                 >
                   {activeStory.name}
                 </span>
                 <span
                   className="text-xs px-1.5 py-0.5 rounded-full tabular-nums"
                   style={{
-                    background: "rgba(0,0,0,0.06)",
-                    color: "#6b635a",
+                    background: "var(--mocha-accent-muted)",
+                    color: "var(--mocha-accent)",
                   }}
                 >
                   {storyLogs.length}
@@ -298,9 +297,9 @@ export function StoryPane({
             ) : (
               <span
                 className="text-sm font-semibold font-display flex items-center gap-2"
-                style={{ color: "#3d3833" }}
+                style={{ color: "var(--mocha-text)" }}
               >
-                <BookOpen className="w-4 h-4" style={{ color: "#c4854a" }} />
+                <BookOpen className="w-4 h-4" style={{ color: "var(--mocha-accent)" }} />
                 Logbook Preview
               </span>
             )}
@@ -312,8 +311,8 @@ export function StoryPane({
               <>
                 <button
                   onClick={handleCopy}
-                  className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.06)] transition-all duration-200"
-                  style={{ color: "#5a534b" }}
+                  className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-all duration-200"
+                  style={{ color: "var(--mocha-text-secondary)" }}
                   title="Copy all"
                 >
                   {copyFeedback ? (
@@ -327,8 +326,8 @@ export function StoryPane({
                 </button>
                 <button
                   onClick={onClearStory}
-                  className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.06)] transition-colors"
-                  style={{ color: "#5a534b" }}
+                  className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-colors"
+                  style={{ color: "var(--mocha-text-secondary)" }}
                   title="Clear all"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -337,16 +336,16 @@ export function StoryPane({
             )}
             <button
               onClick={onOpenFullView}
-              className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.06)] transition-colors"
-              style={{ color: "#5a534b" }}
+              className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-colors"
+              style={{ color: "var(--mocha-text-secondary)" }}
               title="Open full view"
             >
               <Maximize2 className="w-4 h-4" />
             </button>
             <button
               onClick={onToggleCollapsed}
-              className="p-1.5 rounded-lg hover:bg-[rgba(0,0,0,0.06)] transition-colors"
-              style={{ color: "#5a534b" }}
+              className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-colors"
+              style={{ color: "var(--mocha-text-secondary)" }}
               title="Close panel"
             >
               <X className="w-4 h-4" />
@@ -358,28 +357,27 @@ export function StoryPane({
         {!collapsed && (
           <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto py-5 logbook-paper"
+            className="flex-1 overflow-y-auto py-5 logbook-glass"
           >
             {!activeStory ? (
               <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in">
                 <div
                   className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
                   style={{
-                    background:
-                      "linear-gradient(135deg, #fdfcfa 0%, #f5f2ed 100%)",
-                    border: "1px solid rgba(0,0,0,0.06)",
-                    boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
+                    background: "var(--mocha-surface-raised)",
+                    border: "1px solid var(--mocha-border)",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
                   }}
                 >
-                  <BookOpen className="w-7 h-7" style={{ color: "#8b8378" }} />
+                  <BookOpen className="w-7 h-7" style={{ color: "var(--mocha-text-muted)" }} />
                 </div>
                 <p
                   className="text-sm font-semibold mb-2 font-display"
-                  style={{ color: "#3d3833" }}
+                  style={{ color: "var(--mocha-text)" }}
                 >
                   No Logbook Selected
                 </p>
-                <p className="text-xs" style={{ color: "#8b8378" }}>
+                <p className="text-xs" style={{ color: "var(--mocha-text-muted)" }}>
                   Select a logbook from the sidebar
                 </p>
               </div>
@@ -387,11 +385,11 @@ export function StoryPane({
               <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in">
                 <BookOpen
                   className="w-10 h-10 mb-4"
-                  style={{ color: "#a8a098" }}
+                  style={{ color: "var(--mocha-text-muted)" }}
                 />
-                <p className="text-sm" style={{ color: "#8b8378" }}>
+                <p className="text-sm" style={{ color: "var(--mocha-text-secondary)" }}>
                   Click log lines to add to{" "}
-                  <span className="font-semibold">{activeStory?.name}</span>
+                  <span className="font-semibold" style={{ color: "var(--mocha-accent)" }}>{activeStory?.name}</span>
                 </p>
               </div>
             ) : (

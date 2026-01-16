@@ -105,19 +105,19 @@ function TokenSpan({ token }: { token: LogToken }) {
   const getTokenStyle = (): React.CSSProperties => {
     switch (token.type) {
       case 'marker.error':
-        return { color: '#e85c5c', fontWeight: 600 }
+        return { color: 'var(--mocha-error)', fontWeight: 600 }
       case 'marker.warn':
-        return { color: '#ffd93d', fontWeight: 600 }
+        return { color: 'var(--mocha-warning)', fontWeight: 600 }
       case 'marker.info':
-        return { color: '#8b8b8b' }
+        return { color: 'var(--mocha-text-muted)' }
       case 'url':
-        return { color: '#4ecdc4' }
+        return { color: 'var(--mocha-info)' }
       case 'data':
-        return { color: '#e8a854', fontWeight: 500 }
+        return { color: 'var(--mocha-accent)', fontWeight: 500 }
       case 'json':
-        return { color: '#8b8b8b' }
+        return { color: 'var(--mocha-text-muted)' }
       case 'symbol':
-        return { color: '#8b8b8b' }
+        return { color: 'var(--mocha-text-muted)' }
       case 'message':
       default:
         return {}
@@ -151,7 +151,7 @@ function SmartContent({
     return (
       <div
         className="text-[13px] leading-relaxed font-mono"
-        style={{ color: '#3d3833', wordBreak: 'break-word' }}
+        style={{ color: 'var(--mocha-text)', wordBreak: 'break-word' }}
       >
         {tokens.map((token, i) => {
           if (token.type === 'json') {
@@ -162,8 +162,8 @@ function SmartContent({
                   key={i}
                   className="my-2 p-2.5 rounded-lg text-[11px]"
                   style={{
-                    background: 'rgba(0,0,0,0.03)',
-                    border: '1px solid rgba(0,0,0,0.05)',
+                    background: 'var(--mocha-surface-hover)',
+                    border: '1px solid var(--mocha-border)',
                   }}
                 >
                   <JsonView
@@ -186,7 +186,7 @@ function SmartContent({
   const firstLineTokens = tokenizeContent(firstLine).tokens
 
   return (
-    <div className="font-mono" style={{ color: '#3d3833' }}>
+    <div className="font-mono" style={{ color: 'var(--mocha-text)' }}>
       <div
         className="text-[13px] leading-relaxed"
         style={{ wordBreak: 'break-word' }}
@@ -200,8 +200,8 @@ function SmartContent({
                   key={i}
                   className="my-2 p-2.5 rounded-lg text-[11px]"
                   style={{
-                    background: 'rgba(0,0,0,0.03)',
-                    border: '1px solid rgba(0,0,0,0.05)',
+                    background: 'var(--mocha-surface-hover)',
+                    border: '1px solid var(--mocha-border)',
                   }}
                 >
                   <JsonView
@@ -223,8 +223,8 @@ function SmartContent({
         <div
           className="mt-2 pl-3 text-[11px] leading-relaxed space-y-0.5"
           style={{
-            borderLeft: '2px solid rgba(0,0,0,0.08)',
-            color: '#5a534b',
+            borderLeft: '2px solid var(--mocha-border-strong)',
+            color: 'var(--mocha-text-secondary)',
           }}
         >
           {importantLines.map((line, i) => {
@@ -237,7 +237,7 @@ function SmartContent({
                 key={i}
                 className="truncate"
                 style={{
-                  color: isException ? '#e85c5c' : isMoreLine ? '#8b8378' : '#5a534b',
+                  color: isException ? 'var(--mocha-error)' : isMoreLine ? 'var(--mocha-text-muted)' : 'var(--mocha-text-secondary)',
                   fontWeight: isException ? 600 : 400,
                   fontStyle: isMoreLine ? 'italic' : 'normal',
                 }}
@@ -253,10 +253,10 @@ function SmartContent({
       {hiddenCount > 0 && (
         <button
           onClick={onShowRaw}
-          className="mt-2 text-[10px] px-2 py-1 rounded-md transition-all hover:bg-[rgba(0,0,0,0.06)]"
+          className="mt-2 text-[10px] px-2 py-1 rounded-md transition-all hover:bg-[var(--mocha-surface-active)]"
           style={{
-            color: '#8b8378',
-            background: 'rgba(0,0,0,0.03)',
+            color: 'var(--mocha-text-muted)',
+            background: 'var(--mocha-surface-hover)',
           }}
         >
           ({hiddenCount} hidden)
@@ -347,7 +347,7 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
   return (
     <div
       ref={cardRef}
-      className={`group relative transition-all duration-300 ${isCurrentMatch ? 'ring-2 ring-[var(--mocha-accent)] ring-offset-2 ring-offset-[#f5f2ed]' : ''} ${isRemoving ? 'opacity-50 scale-95' : ''}`}
+      className={`group relative transition-all duration-300 ${isCurrentMatch ? 'ring-2 ring-[var(--mocha-accent)] ring-offset-2 ring-offset-[var(--mocha-surface)]' : ''} ${isRemoving ? 'opacity-50 scale-95' : ''}`}
       data-story-hash={log.hash}
     >
       <div className={`relative mx-auto max-w-4xl mb-3 rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg logbook-card ${isRemoving ? 'ring-2 ring-[var(--mocha-error)] ring-opacity-50' : ''}`}>
@@ -355,16 +355,14 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
         <div
           className="absolute -left-0 top-0 bottom-0 w-12 flex items-center justify-center"
           style={{
-            background: showRaw
-              ? 'linear-gradient(135deg, #252b38 0%, #1e232e 100%)'
-              : 'linear-gradient(135deg, #e8e4de 0%, #ddd8d0 100%)',
-            borderRight: showRaw ? '1px solid var(--mocha-border)' : '1px solid rgba(0,0,0,0.06)',
+            background: 'linear-gradient(135deg, var(--mocha-surface-active) 0%, var(--mocha-surface-hover) 100%)',
+            borderRight: '1px solid var(--mocha-border)',
             borderLeft: levelIndicator ? `3px solid ${levelIndicator.color}` : undefined,
           }}
         >
           <span
             className="text-xs font-bold tabular-nums font-mono"
-            style={{ color: showRaw ? 'var(--mocha-text-muted)' : '#6b635a' }}
+            style={{ color: 'var(--mocha-accent)' }}
           >
             {String(index + 1).padStart(2, '0')}
           </span>
@@ -376,7 +374,7 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
           style={{
             background: showRaw
               ? 'linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface) 100%)'
-              : 'linear-gradient(145deg, #fdfcfa 0%, #f8f6f2 100%)',
+              : 'transparent',
           }}
         >
           {/* Header */}
@@ -384,7 +382,7 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
             {timestamp && (
               <span
                 className="text-[10px] tracking-wide tabular-nums font-mono"
-                style={{ color: showRaw ? 'var(--mocha-text-muted)' : '#8b8378' }}
+                style={{ color: 'var(--mocha-text-muted)' }}
               >
                 {timestamp}
               </span>
@@ -393,9 +391,7 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
               <span
                 className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"
                 style={{
-                  background: showRaw
-                    ? `color-mix(in srgb, ${levelIndicator.color} 15%, transparent)`
-                    : `color-mix(in srgb, ${levelIndicator.color} 12%, transparent)`,
+                  background: `color-mix(in srgb, ${levelIndicator.color} 15%, transparent)`,
                   color: levelIndicator.color,
                 }}
               >
@@ -405,8 +401,8 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
             <span
               className="text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider font-mono"
               style={{
-                background: showRaw ? 'var(--mocha-surface-hover)' : '#e8e4de',
-                color: showRaw ? 'var(--mocha-text-secondary)' : '#6b635a',
+                background: 'var(--mocha-surface-hover)',
+                color: 'var(--mocha-text-secondary)',
               }}
             >
               {serviceName}
@@ -415,8 +411,8 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
               onClick={() => setShowRaw(!showRaw)}
               className="text-[9px] px-2 py-0.5 rounded font-semibold uppercase tracking-wider cursor-pointer transition-all hover:scale-105"
               style={{
-                background: showRaw ? 'var(--mocha-info-muted)' : 'rgba(0,0,0,0.04)',
-                color: showRaw ? 'var(--mocha-info)' : '#a8a098',
+                background: showRaw ? 'var(--mocha-info-muted)' : 'var(--mocha-surface-active)',
+                color: showRaw ? 'var(--mocha-info)' : 'var(--mocha-text-muted)',
               }}
             >
               {showRaw ? 'RAW' : 'RAW'}
@@ -446,8 +442,8 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
               }}
               className="p-2 rounded-lg transition-all hover:scale-110"
               style={{
-                background: showRaw ? 'var(--mocha-surface-hover)' : 'rgba(0,0,0,0.06)',
-                color: showRaw ? 'var(--mocha-text-secondary)' : '#8b8378',
+                background: 'var(--mocha-surface-hover)',
+                color: 'var(--mocha-text-secondary)',
               }}
               title="Jump to source in log viewer"
             >
@@ -461,8 +457,8 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
             }}
             className="p-2 rounded-lg transition-all hover:scale-110"
             style={{
-              background: showRaw ? 'var(--mocha-surface-hover)' : 'rgba(0,0,0,0.06)',
-              color: showRaw ? 'var(--mocha-text-secondary)' : '#8b8378',
+              background: 'var(--mocha-surface-hover)',
+              color: 'var(--mocha-text-secondary)',
             }}
             title="Remove from logbook"
           >
@@ -628,19 +624,19 @@ export function LogbookView({
     return (
       <div
         className="flex-1 flex items-center justify-center"
-        style={{ background: '#f5f2ed' }}
+        style={{ background: 'var(--mocha-surface)' }}
       >
         <div className="text-center">
-          <BookOpen className="w-12 h-12 mx-auto mb-4" style={{ color: '#8b8378' }} />
-          <p className="text-lg font-medium" style={{ color: '#3d3833' }}>
+          <BookOpen className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--mocha-text-muted)' }} />
+          <p className="text-lg font-medium" style={{ color: 'var(--mocha-text)' }}>
             No logbook selected
           </p>
           <button
             onClick={onClose}
             className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg mx-auto transition-colors"
             style={{
-              background: 'rgba(0,0,0,0.06)',
-              color: '#5a534b',
+              background: 'var(--mocha-surface-hover)',
+              color: 'var(--mocha-text-secondary)',
             }}
           >
             <X className="w-4 h-4" />
@@ -652,13 +648,13 @@ export function LogbookView({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 h-full" style={{ background: '#f5f2ed' }}>
+    <div className="flex-1 flex flex-col min-w-0 h-full" style={{ background: 'var(--mocha-surface)' }}>
       {/* Header */}
       <div
         className="shrink-0 px-4 py-3 flex items-center justify-between"
         style={{
-          background: 'linear-gradient(180deg, #fdfcfa 0%, #f5f2ed 100%)',
-          borderBottom: '1px solid rgba(0,0,0,0.06)',
+          background: 'var(--mocha-surface)',
+          borderBottom: '1px solid var(--mocha-border)',
         }}
       >
         {/* Left side - title */}
@@ -687,9 +683,10 @@ export function LogbookView({
                     setIsEditing(false)
                   }
                 }}
-                className="text-sm font-semibold font-display px-2 py-1 rounded-lg bg-white border outline-none"
+                className="text-sm font-semibold font-display px-2 py-1 rounded-lg border outline-none"
                 style={{
-                  color: '#3d3833',
+                  background: 'var(--mocha-surface-raised)',
+                  color: 'var(--mocha-text)',
                   borderColor: 'var(--mocha-accent)',
                 }}
                 autoFocus
@@ -697,14 +694,14 @@ export function LogbookView({
             ) : (
               <h1
                 className="text-sm font-semibold font-display cursor-pointer hover:opacity-80 transition-opacity"
-                style={{ color: '#3d3833' }}
+                style={{ color: 'var(--mocha-text)' }}
                 onClick={() => setIsEditing(true)}
                 title="Click to rename"
               >
                 {story.name}
               </h1>
             )}
-            <p className="text-[10px]" style={{ color: '#8b8378' }}>
+            <p className="text-[10px]" style={{ color: 'var(--mocha-text-muted)' }}>
               {storyLogs.length} {storyLogs.length === 1 ? 'entry' : 'entries'}
             </p>
           </div>
@@ -721,7 +718,7 @@ export function LogbookView({
             <Search
               className="absolute left-3 w-4 h-4 pointer-events-none transition-colors duration-200"
               style={{
-                color: searchFocused ? 'var(--mocha-accent)' : '#8b8378',
+                color: searchFocused ? 'var(--mocha-accent)' : 'var(--mocha-text-muted)',
               }}
             />
             <input
@@ -743,10 +740,10 @@ export function LogbookView({
               placeholder="Search logbook..."
               className="w-full pl-10 pr-10 py-2.5 text-sm rounded-xl font-mono"
               style={{
-                background: searchFocused ? '#ffffff' : 'rgba(0,0,0,0.04)',
-                border: `1px solid ${searchFocused ? 'var(--mocha-accent)' : 'rgba(0,0,0,0.08)'}`,
-                color: '#3d3833',
-                boxShadow: searchFocused ? '0 0 0 3px var(--mocha-accent-muted), 0 4px 16px rgba(0,0,0,0.1)' : 'none',
+                background: searchFocused ? 'var(--mocha-surface-raised)' : 'var(--mocha-surface-hover)',
+                border: `1px solid ${searchFocused ? 'var(--mocha-accent)' : 'var(--mocha-border)'}`,
+                color: 'var(--mocha-text)',
+                boxShadow: searchFocused ? '0 0 0 3px var(--mocha-accent-muted), 0 4px 16px rgba(0,0,0,0.3)' : 'none',
                 transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
               title="Search logbook (⌘G). Enter for next, Shift+Enter for previous"
@@ -755,8 +752,8 @@ export function LogbookView({
             {searchQuery ? (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 p-1 rounded-md transition-all duration-150 hover:bg-[rgba(0,0,0,0.08)]"
-                style={{ color: '#8b8378' }}
+                className="absolute right-3 p-1 rounded-md transition-all duration-150 hover:bg-[var(--mocha-surface-active)]"
+                style={{ color: 'var(--mocha-text-muted)' }}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -765,8 +762,8 @@ export function LogbookView({
                 <div
                   className="absolute right-3 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
                   style={{
-                    background: 'rgba(0,0,0,0.06)',
-                    color: '#8b8378',
+                    background: 'var(--mocha-surface-active)',
+                    color: 'var(--mocha-text-muted)',
                   }}
                 >
                   <Command className="w-2.5 h-2.5" />
@@ -783,9 +780,9 @@ export function LogbookView({
             style={{
               background: isRegex
                 ? 'linear-gradient(135deg, var(--mocha-accent) 0%, #d49544 100%)'
-                : 'rgba(0,0,0,0.04)',
-              border: `1px solid ${isRegex ? 'var(--mocha-accent)' : 'rgba(0,0,0,0.08)'}`,
-              color: isRegex ? 'var(--mocha-bg)' : '#8b8378',
+                : 'var(--mocha-surface-hover)',
+              border: `1px solid ${isRegex ? 'var(--mocha-accent)' : 'var(--mocha-border)'}`,
+              color: isRegex ? 'var(--mocha-bg)' : 'var(--mocha-text-muted)',
               boxShadow: isRegex ? '0 2px 12px var(--mocha-accent-glow)' : 'none',
             }}
             title="Toggle regex search"
@@ -798,17 +795,17 @@ export function LogbookView({
             <div
               className="flex items-center gap-1 animate-scale-in"
               style={{
-                background: '#ffffff',
-                border: '1px solid rgba(0,0,0,0.08)',
+                background: 'var(--mocha-surface-raised)',
+                border: '1px solid var(--mocha-border)',
                 borderRadius: '12px',
                 padding: '4px',
               }}
             >
               <button
                 onClick={goToPrevMatch}
-                className="p-1.5 rounded-lg transition-all duration-150 hover:bg-[rgba(0,0,0,0.06)]"
+                className="p-1.5 rounded-lg transition-all duration-150 hover:bg-[var(--mocha-surface-active)]"
                 style={{
-                  color: searchMatches.length > 0 ? '#5a534b' : '#a8a098',
+                  color: searchMatches.length > 0 ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)',
                 }}
                 title="Previous match (Shift+Enter)"
                 disabled={searchMatches.length === 0}
@@ -819,7 +816,7 @@ export function LogbookView({
               <span
                 className="text-xs tabular-nums min-w-[3.5rem] text-center font-mono font-medium px-1"
                 style={{
-                  color: searchMatches.length > 0 ? '#5a534b' : 'var(--mocha-error)',
+                  color: searchMatches.length > 0 ? 'var(--mocha-text-secondary)' : 'var(--mocha-error)',
                 }}
               >
                 {searchMatches.length > 0
@@ -829,9 +826,9 @@ export function LogbookView({
 
               <button
                 onClick={goToNextMatch}
-                className="p-1.5 rounded-lg transition-all duration-150 hover:bg-[rgba(0,0,0,0.06)]"
+                className="p-1.5 rounded-lg transition-all duration-150 hover:bg-[var(--mocha-surface-active)]"
                 style={{
-                  color: searchMatches.length > 0 ? '#5a534b' : '#a8a098',
+                  color: searchMatches.length > 0 ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)',
                 }}
                 title="Next match (Enter)"
                 disabled={searchMatches.length === 0}
@@ -850,8 +847,8 @@ export function LogbookView({
                 onClick={handleCopy}
                 className="p-1.5 rounded-lg transition-all hover:scale-105"
                 style={{
-                  background: 'rgba(0,0,0,0.04)',
-                  color: '#5a534b',
+                  background: 'var(--mocha-surface-hover)',
+                  color: 'var(--mocha-text-secondary)',
                 }}
                 title="Copy all entries"
               >
@@ -865,8 +862,8 @@ export function LogbookView({
                 onClick={onClearStory}
                 className="p-1.5 rounded-lg transition-all hover:scale-105"
                 style={{
-                  background: 'rgba(0,0,0,0.04)',
-                  color: '#5a534b',
+                  background: 'var(--mocha-surface-hover)',
+                  color: 'var(--mocha-text-secondary)',
                 }}
                 title="Clear all entries"
               >
@@ -874,13 +871,13 @@ export function LogbookView({
               </button>
             </>
           )}
-          <div className="w-px h-5 mx-1" style={{ background: 'rgba(0,0,0,0.1)' }} />
+          <div className="w-px h-5 mx-1" style={{ background: 'var(--mocha-border)' }} />
           <button
             onClick={onMinimizeToPanel}
             className="p-1.5 rounded-lg transition-all hover:scale-105"
             style={{
-              background: 'rgba(0,0,0,0.04)',
-              color: '#5a534b',
+              background: 'var(--mocha-surface-hover)',
+              color: 'var(--mocha-text-secondary)',
             }}
             title="Minimize to panel"
           >
@@ -890,8 +887,8 @@ export function LogbookView({
             onClick={onClose}
             className="p-1.5 rounded-lg transition-all hover:scale-105"
             style={{
-              background: 'rgba(0,0,0,0.04)',
-              color: '#5a534b',
+              background: 'var(--mocha-surface-hover)',
+              color: 'var(--mocha-text-secondary)',
             }}
             title="Close (Esc)"
           >
@@ -901,33 +898,33 @@ export function LogbookView({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto py-8 px-6 logbook-paper">
+      <div className="flex-1 overflow-y-auto py-8 px-6 logbook-glass">
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center h-full text-center animate-fade-in">
             <div
               className="w-24 h-24 mx-auto mb-6 rounded-2xl flex items-center justify-center"
               style={{
-                background: 'linear-gradient(135deg, #fdfcfa 0%, #f0ece6 100%)',
-                border: '1px solid rgba(0,0,0,0.06)',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                background: 'var(--mocha-surface-raised)',
+                border: '1px solid var(--mocha-border)',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
               }}
             >
-              <BookOpen className="w-12 h-12" style={{ color: '#a8a098' }} />
+              <BookOpen className="w-12 h-12" style={{ color: 'var(--mocha-text-muted)' }} />
             </div>
-            <p className="text-xl font-semibold mb-2 font-display" style={{ color: '#3d3833' }}>
+            <p className="text-xl font-semibold mb-2 font-display" style={{ color: 'var(--mocha-text)' }}>
               Empty Logbook
             </p>
-            <p className="text-sm mb-6" style={{ color: '#8b8378' }}>
+            <p className="text-sm mb-6" style={{ color: 'var(--mocha-text-muted)' }}>
               Click on log lines in the log viewer to add entries
             </p>
             <button
               onClick={onClose}
               className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105"
               style={{
-                background: 'linear-gradient(135deg, #fdfcfa 0%, #f0ece6 100%)',
-                color: '#3d3833',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-                border: '1px solid rgba(0,0,0,0.06)',
+                background: 'var(--mocha-surface-raised)',
+                color: 'var(--mocha-text)',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                border: '1px solid var(--mocha-border)',
               }}
             >
               <X className="w-4 h-4" />
