@@ -47,7 +47,7 @@ function getRowStyle(effectiveLevel?: LogLevel): {
   if (effectiveLevel === 'ERROR') {
     return {
       bg: 'var(--mocha-error-bg)',
-      bgHover: 'rgba(255, 107, 107, 0.12)',
+      bgHover: 'rgba(100, 10, 10, 1)',
       border: 'var(--mocha-error)',
       signal: 'var(--mocha-error)',
     }
@@ -291,10 +291,11 @@ function LogLineComponent({
     : null
 
   // Background based on state priority
+  // Selection uses border, not background, to preserve error/warning colors
   const getBackgroundStyle = () => {
     if (isFlashing) return 'var(--mocha-accent-muted)'
     if (isCurrentMatch) return 'var(--mocha-accent-muted)'
-    if (isInStory) return 'var(--mocha-selection)'
+    // For in-story lines, keep the original error/warning background
     if (isHovered) return rowStyle.bgHover
     return rowStyle.bg
   }
@@ -308,6 +309,7 @@ function LogLineComponent({
         group relative flex cursor-pointer transition-all duration-150
         ${isCurrentMatch ? 'ring-1 ring-inset ring-[var(--mocha-accent)]' : ''}
         ${isFlashing ? 'animate-flash-highlight' : ''}
+        ${isInStory ? 'ring-1 ring-inset ring-[var(--mocha-info)]' : ''}
       `}
       style={{
         background: getBackgroundStyle(),
@@ -318,22 +320,23 @@ function LogLineComponent({
       data-in-story={isInStory}
     >
       {/* Signal line - colored left border */}
+      {/* Preserve error/warning signal even when in story */}
       <div
         className="w-[3px] shrink-0 transition-all duration-150"
         style={{
-          background: isInStory
-            ? 'var(--mocha-info)'
-            : isHovered
-              ? rowStyle.signal
-              : effectiveLevel === 'ERROR' || effectiveLevel === 'WARN'
+          background: effectiveLevel === 'ERROR' || effectiveLevel === 'WARN'
+            ? rowStyle.signal
+            : isInStory
+              ? 'var(--mocha-info)'
+              : isHovered
                 ? rowStyle.signal
                 : 'transparent',
-          boxShadow: isInStory
-            ? '0 0 8px var(--mocha-selection-glow)'
-            : effectiveLevel === 'ERROR'
-              ? '0 0 6px var(--mocha-error-glow)'
-              : effectiveLevel === 'WARN'
-                ? '0 0 4px var(--mocha-warning-glow)'
+          boxShadow: effectiveLevel === 'ERROR'
+            ? '0 0 6px var(--mocha-error-glow)'
+            : effectiveLevel === 'WARN'
+              ? '0 0 4px var(--mocha-warning-glow)'
+              : isInStory
+                ? '0 0 8px var(--mocha-selection-glow)'
                 : 'none',
         }}
       />

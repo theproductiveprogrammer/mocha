@@ -89,10 +89,10 @@
   --mocha-info-muted: rgba(78, 205, 196, 0.15);
 
   /* Semantic - Error */
-  --mocha-error: #ff6b6b;
-  --mocha-error-bg: rgba(255, 107, 107, 0.08);
-  --mocha-error-border: rgba(255, 107, 107, 0.2);
-  --mocha-error-glow: rgba(255, 107, 107, 0.3);
+  --mocha-error: #fb3e3e;
+  --mocha-error-bg: rgba(84, 3, 3, 1);
+  --mocha-error-border: rgba(251, 62, 62, 0.4);
+  --mocha-error-glow: rgba(251, 62, 62, 0.5);
 
   /* Semantic - Warning */
   --mocha-warning: #ffd93d;
