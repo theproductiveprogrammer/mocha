@@ -99,8 +99,12 @@ export function LogViewer({
   const filteredLogs = useMemo(() => {
     const filtered = filterLogs(logs, filters, inactiveNames)
 
-    // Sort by timestamp descending (newest first)
-    const sorted = [...filtered].sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
+    // Sort by timestamp descending (newest first), then by sortIndex descending for stable ordering
+    const sorted = [...filtered].sort((a, b) => {
+      const timestampDiff = (b.timestamp ?? 0) - (a.timestamp ?? 0)
+      if (timestampDiff !== 0) return timestampDiff
+      return (b.sortIndex ?? 0) - (a.sortIndex ?? 0)
+    })
 
     // Group consecutive logs, keeping chronological order within groups
     const result: LogEntry[] = []
