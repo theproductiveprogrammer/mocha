@@ -172,6 +172,15 @@
   --logbook-selected-text: var(--mocha-info);
   --logbook-selected-icon-bg: rgba(78, 205, 196, 0.2);
 
+  /* Empty state CTA button - bold gradient for dark theme */
+  --cta-bg: linear-gradient(135deg, var(--mocha-accent) 0%, #d49544 100%);
+  --cta-bg-hover: linear-gradient(135deg, var(--mocha-accent-hover) 0%, var(--mocha-accent) 100%);
+  --cta-border: transparent;
+  --cta-border-hover: transparent;
+  --cta-text: var(--mocha-bg);
+  --cta-shadow: 0 4px 24px var(--mocha-accent-glow), 0 8px 32px rgba(0,0,0,0.2);
+  --cta-shadow-hover: 0 6px 28px var(--mocha-accent-glow), 0 10px 40px rgba(0,0,0,0.25);
+
   color-scheme: dark;
   color: var(--mocha-text);
   background-color: var(--mocha-bg);
@@ -272,6 +281,15 @@
   --logbook-selected-border: rgba(0, 137, 123, 0.25);
   --logbook-selected-text: var(--mocha-info);
   --logbook-selected-icon-bg: rgba(0, 137, 123, 0.12);
+
+  /* Empty state CTA button - soft outlined style for light theme */
+  --cta-bg: rgba(109, 76, 65, 0.08);
+  --cta-bg-hover: rgba(109, 76, 65, 0.12);
+  --cta-border: rgba(109, 76, 65, 0.25);
+  --cta-border-hover: rgba(109, 76, 65, 0.4);
+  --cta-text: #5d4037;
+  --cta-shadow: 0 2px 12px rgba(109, 76, 65, 0.08);
+  --cta-shadow-hover: 0 4px 20px rgba(109, 76, 65, 0.15);
 
   color-scheme: light;
   color: var(--mocha-text);
@@ -375,6 +393,15 @@
     --logbook-selected-text: var(--mocha-info);
     --logbook-selected-icon-bg: rgba(0, 137, 123, 0.12);
 
+    /* Empty state CTA button - soft outlined style for light theme */
+    --cta-bg: rgba(109, 76, 65, 0.08);
+    --cta-bg-hover: rgba(109, 76, 65, 0.12);
+    --cta-border: rgba(109, 76, 65, 0.25);
+    --cta-border-hover: rgba(109, 76, 65, 0.4);
+    --cta-text: #5d4037;
+    --cta-shadow: 0 2px 12px rgba(109, 76, 65, 0.08);
+    --cta-shadow-hover: 0 4px 20px rgba(109, 76, 65, 0.15);
+
     color-scheme: light;
     color: var(--mocha-text);
     background-color: var(--mocha-bg);
@@ -472,6 +499,15 @@
     --logbook-selected-border: rgba(78, 205, 196, 0.3);
     --logbook-selected-text: var(--mocha-info);
     --logbook-selected-icon-bg: rgba(78, 205, 196, 0.2);
+
+    /* Empty state CTA button - bold gradient for dark theme */
+    --cta-bg: linear-gradient(135deg, #e8a854 0%, #d49544 100%);
+    --cta-bg-hover: linear-gradient(135deg, #f0b864 0%, #e8a854 100%);
+    --cta-border: transparent;
+    --cta-border-hover: transparent;
+    --cta-text: #08090c;
+    --cta-shadow: 0 4px 24px rgba(232, 168, 84, 0.4), 0 8px 32px rgba(0,0,0,0.2);
+    --cta-shadow-hover: 0 6px 28px rgba(232, 168, 84, 0.4), 0 10px 40px rgba(0,0,0,0.25);
 
     color-scheme: dark;
     color: var(--mocha-text);
@@ -918,6 +954,20 @@ button:active {
   background: var(--mocha-surface-hover);
   border-color: var(--mocha-border-strong);
   color: var(--mocha-text);
+}
+
+/* Empty state CTA button - theme-aware styling */
+.empty-cta-btn {
+  background: var(--cta-bg);
+  color: var(--cta-text);
+  border: 1px solid var(--cta-border);
+  box-shadow: var(--cta-shadow);
+}
+
+.empty-cta-btn:hover {
+  background: var(--cta-bg-hover);
+  border-color: var(--cta-border-hover);
+  box-shadow: var(--cta-shadow-hover);
 }
 
 /* ========================================

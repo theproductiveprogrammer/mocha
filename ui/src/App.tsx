@@ -890,12 +890,7 @@ function App() {
 
                     <button
                       onClick={() => handleOpenFile()}
-                      className="group px-8 py-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-3 mx-auto transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
-                      style={{
-                        background: 'linear-gradient(135deg, var(--mocha-accent) 0%, #d49544 100%)',
-                        color: 'var(--mocha-bg)',
-                        boxShadow: '0 4px 24px var(--mocha-accent-glow), 0 8px 32px rgba(0,0,0,0.2)',
-                      }}
+                      className="group empty-cta-btn px-8 py-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-3 mx-auto transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
                       data-testid="open-file-btn"
                     >
                       <Zap className="w-5 h-5 transition-transform duration-300 group-hover:rotate-12" />
