@@ -95,6 +95,9 @@ function App() {
   // Remove animation state - tracks hash being removed for scroll-then-fade animation
   const [removingHash, setRemovingHash] = useState<string | null>(null)
 
+  // Logbook scroll-to-entry state (for opening logbook at specific entry in raw mode)
+  const [logbookScrollToHash, setLogbookScrollToHash] = useState<string | null>(null)
+
   // Ensure openedFiles is a Map (handles hydration)
   const safeOpenedFiles = useMemo(
     () => (openedFiles instanceof Map ? openedFiles : new Map<string, OpenedFileWithLogs>()),
@@ -121,8 +124,12 @@ function App() {
   // Story logs come directly from the story (independent of loaded files)
   const storyLogs = useMemo(() => {
     const entries = activeStory?.entries || []
-    // Sort by timestamp (chronological order)
-    return [...entries].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0))
+    // Sort by timestamp ascending (chronological order), then by sortIndex for stable ordering
+    return [...entries].sort((a, b) => {
+      const timestampDiff = (a.timestamp ?? 0) - (b.timestamp ?? 0)
+      if (timestampDiff !== 0) return timestampDiff
+      return (a.sortIndex ?? 0) - (b.sortIndex ?? 0)
+    })
   }, [activeStory])
 
   // Filter logs for display (apply filters)
@@ -755,6 +762,9 @@ function App() {
                 onClearStory={clearStory}
                 onRenameStory={renameStory}
                 onJumpToSource={handleJumpToSource}
+                scrollToHash={logbookScrollToHash}
+                initialRawHash={logbookScrollToHash}
+                onScrollComplete={() => setLogbookScrollToHash(null)}
               />
             ) : (
             /* Log viewer container */
@@ -940,6 +950,10 @@ function App() {
                   if (activeStoryId) {
                     setMainViewMode('logbook')
                   }
+                }}
+                onOpenAtEntry={(hash) => {
+                  setLogbookScrollToHash(hash)
+                  setMainViewMode('logbook')
                 }}
                 onJumpToSource={handleJumpToSource}
                 scrollRef={storyPaneScrollRef}

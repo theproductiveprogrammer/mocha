@@ -96,6 +96,9 @@ interface LogbookViewProps {
   onClearStory: () => void
   onRenameStory: (id: string, name: string) => void
   onJumpToSource?: (log: LogEntry) => void
+  scrollToHash?: string | null  // Hash of entry to scroll to on mount
+  initialRawHash?: string | null  // Hash of entry to show in raw mode initially
+  onScrollComplete?: () => void  // Called after scrolling is complete
 }
 
 /**
@@ -279,6 +282,7 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
   isCurrentMatch,
   isRemoving,
   cardRef,
+  initialShowRaw,
 }: {
   log: LogEntry
   index: number
@@ -289,8 +293,10 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
   isCurrentMatch?: boolean
   isRemoving?: boolean
   cardRef?: (el: HTMLDivElement | null) => void
+  initialShowRaw?: boolean
 }) {
-  const [showRaw, setShowRaw] = useState(false)
+  const [showRaw, setShowRaw] = useState(initialShowRaw ?? false)
+  const [copied, setCopied] = useState(false)
   const serviceName = getServiceName(log)
   const content = log.parsed?.content || log.data
   const timestamp = log.parsed?.timestamp
@@ -342,6 +348,13 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
     } catch {
       return text
     }
+  }
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(log.data)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
   }
 
   return (
@@ -434,6 +447,17 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
 
         {/* Action buttons */}
         <div className="absolute right-4 top-4 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200">
+          <button
+            onClick={handleCopy}
+            className="p-2 rounded-lg transition-all hover:scale-110"
+            style={{
+              background: 'var(--mocha-surface-hover)',
+              color: copied ? 'var(--mocha-success)' : 'var(--mocha-text-secondary)',
+            }}
+            title="Copy log line"
+          >
+            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          </button>
           {onJumpToSource && (
             <button
               onClick={(e) => {
@@ -481,6 +505,9 @@ export function LogbookView({
   onClearStory,
   onRenameStory,
   onJumpToSource,
+  scrollToHash,
+  initialRawHash,
+  onScrollComplete,
 }: LogbookViewProps) {
   const [copyFeedback, setCopyFeedback] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -493,8 +520,17 @@ export function LogbookView({
   const [searchFocused, setSearchFocused] = useState(false)
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const scrolledToInitialHash = useRef(false)
 
-  const storyLogs = story?.entries || []
+  // Sort logs by timestamp ascending (chronological order, oldest first), then by sortIndex for stable ordering
+  const storyLogs = useMemo(() => {
+    const entries = story?.entries || []
+    return [...entries].sort((a, b) => {
+      const timestampDiff = (a.timestamp ?? 0) - (b.timestamp ?? 0)
+      if (timestampDiff !== 0) return timestampDiff
+      return (a.sortIndex ?? 0) - (b.sortIndex ?? 0)
+    })
+  }, [story?.entries])
 
   // Removing animation state
   const [removingHash, setRemovingHash] = useState<string | null>(null)
@@ -537,6 +573,21 @@ export function LogbookView({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [searchFocused, isEditing, onClose])
+
+  // Scroll to initial entry on mount
+  useEffect(() => {
+    if (scrollToHash && !scrolledToInitialHash.current) {
+      // Wait for cards to render
+      setTimeout(() => {
+        const card = cardRefs.current.get(scrollToHash)
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          scrolledToInitialHash.current = true
+          onScrollComplete?.()
+        }
+      }, 100)
+    }
+  }, [scrollToHash, onScrollComplete])
 
   // Find matches
   const searchMatches = useMemo(() => {
@@ -953,6 +1004,7 @@ export function LogbookView({
                     cardRefs.current.set(log.hash, el)
                   }
                 }}
+                initialShowRaw={log.hash === initialRawHash}
               />
             ))}
           </div>

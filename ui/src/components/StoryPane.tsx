@@ -23,6 +23,7 @@ interface StoryPaneProps {
   onWidthChange: (width: number) => void;
   onToggleCollapsed: () => void;
   onOpenFullView: () => void;
+  onOpenAtEntry: (hash: string) => void;  // Open logbook view scrolled to this entry in raw mode
   onJumpToSource: (log: LogEntry) => void;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
 }
@@ -35,14 +36,17 @@ const EvidenceCard = memo(function EvidenceCard({
   index,
   onRemove,
   onJumpToSource,
+  onOpenAtEntry,
   isRemoving,
 }: {
   log: LogEntry;
   index: number;
   onRemove: () => void;
   onJumpToSource: () => void;
+  onOpenAtEntry: () => void;
   isRemoving?: boolean;
 }) {
+  const [copied, setCopied] = useState(false);
   const serviceName = getServiceName(log);
   const content = log.parsed?.content || log.data;
   const timestamp = log.parsed?.timestamp
@@ -63,16 +67,24 @@ const EvidenceCard = memo(function EvidenceCard({
   // Get first line only for compact display
   const firstLine = content.split("\n")[0] || content;
 
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(log.data);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
   return (
     <div
       className={`group relative transition-all duration-500 ease-out ${isRemoving ? "opacity-0 scale-90 -translate-x-4" : "opacity-100 scale-100 translate-x-0"}`}
       data-story-hash={log.hash}
     >
       <div
-        className={`relative mx-2 mb-2 rounded-lg overflow-hidden transition-all duration-200 logbook-card ${isRemoving ? "ring-2 ring-[var(--mocha-error)]" : ""}`}
+        className={`relative mx-2 mb-2 rounded-lg overflow-hidden transition-all duration-200 logbook-card cursor-pointer ${isRemoving ? "ring-2 ring-[var(--mocha-error)]" : ""}`}
         style={{
           borderLeft: levelIndicator ? `3px solid ${levelIndicator.color}` : "3px solid transparent",
         }}
+        onClick={onOpenAtEntry}
       >
         <div className="px-3 py-2.5">
           {/* Compact header */}
@@ -119,6 +131,14 @@ const EvidenceCard = memo(function EvidenceCard({
 
         {/* Action buttons on hover */}
         <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all duration-150">
+          <button
+            onClick={handleCopy}
+            className="p-1 rounded hover:scale-110 transition-all duration-150"
+            style={{ background: "var(--mocha-surface-hover)", color: copied ? "var(--mocha-success)" : "var(--mocha-text-secondary)" }}
+            title="Copy log line"
+          >
+            {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -214,6 +234,7 @@ export function StoryPane({
   onWidthChange,
   onToggleCollapsed,
   onOpenFullView,
+  onOpenAtEntry,
   onJumpToSource,
   scrollRef,
 }: StoryPaneProps) {
@@ -401,6 +422,7 @@ export function StoryPane({
                     index={index}
                     onRemove={() => log.hash && onRemove(log.hash)}
                     onJumpToSource={() => onJumpToSource(log)}
+                    onOpenAtEntry={() => log.hash && onOpenAtEntry(log.hash)}
                     isRemoving={log.hash === removingHash}
                   />
                 ))}
