@@ -440,7 +440,7 @@ export const useFileStore = create<FileState>()(
 
       /**
        * Open a file (add to map or update if exists).
-       * New files default to isActive: true.
+       * All opened files are shown in the merged view.
        */
       openFile: (file: OpenedFileWithLogs) => {
         const { openedFiles } = get()
@@ -450,15 +450,14 @@ export const useFileStore = create<FileState>()(
       },
 
       /**
-       * Toggle a file's active state (visible/hidden in merged view).
+       * Close a file (remove from opened files, keep in recent).
        */
-      toggleFileActive: (path: string) => {
+      closeFile: (path: string) => {
         const { openedFiles } = get()
-        const file = openedFiles.get(path)
-        if (!file) return
+        if (!openedFiles.has(path)) return
 
         const newMap = new Map(openedFiles)
-        newMap.set(path, { ...file, isActive: !file.isActive })
+        newMap.delete(path)
         set({ openedFiles: newMap })
       },
 

@@ -64,7 +64,7 @@ function App() {
     isLoading,
     error,
     openFile,
-    toggleFileActive,
+    closeFile,
     setRecentFiles,
     addRecentFile: addRecentFileToStore,
     removeRecentFile,
@@ -108,14 +108,12 @@ function App() {
     [openedFiles]
   )
 
-  // Merged logs from all active files, sorted by (timestamp, sortIndex)
+  // Merged logs from all open files, sorted by (timestamp, sortIndex)
   // sortIndex ensures stable ordering for lines without parseable timestamps
   const mergedLogs = useMemo(() => {
     const allLogs: LogEntry[] = []
     safeOpenedFiles.forEach((file) => {
-      if (file.isActive) {
-        allLogs.push(...file.logs)
-      }
+      allLogs.push(...file.logs)
     })
     // Sort by timestamp first, then by sortIndex for stable ordering within same timestamp
     return allLogs.sort((a, b) => {
@@ -302,13 +300,9 @@ function App() {
     }, 500)
   }, [removeFromStory])
 
-  // Count of active files
+  // Count of open files (all open files are now shown)
   const activeFileCount = useMemo(() => {
-    let count = 0
-    safeOpenedFiles.forEach((file) => {
-      if (file.isActive) count++
-    })
-    return count
+    return safeOpenedFiles.size
   }, [safeOpenedFiles])
 
   // Load recent files on mount
@@ -333,10 +327,7 @@ function App() {
       // Check if file is already opened
       const existing = safeOpenedFiles.get(path)
       if (existing) {
-        // File already open - just ensure it's active
-        if (!existing.isActive) {
-          toggleFileActive(path)
-        }
+        // File already open - nothing to do
         return
       }
 
@@ -377,7 +368,6 @@ function App() {
           name: fileName,
           size: fileSize,
           logs: parsed.logs,
-          isActive: true,
           lastModified: fileSize,
           mtime: result.mtime,
         }
@@ -419,7 +409,7 @@ function App() {
         fileInputRef.current?.click()
       }
     }
-  }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, addRecentFileToStore])
+  }, [safeOpenedFiles, openFile, setLoading, setError, addRecentFileToStore])
 
   // Jump to source from logbook - open file if needed, minimize logbook and scroll to the log
   const handleJumpToSource = useCallback(async (log: LogEntry) => {
@@ -441,9 +431,8 @@ function App() {
       }
     }
 
-    // Check if the file is currently open and active
+    // Check if the file is currently open
     const openedFile = filePath ? safeOpenedFiles.get(filePath) : null
-    const isFileOpenAndActive = openedFile?.isActive
 
     if (filePath && !openedFile) {
       // File is not open - need to open it first
@@ -453,19 +442,11 @@ function App() {
       setTimeout(() => {
         setJumpToHash(hash)
       }, 300)
-    } else if (openedFile && !isFileOpenAndActive) {
-      // File is open but not active - activate it first
-      toggleFileActive(filePath!)
-
-      // Wait for re-render, then scroll
-      setTimeout(() => {
-        setJumpToHash(hash)
-      }, 100)
     } else {
-      // File is already open and active - just scroll
+      // File is already open - just scroll
       setJumpToHash(hash)
     }
-  }, [mainViewMode, setMainViewMode, safeOpenedFiles, recentFiles, handleOpenFile, toggleFileActive])
+  }, [mainViewMode, setMainViewMode, safeOpenedFiles, recentFiles, handleOpenFile])
 
   // Clear jump hash after scroll completes
   const handleJumpComplete = useCallback(() => {
@@ -480,9 +461,7 @@ function App() {
     // Check if file is already opened
     const existing = safeOpenedFiles.get(file.name)
     if (existing) {
-      if (!existing.isActive) {
-        toggleFileActive(file.name)
-      }
+      // File already open - nothing to do
       e.target.value = ''
       return
     }
@@ -501,7 +480,6 @@ function App() {
           name: file.name,
           size: content.length,
           logs: parsed.logs,
-          isActive: true,
           lastModified: content.length,
         }
         openFile(newFile)
@@ -522,7 +500,7 @@ function App() {
     }
     reader.readAsText(file)
     e.target.value = ''
-  }, [safeOpenedFiles, openFile, toggleFileActive, setLoading, setError, addRecentFileToStore])
+  }, [safeOpenedFiles, openFile, setLoading, setError, addRecentFileToStore])
 
   // Tauri drag/drop event listener - uses native file paths for recent files persistence
   useEffect(() => {
@@ -557,7 +535,7 @@ function App() {
     }
   }, [handleOpenFile])
 
-  // Handle clicking a file in sidebar - toggle if open, open if not
+  // Handle clicking a file in sidebar - open if not already open
   const handleSelectFile = useCallback((path?: string) => {
     if (!path) {
       handleOpenFile()
@@ -565,19 +543,18 @@ function App() {
     }
 
     const existing = safeOpenedFiles.get(path)
-    if (existing) {
-      // File is already opened - toggle its active state
-      toggleFileActive(path)
-    } else {
+    if (!existing) {
       // File not opened - open it
       handleOpenFile(path)
     }
-  }, [safeOpenedFiles, handleOpenFile, toggleFileActive])
+    // If already open, do nothing (Sidebar handles close via onCloseFile)
+  }, [safeOpenedFiles, handleOpenFile])
 
-  // Toggle a file's active state (called from sidebar)
-  const handleToggleFile = useCallback((path: string) => {
-    toggleFileActive(path)
-  }, [toggleFileActive])
+  // Close a file (called from sidebar when clicking an open file)
+  const handleCloseFile = useCallback((path: string) => {
+    closeFile(path)
+    useToastStore.getState().addToast('removed', `Closed: ${recentFiles.find(f => f.path === path)?.name || path.split('/').pop() || 'file'}`)
+  }, [closeFile, recentFiles])
 
   const handleClearRecent = useCallback(() => {
     setRecentFiles([])
@@ -592,26 +569,26 @@ function App() {
     useToastStore.getState().addToast('removed', `Removed: ${fileName}`)
   }, [removeRecentFile, recentFiles])
 
-  // Polling effect for active files
+  // Polling effect for open files
   // Note: We get fresh state inside the callback to avoid stale closure issues
   // that could cause lines to be skipped or duplicated
   useEffect(() => {
     if (!isTauri()) return
 
-    // Only run polling if we have active files (quick check)
-    const hasActiveFiles = Array.from(safeOpenedFiles.values()).some(
-      f => f.isActive && f.path.startsWith('/')
+    // Only run polling if we have open files (quick check)
+    const hasOpenFiles = Array.from(safeOpenedFiles.values()).some(
+      f => f.path.startsWith('/')
     )
-    if (!hasActiveFiles) return
+    if (!hasOpenFiles) return
 
     const pollInterval = window.setInterval(async () => {
       // Get FRESH state inside callback to avoid stale closures
       const currentFiles = useFileStore.getState().openedFiles
-      const activeFiles = Array.from(currentFiles.values()).filter(
-        f => f.isActive && f.path.startsWith('/')
+      const openFiles = Array.from(currentFiles.values()).filter(
+        f => f.path.startsWith('/')
       )
 
-      for (const file of activeFiles) {
+      for (const file of openFiles) {
         try {
           const result = await readFile(file.path, file.lastModified)
           if (!result.success) continue
@@ -662,7 +639,7 @@ function App() {
           }
           handleSelectFile(path)
         }}
-        onToggleFile={handleToggleFile}
+        onCloseFile={handleCloseFile}
         onRemoveFile={handleRemoveFile}
         onClearRecent={handleClearRecent}
         // Logbook management

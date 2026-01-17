@@ -6,7 +6,6 @@ import {
   Trash2,
   Check,
   X,
-  Radio,
   ChevronRight,
   PanelLeftClose,
   PanelLeft,
@@ -104,8 +103,7 @@ const RecentFileItem = memo(function RecentFileItem({
   isHighlighted,
 }: RecentFileItemProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const isOpened = !!openedFile;
-  const isActive = openedFile?.isActive ?? false;
+  const isOpen = !!openedFile;
 
   const handleRemove = useCallback(
     (e: React.MouseEvent) => {
@@ -126,25 +124,18 @@ const RecentFileItem = memo(function RecentFileItem({
           onClick={onClick}
           className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 mx-auto ${isHighlighted ? 'animate-file-added' : ''}`}
           style={{
-            background: isActive
+            background: isOpen
               ? "var(--mocha-info)"
-              : isOpened
-                ? "var(--mocha-surface-active)"
-                : "var(--mocha-surface-raised)",
-            boxShadow: isActive
+              : "var(--mocha-surface-raised)",
+            boxShadow: isOpen
               ? "0 0 12px var(--mocha-selection-glow)"
               : "none",
           }}
           title={file.name}
           data-testid={`recent-file-${file.name}`}
         >
-          {isActive ? (
+          {isOpen ? (
             <Check className="w-4 h-4" style={{ color: "var(--mocha-bg)" }} />
-          ) : isOpened ? (
-            <Radio
-              className="w-4 h-4"
-              style={{ color: "var(--mocha-text-muted)" }}
-            />
           ) : (
             <FileText
               className="w-4 h-4"
@@ -168,14 +159,12 @@ const RecentFileItem = memo(function RecentFileItem({
         onClick={onClick}
         className={`w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 flex items-center gap-3 ${isHighlighted ? 'animate-file-added' : ''}`}
         style={{
-          background: isActive
+          background: isOpen
             ? "var(--mocha-selection)"
-            : isOpened
-              ? "var(--mocha-surface-raised)"
-              : isHovered
-                ? "var(--mocha-surface-hover)"
-                : "transparent",
-          border: isActive
+            : isHovered
+              ? "var(--mocha-surface-hover)"
+              : "transparent",
+          border: isOpen
             ? "1px solid var(--mocha-selection-border)"
             : "1px solid transparent",
         }}
@@ -186,23 +175,16 @@ const RecentFileItem = memo(function RecentFileItem({
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200"
           style={{
-            background: isActive
+            background: isOpen
               ? "var(--mocha-info)"
-              : isOpened
-                ? "var(--mocha-surface-active)"
-                : "var(--mocha-surface-raised)",
-            boxShadow: isActive
+              : "var(--mocha-surface-raised)",
+            boxShadow: isOpen
               ? "0 0 12px var(--mocha-selection-glow)"
               : "none",
           }}
         >
-          {isActive ? (
+          {isOpen ? (
             <Check className="w-4 h-4" style={{ color: "var(--mocha-bg)" }} />
-          ) : isOpened ? (
-            <Radio
-              className="w-4 h-4"
-              style={{ color: "var(--mocha-text-muted)" }}
-            />
           ) : (
             <FileText
               className="w-4 h-4"
@@ -216,11 +198,9 @@ const RecentFileItem = memo(function RecentFileItem({
           <div
             className="font-medium text-sm truncate transition-colors duration-200"
             style={{
-              color: isActive
+              color: isOpen
                 ? "var(--mocha-info)"
-                : isOpened
-                  ? "var(--mocha-text)"
-                  : "var(--mocha-text-secondary)",
+                : "var(--mocha-text-secondary)",
             }}
           >
             {file.name}
@@ -567,7 +547,7 @@ export const Sidebar = memo(function Sidebar({
   recentFiles,
   openedFiles,
   onSelectFile,
-  onToggleFile,
+  onCloseFile,
   onRemoveFile,
   onClearRecent,
   // Logbook management
@@ -587,10 +567,7 @@ export const Sidebar = memo(function Sidebar({
   // Highlight newly added file
   highlightedFilePath,
 }: SidebarProps) {
-  const activeCount = Array.from(openedFiles.values()).filter(
-    (f) => f.isActive,
-  ).length;
-  const openedCount = openedFiles.size;
+  const openCount = openedFiles.size;
 
   // Section collapse states
   const [logbooksExpanded, setLogbooksExpanded] = useState(true);
@@ -913,7 +890,7 @@ export const Sidebar = memo(function Sidebar({
                         isHighlighted={file.path === highlightedFilePath}
                         onClick={() => {
                           if (openedFile) {
-                            onToggleFile(file.path);
+                            onCloseFile(file.path);
                           } else {
                             onSelectFile(file.path);
                           }
@@ -992,7 +969,7 @@ export const Sidebar = memo(function Sidebar({
           {/* Status - only show when expanded */}
           {!isCollapsed && (
             <div className="flex-1 flex justify-center">
-              {openedCount > 0 ? (
+              {openCount > 0 ? (
                 <div
                   className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
                   style={{
@@ -1005,7 +982,7 @@ export const Sidebar = memo(function Sidebar({
                     className="w-2 h-2 rounded-full animate-pulse"
                     style={{ background: "var(--mocha-info)" }}
                   />
-                  {activeCount} of {openedCount} active
+                  {openCount} {openCount === 1 ? "file" : "files"} open
                 </div>
               ) : recentFiles.length > 0 ? (
                 <p

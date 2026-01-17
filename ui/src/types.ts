@@ -111,12 +111,12 @@ export interface OpenedFile {
 }
 
 /**
- * An opened file with its parsed logs and active state.
+ * An opened file with its parsed logs.
  * Used for multi-file viewing where multiple files can be open simultaneously.
+ * All opened files are shown in the merged view (no inactive state).
  */
 export interface OpenedFileWithLogs extends OpenedFile {
   logs: LogEntry[];       // Parsed log entries from this file
-  isActive: boolean;      // Whether logs are shown in merged view
   lastModified: number;   // For polling - last known file size
   mtime?: number;         // File modification time (Unix millis)
 }
@@ -279,7 +279,7 @@ export interface FileState {
 
   // Actions
   openFile: (file: OpenedFileWithLogs) => void;
-  toggleFileActive: (path: string) => void;
+  closeFile: (path: string) => void;
   updateFileLogs: (path: string, logs: LogEntry[]) => void;
   appendFileLogs: (path: string, newLogs: LogEntry[], newSize?: number) => void;
   setRecentFiles: (files: RecentFile[]) => void;
@@ -302,7 +302,7 @@ export interface SidebarProps {
   recentFiles: RecentFile[];
   openedFiles: Map<string, OpenedFileWithLogs>;
   onSelectFile: (path?: string) => void;
-  onToggleFile: (path: string) => void;
+  onCloseFile: (path: string) => void;
   onRemoveFile: (path: string) => void;
   onClearRecent: () => void;
 
