@@ -167,6 +167,36 @@ export interface ParsedFilter {
 }
 
 // ============================================================================
+// Theme Types
+// ============================================================================
+
+/**
+ * Available theme names
+ * - 'observatory': Dark theme - deep space control room with amber glows
+ * - 'morning-brew': Light theme - warm café workspace with espresso accents
+ * - 'system': Auto-detect based on OS preference
+ */
+export type ThemeName = 'observatory' | 'morning-brew' | 'system';
+
+/**
+ * Theme metadata for UI display
+ */
+export interface ThemeInfo {
+  id: ThemeName;
+  name: string;
+  description: string;
+  isDark: boolean | 'system';
+}
+
+/**
+ * Settings store state for app-wide settings
+ */
+export interface SettingsState {
+  theme: ThemeName;
+  setTheme: (theme: ThemeName) => void;
+}
+
+// ============================================================================
 // Store State Types (Zustand)
 // ============================================================================
 
@@ -284,6 +314,10 @@ export interface SidebarProps {
   onCreateLogbook: (name?: string) => void;
   onDeleteLogbook: (id: string) => void;
   onRenameLogbook: (id: string, name: string) => void;
+
+  // Theme
+  theme: ThemeName;
+  onThemeChange: (theme: ThemeName) => void;
 
   // UI state
   isCollapsed: boolean;

@@ -1,6 +1,15 @@
 import { memo, useCallback, useMemo, useState } from 'react'
-import { FolderOpen, FileText, Clock, Trash2, Check, X, Radio, ChevronRight, PanelLeftClose, PanelLeft, BookOpen, Plus, ChevronDown } from 'lucide-react'
-import type { SidebarProps, RecentFile, OpenedFileWithLogs, Story } from '../types'
+import { FolderOpen, FileText, Clock, Trash2, Check, X, Radio, ChevronRight, PanelLeftClose, PanelLeft, BookOpen, Plus, ChevronDown, Moon, Sun, Monitor } from 'lucide-react'
+import type { SidebarProps, RecentFile, OpenedFileWithLogs, Story, ThemeName } from '../types'
+
+/**
+ * Theme definitions for the selector
+ */
+const THEMES: { id: ThemeName; name: string; icon: typeof Moon; description: string }[] = [
+  { id: 'system', name: 'System', icon: Monitor, description: 'Follow OS setting' },
+  { id: 'observatory', name: 'Observatory', icon: Moon, description: 'Dark theme' },
+  { id: 'morning-brew', name: 'Morning Brew', icon: Sun, description: 'Light theme' },
+]
 
 /**
  * Format a timestamp as relative time
@@ -273,12 +282,12 @@ const LogbookItem = memo(function LogbookItem({
           className="w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 mx-auto relative"
           style={{
             background: isSelected
-              ? 'linear-gradient(135deg, #fdfcfa 0%, #f0ece6 100%)'
+              ? 'var(--logbook-selected-bg)'
               : isActive
                 ? 'var(--mocha-accent-muted)'
                 : 'var(--mocha-surface-raised)',
             border: isSelected
-              ? '1px solid rgba(0,0,0,0.1)'
+              ? '1px solid var(--logbook-selected-border)'
               : isActive
                 ? '1px solid var(--mocha-accent)'
                 : '1px solid var(--mocha-border)',
@@ -287,14 +296,14 @@ const LogbookItem = memo(function LogbookItem({
         >
           <BookOpen
             className="w-4 h-4"
-            style={{ color: isSelected ? '#5a544d' : isActive ? 'var(--mocha-accent)' : 'var(--mocha-text-muted)' }}
+            style={{ color: isSelected ? 'var(--logbook-selected-text)' : isActive ? 'var(--mocha-accent)' : 'var(--mocha-text-muted)' }}
           />
           {story.entries.length > 0 && (
             <span
               className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full text-[9px] font-bold flex items-center justify-center px-1"
               style={{
-                background: isSelected ? '#3d3833' : 'var(--mocha-accent)',
-                color: isSelected ? '#fdfcfa' : 'var(--mocha-bg)',
+                background: isSelected ? 'var(--mocha-info)' : 'var(--mocha-accent)',
+                color: 'var(--mocha-bg)',
               }}
             >
               {story.entries.length}
@@ -319,19 +328,19 @@ const LogbookItem = memo(function LogbookItem({
         className="w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 flex items-center gap-3"
         style={{
           background: isSelected
-            ? 'linear-gradient(135deg, #fdfcfa 0%, #f0ece6 100%)'
+            ? 'var(--logbook-selected-bg)'
             : isActive
               ? 'var(--mocha-accent-muted)'
               : isHovered
                 ? 'var(--mocha-surface-hover)'
                 : 'transparent',
           border: isSelected
-            ? '1px solid rgba(0,0,0,0.08)'
+            ? '1px solid var(--logbook-selected-border)'
             : isActive
               ? '1px solid var(--mocha-accent)'
               : '1px solid transparent',
           boxShadow: isSelected
-            ? '0 2px 8px rgba(0,0,0,0.06)'
+            ? '0 2px 8px var(--mocha-selection-glow)'
             : 'none',
         }}
         title="Double-click to rename"
@@ -341,7 +350,7 @@ const LogbookItem = memo(function LogbookItem({
           className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200"
           style={{
             background: isSelected
-              ? 'rgba(0,0,0,0.06)'
+              ? 'var(--logbook-selected-icon-bg)'
               : isActive
                 ? 'var(--mocha-accent)'
                 : 'var(--mocha-surface-raised)',
@@ -351,7 +360,7 @@ const LogbookItem = memo(function LogbookItem({
             className="w-4 h-4"
             style={{
               color: isSelected
-                ? '#5a544d'
+                ? 'var(--logbook-selected-text)'
                 : isActive
                   ? 'var(--mocha-bg)'
                   : 'var(--mocha-text-muted)',
@@ -373,7 +382,7 @@ const LogbookItem = memo(function LogbookItem({
               }}
               className="w-full text-sm font-medium px-1 py-0.5 rounded bg-transparent border outline-none"
               style={{
-                color: isSelected ? '#3d3833' : 'var(--mocha-text)',
+                color: isSelected ? 'var(--logbook-selected-text)' : 'var(--mocha-text)',
                 borderColor: 'var(--mocha-accent)',
               }}
               autoFocus
@@ -384,7 +393,7 @@ const LogbookItem = memo(function LogbookItem({
               className="font-medium text-sm truncate transition-colors duration-200"
               style={{
                 color: isSelected
-                  ? '#3d3833'
+                  ? 'var(--logbook-selected-text)'
                   : isActive
                     ? 'var(--mocha-accent)'
                     : 'var(--mocha-text-secondary)',
@@ -395,7 +404,7 @@ const LogbookItem = memo(function LogbookItem({
           )}
           <div
             className="text-xs mt-0.5"
-            style={{ color: isSelected ? '#8b8378' : 'var(--mocha-text-muted)' }}
+            style={{ color: isSelected ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)' }}
           >
             {story.entries.length} {story.entries.length === 1 ? 'entry' : 'entries'}
           </div>
@@ -406,8 +415,8 @@ const LogbookItem = memo(function LogbookItem({
           <span
             className="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0"
             style={{
-              background: isSelected ? 'rgba(0,0,0,0.08)' : 'var(--mocha-accent-muted)',
-              color: isSelected ? '#5a544d' : 'var(--mocha-accent)',
+              background: isSelected ? 'var(--mocha-info-muted)' : 'var(--mocha-accent-muted)',
+              color: isSelected ? 'var(--mocha-info)' : 'var(--mocha-accent)',
             }}
           >
             {story.entries.length}
@@ -419,7 +428,7 @@ const LogbookItem = memo(function LogbookItem({
           className={`w-4 h-4 shrink-0 transition-all duration-200 ${
             isHovered && !isEditing ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-1'
           }`}
-          style={{ color: isSelected ? '#8b8378' : 'var(--mocha-text-muted)' }}
+          style={{ color: isSelected ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)' }}
         />
       </button>
 
@@ -433,16 +442,16 @@ const LogbookItem = memo(function LogbookItem({
             ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}
           `}
           style={{
-            background: isSelected ? 'rgba(0,0,0,0.06)' : 'var(--mocha-surface-active)',
-            color: isSelected ? '#8b8378' : 'var(--mocha-text-muted)',
+            background: isSelected ? 'var(--mocha-info-muted)' : 'var(--mocha-surface-active)',
+            color: isSelected ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'var(--mocha-error-bg)'
             e.currentTarget.style.color = 'var(--mocha-error)'
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = isSelected ? 'rgba(0,0,0,0.06)' : 'var(--mocha-surface-active)'
-            e.currentTarget.style.color = isSelected ? '#8b8378' : 'var(--mocha-text-muted)'
+            e.currentTarget.style.background = isSelected ? 'var(--mocha-info-muted)' : 'var(--mocha-surface-active)'
+            e.currentTarget.style.color = isSelected ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)'
           }}
           title="Delete logbook"
         >
@@ -472,6 +481,9 @@ export const Sidebar = memo(function Sidebar({
   onCreateLogbook,
   onDeleteLogbook,
   onRenameLogbook,
+  // Theme
+  theme,
+  onThemeChange,
   // UI state
   isCollapsed,
   onToggleCollapsed,
@@ -822,78 +834,107 @@ export const Sidebar = memo(function Sidebar({
         </div>
       </div>
 
-      {/* Footer - status bar with collapse toggle */}
+      {/* Footer - status bar with collapse toggle and theme selector */}
       <div
-        className="relative z-10 px-3 py-3 flex items-center"
+        className="relative z-10 px-3 py-2.5"
         style={{
-          borderTop: '1px solid var(--mocha-border-subtle)',
-          background: 'var(--mocha-bg-elevated)',
-          justifyContent: isCollapsed ? 'center' : 'space-between',
+          background: 'transparent',
         }}
       >
-        {/* Collapse toggle button */}
-        <button
-          onClick={onToggleCollapsed}
-          className="p-2 rounded-lg transition-all duration-200"
-          style={{
-            color: 'var(--mocha-text-muted)',
-            background: 'transparent',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--mocha-surface-hover)'
-            e.currentTarget.style.color = 'var(--mocha-text)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.color = 'var(--mocha-text-muted)'
-          }}
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        {/* Single row: collapse toggle, status (expanded only), theme toggle */}
+        <div
+          className={`flex items-center ${isCollapsed ? 'flex-col gap-2' : 'justify-between'}`}
         >
-          {isCollapsed ? (
-            <PanelLeft className="w-4 h-4" />
-          ) : (
-            <PanelLeftClose className="w-4 h-4" />
-          )}
-        </button>
-
-        {/* Status - only show when expanded */}
-        {!isCollapsed && (
-          <div className="flex-1 flex justify-center">
-            {openedCount > 0 ? (
-              <div
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
-                style={{
-                  background: 'var(--mocha-selection)',
-                  border: '1px solid var(--mocha-selection-border)',
-                  color: 'var(--mocha-info)',
-                }}
-              >
-                <div
-                  className="w-2 h-2 rounded-full animate-pulse"
-                  style={{ background: 'var(--mocha-info)' }}
-                />
-                {activeCount} of {openedCount} active
-              </div>
-            ) : recentFiles.length > 0 ? (
-              <p
-                className="text-xs text-center"
-                style={{ color: 'var(--mocha-text-muted)' }}
-              >
-                {recentFiles.length} recent {recentFiles.length === 1 ? 'file' : 'files'}
-              </p>
+          {/* Collapse toggle button */}
+          <button
+            onClick={onToggleCollapsed}
+            className="p-2 rounded-lg transition-all duration-200 shrink-0"
+            style={{
+              color: 'var(--mocha-text-muted)',
+              background: 'transparent',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--mocha-surface-hover)'
+              e.currentTarget.style.color = 'var(--mocha-text)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.color = 'var(--mocha-text-muted)'
+            }}
+            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {isCollapsed ? (
+              <PanelLeft className="w-4 h-4" />
             ) : (
-              <p
-                className="text-xs text-center"
-                style={{ color: 'var(--mocha-text-faint)' }}
-              >
-                Ready to analyze
-              </p>
+              <PanelLeftClose className="w-4 h-4" />
             )}
-          </div>
-        )}
+          </button>
 
-        {/* Spacer for alignment when expanded */}
-        {!isCollapsed && <div className="w-8" />}
+          {/* Status - only show when expanded */}
+          {!isCollapsed && (
+            <div className="flex-1 flex justify-center">
+              {openedCount > 0 ? (
+                <div
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
+                  style={{
+                    background: 'var(--mocha-selection)',
+                    border: '1px solid var(--mocha-selection-border)',
+                    color: 'var(--mocha-info)',
+                  }}
+                >
+                  <div
+                    className="w-2 h-2 rounded-full animate-pulse"
+                    style={{ background: 'var(--mocha-info)' }}
+                  />
+                  {activeCount} of {openedCount} active
+                </div>
+              ) : recentFiles.length > 0 ? (
+                <p
+                  className="text-xs text-center"
+                  style={{ color: 'var(--mocha-text-muted)' }}
+                >
+                  {recentFiles.length} recent {recentFiles.length === 1 ? 'file' : 'files'}
+                </p>
+              ) : (
+                <p
+                  className="text-xs text-center"
+                  style={{ color: 'var(--mocha-text-faint)' }}
+                >
+                  Ready to analyze
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Theme toggle - cycles through themes */}
+          {(() => {
+            const currentTheme = THEMES.find(t => t.id === theme) || THEMES[0]
+            const currentIndex = THEMES.findIndex(t => t.id === theme)
+            const nextTheme = THEMES[(currentIndex + 1) % THEMES.length]
+            const Icon = currentTheme.icon
+            return (
+              <button
+                onClick={() => onThemeChange(nextTheme.id)}
+                className="p-2 rounded-lg transition-all duration-200 shrink-0"
+                style={{
+                  color: 'var(--mocha-text-muted)',
+                  background: 'transparent',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--mocha-surface-hover)'
+                  e.currentTarget.style.color = 'var(--mocha-accent)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = 'var(--mocha-text-muted)'
+                }}
+                title={`${currentTheme.name} theme — click for ${nextTheme.name}`}
+              >
+                <Icon className="w-4 h-4" />
+              </button>
+            )
+          })()}
+        </div>
       </div>
     </aside>
   )

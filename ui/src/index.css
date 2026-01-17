@@ -1,6 +1,7 @@
 /* ========================================
-   MOCHA OBSERVATORY
+   MOCHA LOG VIEWER
    A refined log viewing experience
+   Multi-theme architecture
    ======================================== */
 
 /* Fraunces - regular for headings like "Ready to analyze" */
@@ -55,9 +56,32 @@
 
 @import "tailwindcss";
 
-:root {
-  /* === The Observatory Palette === */
+/* ========================================
+   BASE STYLES (shared across all themes)
+   ======================================== */
 
+:root {
+  /* Typography */
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Default to observatory (dark) */
+  color-scheme: dark;
+}
+
+/* ========================================
+   OBSERVATORY THEME (Dark)
+   Deep space control room with amber glows
+   ======================================== */
+
+[data-theme="observatory"],
+:root {
   /* Deep space backgrounds */
   --mocha-bg: #08090c;
   --mocha-bg-darker: #050607;
@@ -122,19 +146,337 @@
   --badge-pixel: #5bc9a8;
   --badge-default: #7a8594;
 
-  /* Typography */
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  /* Glass effect colors (dark) */
+  --glass-bg: linear-gradient(135deg, rgba(18, 21, 28, 0.85) 0%, rgba(13, 15, 20, 0.95) 100%);
+  --glass-card-bg: linear-gradient(145deg, rgba(24, 28, 37, 0.9) 0%, rgba(18, 21, 28, 0.95) 100%);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+
+  /* JSON syntax colors */
+  --json-string: #6bcb77;
+  --json-number: #4ecdc4;
+  --json-boolean: #e8a854;
+  --json-null: #5c6370;
+
+  /* Logbook/StoryPane specific */
+  --logbook-glass-bg: linear-gradient(180deg, rgba(18, 21, 28, 0.95) 0%, rgba(13, 15, 20, 0.98) 100%);
+  --logbook-card-bg: rgba(30, 34, 45, 0.8);
+  --logbook-card-border: rgba(232, 168, 84, 0.15);
+  --logbook-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --logbook-card-hover-bg: rgba(37, 43, 56, 0.85);
+  --logbook-card-hover-border: rgba(232, 168, 84, 0.25);
+  --logbook-card-hover-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(232, 168, 84, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  /* Sidebar selected logbook */
+  --logbook-selected-bg: linear-gradient(135deg, rgba(78, 205, 196, 0.12) 0%, rgba(78, 205, 196, 0.08) 100%);
+  --logbook-selected-border: rgba(78, 205, 196, 0.3);
+  --logbook-selected-text: var(--mocha-info);
+  --logbook-selected-icon-bg: rgba(78, 205, 196, 0.2);
 
   color-scheme: dark;
   color: var(--mocha-text);
   background-color: var(--mocha-bg);
+}
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* ========================================
+   MORNING BREW THEME (Light)
+   Warm café workspace with espresso accents
+   ======================================== */
+
+[data-theme="morning-brew"] {
+  /* Warm cream backgrounds */
+  --mocha-bg: #faf8f5;
+  --mocha-bg-darker: #f5f2ed;
+  --mocha-bg-elevated: #ffffff;
+  --mocha-surface: #f0ece6;
+  --mocha-surface-raised: #ffffff;
+  --mocha-surface-hover: #e8e4de;
+  --mocha-surface-active: #ddd8d0;
+
+  /* Borders - warm shadows */
+  --mocha-border: rgba(93, 64, 55, 0.12);
+  --mocha-border-subtle: rgba(93, 64, 55, 0.06);
+  --mocha-border-strong: rgba(93, 64, 55, 0.18);
+
+  /* Text - espresso hierarchy */
+  --mocha-text: #2d2520;
+  --mocha-text-secondary: #5d4037;
+  --mocha-text-muted: #8b7355;
+  --mocha-text-faint: #b8a898;
+
+  /* Primary accent - espresso brown */
+  --mocha-accent: #6d4c41;
+  --mocha-accent-hover: #5d4037;
+  --mocha-accent-muted: rgba(109, 76, 65, 0.12);
+  --mocha-accent-glow: rgba(109, 76, 65, 0.25);
+
+  /* Secondary accent - warmer teal */
+  --mocha-info: #00897b;
+  --mocha-info-muted: rgba(0, 137, 123, 0.12);
+
+  /* Semantic - Error (adjusted for light) */
+  --mocha-error: #c62828;
+  --mocha-error-bg: rgba(198, 40, 40, 0.08);
+  --mocha-error-border: rgba(198, 40, 40, 0.25);
+  --mocha-error-glow: rgba(198, 40, 40, 0.15);
+
+  /* Semantic - Warning (adjusted for light) */
+  --mocha-warning: #ef6c00;
+  --mocha-warning-bg: rgba(239, 108, 0, 0.08);
+  --mocha-warning-border: rgba(239, 108, 0, 0.2);
+  --mocha-warning-glow: rgba(239, 108, 0, 0.15);
+
+  /* Semantic - Success (adjusted for light) */
+  --mocha-success: #2e7d32;
+  --mocha-success-muted: rgba(46, 125, 50, 0.12);
+
+  /* Selection - warm teal */
+  --mocha-selection: rgba(0, 137, 123, 0.12);
+  --mocha-selection-border: rgba(0, 137, 123, 0.3);
+  --mocha-selection-glow: rgba(0, 137, 123, 0.15);
+
+  /* Service badge palette - adjusted for light bg */
+  --badge-core: #1565c0;
+  --badge-app: #7b1fa2;
+  --badge-platform: #2e7d32;
+  --badge-runner: #546e7a;
+  --badge-iwf: #e65100;
+  --badge-rag: #00838f;
+  --badge-transcriber: #c62828;
+  --badge-tracker: #f57f17;
+  --badge-verify: #6a1b9a;
+  --badge-pixel: #00796b;
+  --badge-default: #607d8b;
+
+  /* Glass effect colors (light - soft paper shadows) */
+  --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(245, 242, 237, 0.95) 100%);
+  --glass-card-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 245, 240, 0.98) 100%);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+  /* JSON syntax colors (adjusted for light) */
+  --json-string: #2e7d32;
+  --json-number: #00838f;
+  --json-boolean: #e65100;
+  --json-null: #8b7355;
+
+  /* Logbook/StoryPane specific - warm paper aesthetic */
+  --logbook-glass-bg: linear-gradient(180deg, rgba(250, 248, 245, 0.98) 0%, rgba(240, 236, 230, 0.99) 100%);
+  --logbook-card-bg: rgba(255, 255, 255, 0.95);
+  --logbook-card-border: rgba(109, 76, 65, 0.12);
+  --logbook-card-shadow: 0 2px 8px rgba(93, 64, 55, 0.08), 0 1px 2px rgba(93, 64, 55, 0.05);
+  --logbook-card-hover-bg: rgba(255, 255, 255, 1);
+  --logbook-card-hover-border: rgba(109, 76, 65, 0.2);
+  --logbook-card-hover-shadow: 0 4px 16px rgba(93, 64, 55, 0.12), 0 2px 4px rgba(93, 64, 55, 0.08);
+
+  /* Sidebar selected logbook - warm teal highlight */
+  --logbook-selected-bg: linear-gradient(135deg, rgba(0, 137, 123, 0.08) 0%, rgba(0, 137, 123, 0.04) 100%);
+  --logbook-selected-border: rgba(0, 137, 123, 0.25);
+  --logbook-selected-text: var(--mocha-info);
+  --logbook-selected-icon-bg: rgba(0, 137, 123, 0.12);
+
+  color-scheme: light;
+  color: var(--mocha-text);
+  background-color: var(--mocha-bg);
+}
+
+/* ========================================
+   SYSTEM THEME (Auto-detect)
+   Follows OS preference
+   ======================================== */
+
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    /* Warm cream backgrounds */
+    --mocha-bg: #faf8f5;
+    --mocha-bg-darker: #f5f2ed;
+    --mocha-bg-elevated: #ffffff;
+    --mocha-surface: #f0ece6;
+    --mocha-surface-raised: #ffffff;
+    --mocha-surface-hover: #e8e4de;
+    --mocha-surface-active: #ddd8d0;
+
+    /* Borders - warm shadows */
+    --mocha-border: rgba(93, 64, 55, 0.12);
+    --mocha-border-subtle: rgba(93, 64, 55, 0.06);
+    --mocha-border-strong: rgba(93, 64, 55, 0.18);
+
+    /* Text - espresso hierarchy */
+    --mocha-text: #2d2520;
+    --mocha-text-secondary: #5d4037;
+    --mocha-text-muted: #8b7355;
+    --mocha-text-faint: #b8a898;
+
+    /* Primary accent - espresso brown */
+    --mocha-accent: #6d4c41;
+    --mocha-accent-hover: #5d4037;
+    --mocha-accent-muted: rgba(109, 76, 65, 0.12);
+    --mocha-accent-glow: rgba(109, 76, 65, 0.25);
+
+    /* Secondary accent - warmer teal */
+    --mocha-info: #00897b;
+    --mocha-info-muted: rgba(0, 137, 123, 0.12);
+
+    /* Semantic - Error */
+    --mocha-error: #c62828;
+    --mocha-error-bg: rgba(198, 40, 40, 0.08);
+    --mocha-error-border: rgba(198, 40, 40, 0.25);
+    --mocha-error-glow: rgba(198, 40, 40, 0.15);
+
+    /* Semantic - Warning */
+    --mocha-warning: #ef6c00;
+    --mocha-warning-bg: rgba(239, 108, 0, 0.08);
+    --mocha-warning-border: rgba(239, 108, 0, 0.2);
+    --mocha-warning-glow: rgba(239, 108, 0, 0.15);
+
+    /* Semantic - Success */
+    --mocha-success: #2e7d32;
+    --mocha-success-muted: rgba(46, 125, 50, 0.12);
+
+    /* Selection */
+    --mocha-selection: rgba(0, 137, 123, 0.12);
+    --mocha-selection-border: rgba(0, 137, 123, 0.3);
+    --mocha-selection-glow: rgba(0, 137, 123, 0.15);
+
+    /* Service badge palette */
+    --badge-core: #1565c0;
+    --badge-app: #7b1fa2;
+    --badge-platform: #2e7d32;
+    --badge-runner: #546e7a;
+    --badge-iwf: #e65100;
+    --badge-rag: #00838f;
+    --badge-transcriber: #c62828;
+    --badge-tracker: #f57f17;
+    --badge-verify: #6a1b9a;
+    --badge-pixel: #00796b;
+    --badge-default: #607d8b;
+
+    /* Glass effect colors */
+    --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(245, 242, 237, 0.95) 100%);
+    --glass-card-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 245, 240, 0.98) 100%);
+    --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+    /* JSON syntax colors */
+    --json-string: #2e7d32;
+    --json-number: #00838f;
+    --json-boolean: #e65100;
+    --json-null: #8b7355;
+
+    /* Logbook/StoryPane specific */
+    --logbook-glass-bg: linear-gradient(180deg, rgba(250, 248, 245, 0.98) 0%, rgba(240, 236, 230, 0.99) 100%);
+    --logbook-card-bg: rgba(255, 255, 255, 0.95);
+    --logbook-card-border: rgba(109, 76, 65, 0.12);
+    --logbook-card-shadow: 0 2px 8px rgba(93, 64, 55, 0.08), 0 1px 2px rgba(93, 64, 55, 0.05);
+    --logbook-card-hover-bg: rgba(255, 255, 255, 1);
+    --logbook-card-hover-border: rgba(109, 76, 65, 0.2);
+    --logbook-card-hover-shadow: 0 4px 16px rgba(93, 64, 55, 0.12), 0 2px 4px rgba(93, 64, 55, 0.08);
+
+    /* Sidebar selected logbook */
+    --logbook-selected-bg: linear-gradient(135deg, rgba(0, 137, 123, 0.08) 0%, rgba(0, 137, 123, 0.04) 100%);
+    --logbook-selected-border: rgba(0, 137, 123, 0.25);
+    --logbook-selected-text: var(--mocha-info);
+    --logbook-selected-icon-bg: rgba(0, 137, 123, 0.12);
+
+    color-scheme: light;
+    color: var(--mocha-text);
+    background-color: var(--mocha-bg);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    /* Deep space backgrounds */
+    --mocha-bg: #08090c;
+    --mocha-bg-darker: #050607;
+    --mocha-bg-elevated: #0d0f14;
+    --mocha-surface: #12151c;
+    --mocha-surface-raised: #181c25;
+    --mocha-surface-hover: #1e232e;
+    --mocha-surface-active: #252b38;
+
+    /* Borders */
+    --mocha-border: rgba(255, 255, 255, 0.08);
+    --mocha-border-subtle: rgba(255, 255, 255, 0.04);
+    --mocha-border-strong: rgba(255, 255, 255, 0.12);
+
+    /* Text */
+    --mocha-text: #f0f2f5;
+    --mocha-text-secondary: #9ca3b0;
+    --mocha-text-muted: #5c6370;
+    --mocha-text-faint: #3d424d;
+
+    /* Primary accent */
+    --mocha-accent: #e8a854;
+    --mocha-accent-hover: #f0b864;
+    --mocha-accent-muted: rgba(232, 168, 84, 0.15);
+    --mocha-accent-glow: rgba(232, 168, 84, 0.4);
+
+    /* Secondary accent */
+    --mocha-info: #4ecdc4;
+    --mocha-info-muted: rgba(78, 205, 196, 0.15);
+
+    /* Semantic - Error */
+    --mocha-error: #fb3e3e;
+    --mocha-error-bg: rgba(84, 3, 3, 1);
+    --mocha-error-border: rgba(251, 62, 62, 0.4);
+    --mocha-error-glow: rgba(251, 62, 62, 0.5);
+
+    /* Semantic - Warning */
+    --mocha-warning: #ffd93d;
+    --mocha-warning-bg: rgba(255, 217, 61, 0.06);
+    --mocha-warning-border: rgba(255, 217, 61, 0.15);
+    --mocha-warning-glow: rgba(255, 217, 61, 0.25);
+
+    /* Semantic - Success */
+    --mocha-success: #6bcb77;
+    --mocha-success-muted: rgba(107, 203, 119, 0.15);
+
+    /* Selection */
+    --mocha-selection: rgba(78, 205, 196, 0.12);
+    --mocha-selection-border: rgba(78, 205, 196, 0.3);
+    --mocha-selection-glow: rgba(78, 205, 196, 0.2);
+
+    /* Service badge palette */
+    --badge-core: #6b9bd1;
+    --badge-app: #b58fd1;
+    --badge-platform: #6bcb77;
+    --badge-runner: #8a9aad;
+    --badge-iwf: #e8a854;
+    --badge-rag: #4ecdc4;
+    --badge-transcriber: #f08080;
+    --badge-tracker: #ffd93d;
+    --badge-verify: #9b8fd1;
+    --badge-pixel: #5bc9a8;
+    --badge-default: #7a8594;
+
+    /* Glass effect colors */
+    --glass-bg: linear-gradient(135deg, rgba(18, 21, 28, 0.85) 0%, rgba(13, 15, 20, 0.95) 100%);
+    --glass-card-bg: linear-gradient(145deg, rgba(24, 28, 37, 0.9) 0%, rgba(18, 21, 28, 0.95) 100%);
+    --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+
+    /* JSON syntax colors */
+    --json-string: #6bcb77;
+    --json-number: #4ecdc4;
+    --json-boolean: #e8a854;
+    --json-null: #5c6370;
+
+    /* Logbook/StoryPane specific */
+    --logbook-glass-bg: linear-gradient(180deg, rgba(18, 21, 28, 0.95) 0%, rgba(13, 15, 20, 0.98) 100%);
+    --logbook-card-bg: rgba(30, 34, 45, 0.8);
+    --logbook-card-border: rgba(232, 168, 84, 0.15);
+    --logbook-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    --logbook-card-hover-bg: rgba(37, 43, 56, 0.85);
+    --logbook-card-hover-border: rgba(232, 168, 84, 0.25);
+    --logbook-card-hover-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(232, 168, 84, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+    /* Sidebar selected logbook */
+    --logbook-selected-bg: linear-gradient(135deg, rgba(78, 205, 196, 0.12) 0%, rgba(78, 205, 196, 0.08) 100%);
+    --logbook-selected-border: rgba(78, 205, 196, 0.3);
+    --logbook-selected-text: var(--mocha-info);
+    --logbook-selected-icon-bg: rgba(78, 205, 196, 0.2);
+
+    color-scheme: dark;
+    color: var(--mocha-text);
+    background-color: var(--mocha-bg);
+  }
 }
 
 /* === Base Reset === */
@@ -393,38 +735,31 @@ body {
 
 /* ========================================
    GLASSMORPHIC EFFECTS
-   Depth through transparency
+   Depth through transparency (theme-aware)
    ======================================== */
 
 .glass {
-  background: linear-gradient(
-    135deg,
-    rgba(18, 21, 28, 0.85) 0%,
-    rgba(13, 15, 20, 0.95) 100%
-  );
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--mocha-border);
 }
 
 .glass-subtle {
-  background: rgba(18, 21, 28, 0.6);
+  background: var(--mocha-surface);
+  opacity: 0.8;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 .glass-card {
-  background: linear-gradient(
-    145deg,
-    rgba(24, 28, 37, 0.9) 0%,
-    rgba(18, 21, 28, 0.95) 100%
-  );
+  background: var(--glass-card-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--mocha-border);
   box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    0 4px 24px rgba(0, 0, 0, 0.15),
+    var(--glass-inset);
 }
 
 /* ========================================
@@ -607,36 +942,27 @@ button:active {
 
 /* ========================================
    STORY PANE / LOGBOOK
-   Dark observatory evidence panel
+   Theme-aware evidence panel styling
    ======================================== */
 
 .logbook-glass {
-  background: linear-gradient(
-    180deg,
-    rgba(18, 21, 28, 0.95) 0%,
-    rgba(13, 15, 20, 0.98) 100%
-  );
+  background: var(--logbook-glass-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 .logbook-card {
-  background: rgba(30, 34, 45, 0.8);
+  background: var(--logbook-card-bg);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(232, 168, 84, 0.15);
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--logbook-card-border);
+  box-shadow: var(--logbook-card-shadow);
 }
 
 .logbook-card:hover {
-  background: rgba(37, 43, 56, 0.85);
-  border-color: rgba(232, 168, 84, 0.25);
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.4),
-    0 0 20px rgba(232, 168, 84, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: var(--logbook-card-hover-bg);
+  border-color: var(--logbook-card-hover-border);
+  box-shadow: var(--logbook-card-hover-shadow);
 }
 
 /* ========================================
@@ -653,7 +979,7 @@ button:active {
 .jv-logbook-child {
   padding-left: 1em;
   margin-left: 0.3em;
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 1px solid var(--mocha-border);
 }
 
 .jv-logbook-label {
@@ -661,20 +987,20 @@ button:active {
 }
 
 .jv-logbook-string {
-  color: #6bcb77;
+  color: var(--json-string);
 }
 
 .jv-logbook-number {
-  color: #4ecdc4;
+  color: var(--json-number);
 }
 
 .jv-logbook-boolean {
-  color: var(--mocha-accent);
+  color: var(--json-boolean);
   font-weight: 600;
 }
 
 .jv-logbook-null {
-  color: var(--mocha-text-muted);
+  color: var(--json-null);
   font-style: italic;
 }
 

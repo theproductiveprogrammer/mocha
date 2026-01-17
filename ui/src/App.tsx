@@ -6,7 +6,7 @@ import type { LogEntry, OpenedFileWithLogs } from './types'
 import './types'
 import { isTauri, waitForConnection, readFile, getRecentFiles, addRecentFile, clearRecentFiles } from './api'
 import { parseLogFile } from './parser'
-import { useLogViewerStore, useStoryStore, useFileStore, filterLogs } from './store'
+import { useLogViewerStore, useStoryStore, useFileStore, useSettingsStore, filterLogs } from './store'
 import { Sidebar, Toolbar, LogViewer } from './components'
 import { StoryPane } from './components/StoryPane'
 import { LogbookView } from './components/LogbookView'
@@ -71,6 +71,9 @@ function App() {
     setLoading,
     setError,
   } = useFileStore()
+
+  // Settings store - theme
+  const { theme, setTheme } = useSettingsStore()
 
   // File input ref (for browser mode)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -165,6 +168,11 @@ function App() {
       setStoryPaneCollapsed(true)
     }
   }, [mergedLogs.length, setStoryPaneCollapsed])
+
+  // Apply theme to document element
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [theme])
 
   // Current match hash for scrolling and highlighting
   const searchCurrentMatchHash = useMemo(() => {
@@ -648,6 +656,9 @@ function App() {
         onCreateLogbook={createStory}
         onDeleteLogbook={deleteStory}
         onRenameLogbook={renameStory}
+        // Theme
+        theme={theme}
+        onThemeChange={setTheme}
         // UI state
         isCollapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed(!sidebarCollapsed)}

@@ -7,7 +7,7 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { LogViewerState, StoryState, FileState, ParsedFilter, RecentFile, LogEntry, OpenedFileWithLogs, Story } from './types'
+import type { LogViewerState, StoryState, FileState, ParsedFilter, RecentFile, LogEntry, OpenedFileWithLogs, Story, SettingsState, ThemeName } from './types'
 
 /**
  * Get short service name from log entry.
@@ -543,6 +543,33 @@ export const useFileStore = create<FileState>()(
         recentFiles: state.recentFiles,
       }),
       merge: mergeFileState,
+    }
+  )
+)
+
+// ============================================================================
+// useSettingsStore - App-wide settings including theme
+// ============================================================================
+
+/**
+ * Store for app-wide settings.
+ *
+ * Features:
+ * - theme: Current theme name ('observatory', 'morning-brew', 'system')
+ *
+ * All state is persisted to localStorage.
+ */
+export const useSettingsStore = create<SettingsState>()(
+  persist(
+    (set) => ({
+      // Default to system theme (follows OS preference)
+      theme: 'system' as ThemeName,
+
+      setTheme: (theme: ThemeName) => set({ theme }),
+    }),
+    {
+      name: 'mocha-settings',
+      storage: createJSONStorage(() => localStorage),
     }
   )
 )
