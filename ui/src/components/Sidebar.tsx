@@ -1,53 +1,96 @@
-import { memo, useCallback, useMemo, useState } from 'react'
-import { FolderOpen, FileText, Clock, Trash2, Check, X, Radio, ChevronRight, PanelLeftClose, PanelLeft, BookOpen, Plus, ChevronDown, Moon, Sun, Monitor } from 'lucide-react'
-import type { SidebarProps, RecentFile, OpenedFileWithLogs, Story, ThemeName } from '../types'
+import { memo, useCallback, useMemo, useState } from "react";
+import {
+  FolderOpen,
+  FileText,
+  Clock,
+  Trash2,
+  Check,
+  X,
+  Radio,
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeft,
+  BookOpen,
+  Plus,
+  ChevronDown,
+  Moon,
+  Sun,
+  Monitor,
+} from "lucide-react";
+import type {
+  SidebarProps,
+  RecentFile,
+  OpenedFileWithLogs,
+  Story,
+  ThemeName,
+} from "../types";
 
 /**
  * Theme definitions for the selector
  */
-const THEMES: { id: ThemeName; name: string; icon: typeof Moon; description: string }[] = [
-  { id: 'system', name: 'System', icon: Monitor, description: 'Follow OS setting' },
-  { id: 'observatory', name: 'Observatory', icon: Moon, description: 'Dark theme' },
-  { id: 'morning-brew', name: 'Morning Brew', icon: Sun, description: 'Light theme' },
-]
+const THEMES: {
+  id: ThemeName;
+  name: string;
+  icon: typeof Moon;
+  description: string;
+}[] = [
+  {
+    id: "system",
+    name: "System",
+    icon: Monitor,
+    description: "Follow OS setting",
+  },
+  {
+    id: "observatory",
+    name: "Observatory",
+    icon: Moon,
+    description: "Dark theme",
+  },
+  {
+    id: "morning-brew",
+    name: "Morning Brew",
+    icon: Sun,
+    description: "Light theme",
+  },
+];
 
 /**
  * Format a timestamp as relative time
  */
 function formatRelativeTime(timestamp: number): string {
-  const now = Date.now()
-  const diff = now - timestamp
+  const now = Date.now();
+  const diff = now - timestamp;
 
-  const seconds = Math.floor(diff / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
 
-  if (days > 0) return days === 1 ? '1d ago' : `${days}d ago`
-  if (hours > 0) return hours === 1 ? '1h ago' : `${hours}h ago`
-  if (minutes > 0) return minutes === 1 ? '1m ago' : `${minutes}m ago`
-  return 'Just now'
+  if (days > 0) return days === 1 ? "1d ago" : `${days}d ago`;
+  if (hours > 0) return hours === 1 ? "1h ago" : `${hours}h ago`;
+  if (minutes > 0) return minutes === 1 ? "1m ago" : `${minutes}m ago`;
+  return "Just now";
 }
 
 /**
  * Format file size in human-readable format
  */
 function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /**
  * Recent file item component
  */
 interface RecentFileItemProps {
-  file: RecentFile
-  openedFile?: OpenedFileWithLogs
-  onClick: () => void
-  onRemove: () => void
-  index: number
-  isCollapsed: boolean
+  file: RecentFile;
+  openedFile?: OpenedFileWithLogs;
+  onClick: () => void;
+  onRemove: () => void;
+  index: number;
+  isCollapsed: boolean;
 }
 
 const RecentFileItem = memo(function RecentFileItem({
@@ -58,14 +101,17 @@ const RecentFileItem = memo(function RecentFileItem({
   index,
   isCollapsed,
 }: RecentFileItemProps) {
-  const [isHovered, setIsHovered] = useState(false)
-  const isOpened = !!openedFile
-  const isActive = openedFile?.isActive ?? false
+  const [isHovered, setIsHovered] = useState(false);
+  const isOpened = !!openedFile;
+  const isActive = openedFile?.isActive ?? false;
 
-  const handleRemove = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    onRemove()
-  }, [onRemove])
+  const handleRemove = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onRemove();
+    },
+    [onRemove],
+  );
 
   // Collapsed view - just the icon
   if (isCollapsed) {
@@ -79,27 +125,33 @@ const RecentFileItem = memo(function RecentFileItem({
           className="w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 mx-auto"
           style={{
             background: isActive
-              ? 'var(--mocha-info)'
+              ? "var(--mocha-info)"
               : isOpened
-                ? 'var(--mocha-surface-active)'
-                : 'var(--mocha-surface-raised)',
+                ? "var(--mocha-surface-active)"
+                : "var(--mocha-surface-raised)",
             boxShadow: isActive
-              ? '0 0 12px var(--mocha-selection-glow)'
-              : 'none',
+              ? "0 0 12px var(--mocha-selection-glow)"
+              : "none",
           }}
           title={file.name}
           data-testid={`recent-file-${file.name}`}
         >
           {isActive ? (
-            <Check className="w-4 h-4" style={{ color: 'var(--mocha-bg)' }} />
+            <Check className="w-4 h-4" style={{ color: "var(--mocha-bg)" }} />
           ) : isOpened ? (
-            <Radio className="w-4 h-4" style={{ color: 'var(--mocha-text-muted)' }} />
+            <Radio
+              className="w-4 h-4"
+              style={{ color: "var(--mocha-text-muted)" }}
+            />
           ) : (
-            <FileText className="w-4 h-4" style={{ color: 'var(--mocha-text-muted)' }} />
+            <FileText
+              className="w-4 h-4"
+              style={{ color: "var(--mocha-text-muted)" }}
+            />
           )}
         </button>
       </div>
-    )
+    );
   }
 
   // Expanded view - full item
@@ -115,15 +167,15 @@ const RecentFileItem = memo(function RecentFileItem({
         className="w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 flex items-center gap-3"
         style={{
           background: isActive
-            ? 'var(--mocha-selection)'
+            ? "var(--mocha-selection)"
             : isOpened
-              ? 'var(--mocha-surface-raised)'
+              ? "var(--mocha-surface-raised)"
               : isHovered
-                ? 'var(--mocha-surface-hover)'
-                : 'transparent',
+                ? "var(--mocha-surface-hover)"
+                : "transparent",
           border: isActive
-            ? '1px solid var(--mocha-selection-border)'
-            : '1px solid transparent',
+            ? "1px solid var(--mocha-selection-border)"
+            : "1px solid transparent",
         }}
         data-testid={`recent-file-${file.name}`}
         title={file.path}
@@ -133,21 +185,27 @@ const RecentFileItem = memo(function RecentFileItem({
           className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200"
           style={{
             background: isActive
-              ? 'var(--mocha-info)'
+              ? "var(--mocha-info)"
               : isOpened
-                ? 'var(--mocha-surface-active)'
-                : 'var(--mocha-surface-raised)',
+                ? "var(--mocha-surface-active)"
+                : "var(--mocha-surface-raised)",
             boxShadow: isActive
-              ? '0 0 12px var(--mocha-selection-glow)'
-              : 'none',
+              ? "0 0 12px var(--mocha-selection-glow)"
+              : "none",
           }}
         >
           {isActive ? (
-            <Check className="w-4 h-4" style={{ color: 'var(--mocha-bg)' }} />
+            <Check className="w-4 h-4" style={{ color: "var(--mocha-bg)" }} />
           ) : isOpened ? (
-            <Radio className="w-4 h-4" style={{ color: 'var(--mocha-text-muted)' }} />
+            <Radio
+              className="w-4 h-4"
+              style={{ color: "var(--mocha-text-muted)" }}
+            />
           ) : (
-            <FileText className="w-4 h-4" style={{ color: 'var(--mocha-text-muted)' }} />
+            <FileText
+              className="w-4 h-4"
+              style={{ color: "var(--mocha-text-muted)" }}
+            />
           )}
         </div>
 
@@ -157,17 +215,22 @@ const RecentFileItem = memo(function RecentFileItem({
             className="font-medium text-sm truncate transition-colors duration-200"
             style={{
               color: isActive
-                ? 'var(--mocha-info)'
+                ? "var(--mocha-info)"
                 : isOpened
-                  ? 'var(--mocha-text)'
-                  : 'var(--mocha-text-secondary)',
+                  ? "var(--mocha-text)"
+                  : "var(--mocha-text-secondary)",
             }}
           >
             {file.name}
           </div>
           <div
             className="text-xs flex items-center gap-2 mt-0.5"
-            style={{ color: file.exists === false ? 'var(--mocha-error)' : 'var(--mocha-text-muted)' }}
+            style={{
+              color:
+                file.exists === false
+                  ? "var(--mocha-error)"
+                  : "var(--mocha-text-muted)",
+            }}
           >
             {file.exists === false ? (
               <span>[not found]</span>
@@ -176,11 +239,15 @@ const RecentFileItem = memo(function RecentFileItem({
                 {(openedFile?.mtime ?? file.mtime) && (
                   <>
                     <Clock className="w-3 h-3" />
-                    <span>{formatRelativeTime(openedFile?.mtime ?? file.mtime!)}</span>
+                    <span>
+                      {formatRelativeTime(openedFile?.mtime ?? file.mtime!)}
+                    </span>
                   </>
                 )}
                 {file.size != null && (
-                  <span style={{ opacity: 0.7 }}>{formatFileSize(file.size)}</span>
+                  <span style={{ opacity: 0.7 }}>
+                    {formatFileSize(file.size)}
+                  </span>
                 )}
               </>
             )}
@@ -190,9 +257,9 @@ const RecentFileItem = memo(function RecentFileItem({
         {/* Chevron indicator */}
         <ChevronRight
           className={`w-4 h-4 shrink-0 transition-all duration-200 ${
-            isHovered ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-1'
+            isHovered ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-1"
           }`}
-          style={{ color: 'var(--mocha-text-muted)' }}
+          style={{ color: "var(--mocha-text-muted)" }}
         />
       </button>
 
@@ -202,40 +269,40 @@ const RecentFileItem = memo(function RecentFileItem({
         className={`
           absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md
           transition-all duration-200
-          ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}
+          ${isHovered ? "opacity-100 scale-100" : "opacity-0 scale-90"}
         `}
         style={{
-          background: 'var(--mocha-surface-active)',
-          color: 'var(--mocha-text-muted)',
+          background: "var(--mocha-surface-active)",
+          color: "var(--mocha-text-muted)",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'var(--mocha-error-bg)'
-          e.currentTarget.style.color = 'var(--mocha-error)'
+          e.currentTarget.style.background = "var(--mocha-error-bg)";
+          e.currentTarget.style.color = "var(--mocha-error)";
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'var(--mocha-surface-active)'
-          e.currentTarget.style.color = 'var(--mocha-text-muted)'
+          e.currentTarget.style.background = "var(--mocha-surface-active)";
+          e.currentTarget.style.color = "var(--mocha-text-muted)";
         }}
         title="Remove from list"
       >
         <X className="w-3.5 h-3.5" />
       </button>
     </div>
-  )
-})
+  );
+});
 
 /**
  * Logbook item component
  */
 interface LogbookItemProps {
-  story: Story
-  isActive: boolean
-  isSelected: boolean
-  onClick: () => void
-  onDelete: () => void
-  onRename: (name: string) => void
-  index: number
-  isCollapsed: boolean
+  story: Story;
+  isActive: boolean;
+  isSelected: boolean;
+  onClick: () => void;
+  onDelete: () => void;
+  onRename: (name: string) => void;
+  index: number;
+  isCollapsed: boolean;
 }
 
 const LogbookItem = memo(function LogbookItem({
@@ -248,62 +315,80 @@ const LogbookItem = memo(function LogbookItem({
   index,
   isCollapsed,
 }: LogbookItemProps) {
-  const [isHovered, setIsHovered] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editName, setEditName] = useState(story.name)
+  const [isHovered, setIsHovered] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(story.name);
 
-  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    setEditName(story.name)
-    setIsEditing(true)
-  }, [story.name])
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setEditName(story.name);
+      setIsEditing(true);
+    },
+    [story.name],
+  );
 
   const handleRename = useCallback(() => {
     if (editName.trim() && editName !== story.name) {
-      onRename(editName.trim())
+      onRename(editName.trim());
     }
-    setIsEditing(false)
-  }, [editName, story.name, onRename])
+    setIsEditing(false);
+  }, [editName, story.name, onRename]);
 
-  const handleDelete = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    onDelete()
-  }, [onDelete])
+  const handleDelete = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onDelete();
+    },
+    [onDelete],
+  );
 
   // Collapsed view - just the icon
+  // isSelected = viewing this logbook (striking highlight)
+  // isActive only = target logbook but in log view (subtle accent on icon)
+  const isActiveOnlyCollapsed = isActive && !isSelected;
+
   if (isCollapsed) {
+    const isInactiveCollapsed = !isActive;
     return (
       <div
         className="animate-fade-in"
-        style={{ animationDelay: `${index * 30}ms` }}
+        style={{
+          animationDelay: `${index * 30}ms`,
+        }}
       >
         <button
           onClick={onClick}
-          className="w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 mx-auto relative"
+          className="w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 mx-auto relative hover:opacity-100"
           style={{
             background: isSelected
-              ? 'var(--logbook-selected-bg)'
-              : isActive
-                ? 'var(--mocha-accent-muted)'
-                : 'var(--mocha-surface-raised)',
+              ? "var(--mocha-accent-muted)"
+              : "var(--mocha-surface-raised)",
             border: isSelected
-              ? '1px solid var(--logbook-selected-border)'
-              : isActive
-                ? '1px solid var(--mocha-accent)'
-                : '1px solid var(--mocha-border)',
+              ? "1px solid var(--mocha-accent)"
+              : "1px solid var(--mocha-border)",
+            opacity: isInactiveCollapsed ? 0.85 : 1,
           }}
           title={`${story.name} (${story.entries.length} entries)`}
         >
           <BookOpen
             className="w-4 h-4"
-            style={{ color: isSelected ? 'var(--logbook-selected-text)' : isActive ? 'var(--mocha-accent)' : 'var(--mocha-text-muted)' }}
+            style={{
+              color: isSelected
+                ? "var(--mocha-accent)"
+                : isActiveOnlyCollapsed
+                  ? "var(--mocha-accent)"
+                  : "var(--mocha-text-muted)",
+            }}
           />
           {story.entries.length > 0 && (
             <span
               className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full text-[9px] font-bold flex items-center justify-center px-1"
               style={{
-                background: isSelected ? 'var(--mocha-info)' : 'var(--mocha-accent)',
-                color: 'var(--mocha-bg)',
+                background: isActive
+                  ? "var(--mocha-accent)"
+                  : "var(--mocha-text-muted)",
+                color: "var(--mocha-bg)",
               }}
             >
               {story.entries.length}
@@ -311,14 +396,23 @@ const LogbookItem = memo(function LogbookItem({
           )}
         </button>
       </div>
-    )
+    );
   }
 
   // Expanded view - full item
+  // isSelected = viewing this logbook in logbook mode (striking highlight)
+  // isActive only = this is the target logbook but we're in log view (just bold)
+  const isActiveOnly = isActive && !isSelected;
+
+  // Non-active logbooks should be visually muted
+  const isInactive = !isActive;
+
   return (
     <div
-      className="group relative animate-slide-in"
-      style={{ animationDelay: `${index * 40}ms` }}
+      className="group relative animate-slide-in transition-all duration-200"
+      style={{
+        animationDelay: `${index * 40}ms`,
+      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -328,20 +422,15 @@ const LogbookItem = memo(function LogbookItem({
         className="w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 flex items-center gap-3"
         style={{
           background: isSelected
-            ? 'var(--logbook-selected-bg)'
-            : isActive
-              ? 'var(--mocha-accent-muted)'
-              : isHovered
-                ? 'var(--mocha-surface-hover)'
-                : 'transparent',
+            ? "var(--mocha-accent-muted)"
+            : isHovered
+              ? "var(--mocha-surface-hover)"
+              : "transparent",
           border: isSelected
-            ? '1px solid var(--logbook-selected-border)'
-            : isActive
-              ? '1px solid var(--mocha-accent)'
-              : '1px solid transparent',
-          boxShadow: isSelected
-            ? '0 2px 8px var(--mocha-selection-glow)'
-            : 'none',
+            ? "1px solid var(--mocha-accent)"
+            : "1px solid transparent",
+          boxShadow: isSelected ? "0 2px 8px var(--mocha-accent-glow)" : "none",
+          opacity: isInactive && !isHovered ? 0.85 : 1,
         }}
         title="Double-click to rename"
       >
@@ -350,20 +439,18 @@ const LogbookItem = memo(function LogbookItem({
           className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200"
           style={{
             background: isSelected
-              ? 'var(--logbook-selected-icon-bg)'
-              : isActive
-                ? 'var(--mocha-accent)'
-                : 'var(--mocha-surface-raised)',
+              ? "var(--mocha-accent)"
+              : "var(--mocha-surface-raised)",
           }}
         >
           <BookOpen
             className="w-4 h-4"
             style={{
               color: isSelected
-                ? 'var(--logbook-selected-text)'
-                : isActive
-                  ? 'var(--mocha-bg)'
-                  : 'var(--mocha-text-muted)',
+                ? "var(--mocha-bg)"
+                : isActiveOnly
+                  ? "var(--mocha-accent)"
+                  : "var(--mocha-text-muted)",
             }}
           />
         </div>
@@ -377,26 +464,27 @@ const LogbookItem = memo(function LogbookItem({
               onChange={(e) => setEditName(e.target.value)}
               onBlur={handleRename}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleRename()
-                if (e.key === 'Escape') setIsEditing(false)
+                if (e.key === "Enter") handleRename();
+                if (e.key === "Escape") setIsEditing(false);
               }}
               className="w-full text-sm font-medium px-1 py-0.5 rounded bg-transparent border outline-none"
               style={{
-                color: isSelected ? 'var(--logbook-selected-text)' : 'var(--mocha-text)',
-                borderColor: 'var(--mocha-accent)',
+                color: "var(--mocha-text)",
+                borderColor: "var(--mocha-accent)",
               }}
               autoFocus
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
             <div
-              className="font-medium text-sm truncate transition-colors duration-200"
+              className="text-sm truncate transition-colors duration-200"
               style={{
                 color: isSelected
-                  ? 'var(--logbook-selected-text)'
-                  : isActive
-                    ? 'var(--mocha-accent)'
-                    : 'var(--mocha-text-secondary)',
+                  ? "var(--mocha-accent)"
+                  : isActiveOnly
+                    ? "var(--mocha-text)"
+                    : "var(--mocha-text-muted)",
+                fontWeight: isSelected || isActiveOnly ? 600 : 400,
               }}
             >
               {story.name}
@@ -404,9 +492,10 @@ const LogbookItem = memo(function LogbookItem({
           )}
           <div
             className="text-xs mt-0.5"
-            style={{ color: isSelected ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)' }}
+            style={{ color: "var(--mocha-text-faint)" }}
           >
-            {story.entries.length} {story.entries.length === 1 ? 'entry' : 'entries'}
+            {story.entries.length}{" "}
+            {story.entries.length === 1 ? "entry" : "entries"}
           </div>
         </div>
 
@@ -415,8 +504,12 @@ const LogbookItem = memo(function LogbookItem({
           <span
             className="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0"
             style={{
-              background: isSelected ? 'var(--mocha-info-muted)' : 'var(--mocha-accent-muted)',
-              color: isSelected ? 'var(--mocha-info)' : 'var(--mocha-accent)',
+              background: isActive
+                ? "var(--mocha-accent-muted)"
+                : "var(--mocha-surface-hover)",
+              color: isActive
+                ? "var(--mocha-accent)"
+                : "var(--mocha-text-muted)",
             }}
           >
             {story.entries.length}
@@ -426,9 +519,11 @@ const LogbookItem = memo(function LogbookItem({
         {/* Chevron indicator */}
         <ChevronRight
           className={`w-4 h-4 shrink-0 transition-all duration-200 ${
-            isHovered && !isEditing ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-1'
+            isHovered && !isEditing
+              ? "opacity-100 translate-x-0"
+              : "opacity-0 -translate-x-1"
           }`}
-          style={{ color: isSelected ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)' }}
+          style={{ color: "var(--mocha-text-muted)" }}
         />
       </button>
 
@@ -439,19 +534,19 @@ const LogbookItem = memo(function LogbookItem({
           className={`
             absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md
             transition-all duration-200
-            ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}
+            ${isHovered ? "opacity-100 scale-100" : "opacity-0 scale-90"}
           `}
           style={{
-            background: isSelected ? 'var(--mocha-info-muted)' : 'var(--mocha-surface-active)',
-            color: isSelected ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)',
+            background: "var(--mocha-surface-active)",
+            color: "var(--mocha-text-muted)",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--mocha-error-bg)'
-            e.currentTarget.style.color = 'var(--mocha-error)'
+            e.currentTarget.style.background = "var(--mocha-error-bg)";
+            e.currentTarget.style.color = "var(--mocha-error)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = isSelected ? 'var(--mocha-info-muted)' : 'var(--mocha-surface-active)'
-            e.currentTarget.style.color = isSelected ? 'var(--mocha-text-secondary)' : 'var(--mocha-text-muted)'
+            e.currentTarget.style.background = "var(--mocha-surface-active)";
+            e.currentTarget.style.color = "var(--mocha-text-muted)";
           }}
           title="Delete logbook"
         >
@@ -459,8 +554,8 @@ const LogbookItem = memo(function LogbookItem({
         </button>
       )}
     </div>
-  )
-})
+  );
+});
 
 /**
  * Sidebar component - refined control panel with collapse support
@@ -488,33 +583,35 @@ export const Sidebar = memo(function Sidebar({
   isCollapsed,
   onToggleCollapsed,
 }: SidebarProps) {
-  const activeCount = Array.from(openedFiles.values()).filter(f => f.isActive).length
-  const openedCount = openedFiles.size
+  const activeCount = Array.from(openedFiles.values()).filter(
+    (f) => f.isActive,
+  ).length;
+  const openedCount = openedFiles.size;
 
   // Section collapse states
-  const [logbooksExpanded, setLogbooksExpanded] = useState(true)
-  const [filesExpanded, setFilesExpanded] = useState(true)
+  const [logbooksExpanded, setLogbooksExpanded] = useState(true);
+  const [filesExpanded, setFilesExpanded] = useState(true);
 
   // Sort recent files alphabetically by name
-  const sortedRecentFiles = useMemo(() =>
-    [...recentFiles].sort((a, b) => a.name.localeCompare(b.name)),
-    [recentFiles]
-  )
+  const sortedRecentFiles = useMemo(
+    () => [...recentFiles].sort((a, b) => a.name.localeCompare(b.name)),
+    [recentFiles],
+  );
 
   // Sort stories by creation date (newest first)
-  const sortedStories = useMemo(() =>
-    [...stories].sort((a, b) => b.createdAt - a.createdAt),
-    [stories]
-  )
+  const sortedStories = useMemo(
+    () => [...stories].sort((a, b) => b.createdAt - a.createdAt),
+    [stories],
+  );
 
   return (
     <aside
       className="flex flex-col h-full relative transition-all duration-300 ease-out"
       style={{
-        width: isCollapsed ? '64px' : '256px',
-        minWidth: isCollapsed ? '64px' : '256px',
-        background: 'var(--mocha-surface)',
-        borderRight: '1px solid var(--mocha-border)',
+        width: isCollapsed ? "64px" : "256px",
+        minWidth: isCollapsed ? "64px" : "256px",
+        background: "var(--mocha-surface)",
+        borderRight: "1px solid var(--mocha-border)",
       }}
       data-testid="sidebar"
     >
@@ -522,7 +619,8 @@ export const Sidebar = memo(function Sidebar({
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.2) 100%)',
+          background:
+            "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.2) 100%)",
         }}
       />
 
@@ -530,17 +628,20 @@ export const Sidebar = memo(function Sidebar({
       <div
         className="relative z-10 p-4 transition-all duration-300"
         style={{
-          borderBottom: '1px solid var(--mocha-border-subtle)',
-          padding: isCollapsed ? '16px 12px' : '20px',
+          borderBottom: "1px solid var(--mocha-border-subtle)",
+          padding: isCollapsed ? "16px 12px" : "20px",
         }}
       >
         {/* Logo */}
-        <div className={`flex items-center mb-4 transition-all duration-300 ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+        <div
+          className={`flex items-center mb-4 transition-all duration-300 ${isCollapsed ? "justify-center" : "gap-3"}`}
+        >
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
             style={{
-              background: 'linear-gradient(135deg, var(--mocha-accent) 0%, #c4854a 50%, #a06830 100%)',
-              boxShadow: '0 4px 16px var(--mocha-accent-glow)',
+              background:
+                "linear-gradient(135deg, var(--mocha-accent) 0%, #c4854a 50%, #a06830 100%)",
+              boxShadow: "0 4px 16px var(--mocha-accent-glow)",
             }}
           >
             {/* Coffee cup with steam SVG */}
@@ -549,7 +650,7 @@ export const Sidebar = memo(function Sidebar({
               height="26"
               viewBox="0 0 342 342"
               fill="none"
-              style={{ opacity: 0.92, transform: 'translateY(-1px)' }}
+              style={{ opacity: 0.92, transform: "translateY(-1px)" }}
             >
               {/* Cup body with handle */}
               <path
@@ -579,26 +680,26 @@ export const Sidebar = memo(function Sidebar({
           <div
             className="overflow-hidden transition-all duration-300"
             style={{
-              width: isCollapsed ? 0 : 'auto',
+              width: isCollapsed ? 0 : "auto",
               opacity: isCollapsed ? 0 : 1,
             }}
           >
             <h1
               style={{
-                color: 'var(--mocha-text)',
+                color: "var(--mocha-text)",
                 fontFamily: '"Fraunces Display", serif',
                 fontWeight: 400,
-                fontSize: '24px',
-                letterSpacing: '0.35px',
+                fontSize: "24px",
+                letterSpacing: "0.35px",
                 fontVariationSettings: '"WONK" 1, "opsz" 50',
-                whiteSpace: 'nowrap',
+                whiteSpace: "nowrap",
               }}
             >
               Mocha
             </h1>
             <p
               className="text-[10px] uppercase tracking-widest font-medium"
-              style={{ color: 'var(--mocha-text-muted)', whiteSpace: 'nowrap' }}
+              style={{ color: "var(--mocha-text-muted)", whiteSpace: "nowrap" }}
             >
               Log Viewer
             </p>
@@ -609,25 +710,27 @@ export const Sidebar = memo(function Sidebar({
         <button
           onClick={() => onSelectFile()}
           className={`rounded-xl font-medium text-sm flex items-center justify-center transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${
-            isCollapsed ? 'w-10 h-10 p-0' : 'w-full px-4 py-3 gap-2'
+            isCollapsed ? "w-10 h-10 p-0" : "w-full px-4 py-3 gap-2"
           }`}
           style={{
-            background: 'linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface-hover) 100%)',
-            border: '1px solid var(--mocha-border)',
-            color: 'var(--mocha-text)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-            margin: isCollapsed ? '0 auto' : undefined,
+            background:
+              "linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface-hover) 100%)",
+            border: "1px solid var(--mocha-border)",
+            color: "var(--mocha-text)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+            margin: isCollapsed ? "0 auto" : undefined,
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'var(--mocha-accent)'
-            e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.3), 0 0 20px var(--mocha-accent-glow)'
+            e.currentTarget.style.borderColor = "var(--mocha-accent)";
+            e.currentTarget.style.boxShadow =
+              "0 4px 16px rgba(0,0,0,0.3), 0 0 20px var(--mocha-accent-glow)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'var(--mocha-border)'
-            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)'
+            e.currentTarget.style.borderColor = "var(--mocha-border)";
+            e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
           }}
           data-testid="open-file-button"
-          title={isCollapsed ? 'Open Log File' : undefined}
+          title={isCollapsed ? "Open Log File" : undefined}
         >
           <FolderOpen className="w-4 h-4 shrink-0" />
           {!isCollapsed && <span>Open Log File</span>}
@@ -644,24 +747,25 @@ export const Sidebar = memo(function Sidebar({
               <button
                 onClick={() => setLogbooksExpanded(!logbooksExpanded)}
                 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest transition-colors"
-                style={{ color: 'var(--mocha-text-muted)' }}
+                style={{ color: "var(--mocha-text-muted)" }}
               >
                 <ChevronDown
-                  className={`w-3 h-3 transition-transform duration-200 ${logbooksExpanded ? '' : '-rotate-90'}`}
+                  className={`w-3 h-3 transition-transform duration-200 ${logbooksExpanded ? "" : "-rotate-90"}`}
                 />
                 Logbooks
               </button>
               <button
                 onClick={() => onCreateLogbook()}
                 className="p-1.5 rounded-md transition-all duration-200"
-                style={{ color: 'var(--mocha-text-muted)' }}
+                style={{ color: "var(--mocha-text-muted)" }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--mocha-accent-muted)'
-                  e.currentTarget.style.color = 'var(--mocha-accent)'
+                  e.currentTarget.style.background =
+                    "var(--mocha-accent-muted)";
+                  e.currentTarget.style.color = "var(--mocha-accent)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.color = 'var(--mocha-text-muted)'
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "var(--mocha-text-muted)";
                 }}
                 title="Create new logbook"
               >
@@ -677,33 +781,42 @@ export const Sidebar = memo(function Sidebar({
                 onClick={() => onCreateLogbook()}
                 className="w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 mx-auto"
                 style={{
-                  background: 'var(--mocha-surface-raised)',
-                  border: '1px solid var(--mocha-border)',
+                  background: "var(--mocha-surface-raised)",
+                  border: "1px solid var(--mocha-border)",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--mocha-accent)'
-                  e.currentTarget.style.background = 'var(--mocha-accent-muted)'
+                  e.currentTarget.style.borderColor = "var(--mocha-accent)";
+                  e.currentTarget.style.background =
+                    "var(--mocha-accent-muted)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--mocha-border)'
-                  e.currentTarget.style.background = 'var(--mocha-surface-raised)'
+                  e.currentTarget.style.borderColor = "var(--mocha-border)";
+                  e.currentTarget.style.background =
+                    "var(--mocha-surface-raised)";
                 }}
                 title="Create new logbook"
               >
-                <Plus className="w-4 h-4" style={{ color: 'var(--mocha-text-muted)' }} />
+                <Plus
+                  className="w-4 h-4"
+                  style={{ color: "var(--mocha-text-muted)" }}
+                />
               </button>
             </div>
           )}
 
           {/* Logbook list */}
           {(logbooksExpanded || isCollapsed) && (
-            <div className={`${isCollapsed ? 'px-2 pb-2 space-y-2' : 'px-3 pb-3 space-y-1'}`}>
+            <div
+              className={`${isCollapsed ? "px-2 pb-2 space-y-2" : "px-3 pb-3 space-y-1"}`}
+            >
               {sortedStories.map((story, index) => (
                 <LogbookItem
                   key={story.id}
                   story={story}
                   isActive={story.id === activeStoryId}
-                  isSelected={story.id === activeStoryId && mainViewMode === 'logbook'}
+                  isSelected={
+                    story.id === activeStoryId && mainViewMode === "logbook"
+                  }
                   onClick={() => onSelectLogbook(story.id)}
                   onDelete={() => onDeleteLogbook(story.id)}
                   onRename={(name) => onRenameLogbook(story.id, name)}
@@ -717,7 +830,7 @@ export const Sidebar = memo(function Sidebar({
                 <div className="text-center py-6 animate-fade-in">
                   <p
                     className="text-xs"
-                    style={{ color: 'var(--mocha-text-muted)' }}
+                    style={{ color: "var(--mocha-text-muted)" }}
                   >
                     No logbooks yet
                   </p>
@@ -728,15 +841,16 @@ export const Sidebar = memo(function Sidebar({
         </div>
 
         {/* Divider */}
-        {!isCollapsed && (sortedStories.length > 0 || sortedRecentFiles.length > 0) && (
-          <div
-            className="mx-5 my-1"
-            style={{
-              height: '1px',
-              background: 'var(--mocha-border-subtle)',
-            }}
-          />
-        )}
+        {!isCollapsed &&
+          (sortedStories.length > 0 || sortedRecentFiles.length > 0) && (
+            <div
+              className="mx-5 my-1"
+              style={{
+                height: "1px",
+                background: "var(--mocha-border-subtle)",
+              }}
+            />
+          )}
 
         {/* Recent files section */}
         <div className="flex-1 flex flex-col min-h-0">
@@ -746,10 +860,10 @@ export const Sidebar = memo(function Sidebar({
               <button
                 onClick={() => setFilesExpanded(!filesExpanded)}
                 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest transition-colors"
-                style={{ color: 'var(--mocha-text-muted)' }}
+                style={{ color: "var(--mocha-text-muted)" }}
               >
                 <ChevronDown
-                  className={`w-3 h-3 transition-transform duration-200 ${filesExpanded ? '' : '-rotate-90'}`}
+                  className={`w-3 h-3 transition-transform duration-200 ${filesExpanded ? "" : "-rotate-90"}`}
                 />
                 Recent Files
               </button>
@@ -757,14 +871,14 @@ export const Sidebar = memo(function Sidebar({
                 <button
                   onClick={onClearRecent}
                   className="p-1.5 rounded-md transition-all duration-200"
-                  style={{ color: 'var(--mocha-text-muted)' }}
+                  style={{ color: "var(--mocha-text-muted)" }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--mocha-error-bg)'
-                    e.currentTarget.style.color = 'var(--mocha-error)'
+                    e.currentTarget.style.background = "var(--mocha-error-bg)";
+                    e.currentTarget.style.color = "var(--mocha-error)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent'
-                    e.currentTarget.style.color = 'var(--mocha-text-muted)'
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "var(--mocha-text-muted)";
                   }}
                   title="Clear all recent files"
                   data-testid="clear-recent-button"
@@ -778,13 +892,13 @@ export const Sidebar = memo(function Sidebar({
           {/* File list */}
           {(filesExpanded || isCollapsed) && (
             <div
-              className={`flex-1 overflow-y-auto pb-4 ${isCollapsed ? 'px-2 pt-2' : 'px-3'}`}
+              className={`flex-1 overflow-y-auto pb-4 ${isCollapsed ? "px-2 pt-2" : "px-3"}`}
               data-testid="recent-files-list"
             >
               {sortedRecentFiles.length > 0 ? (
-                <div className={isCollapsed ? 'space-y-2' : 'space-y-1'}>
+                <div className={isCollapsed ? "space-y-2" : "space-y-1"}>
                   {sortedRecentFiles.map((file, index) => {
-                    const openedFile = openedFiles.get(file.path)
+                    const openedFile = openedFiles.get(file.path);
                     return (
                       <RecentFileItem
                         key={file.path}
@@ -794,14 +908,14 @@ export const Sidebar = memo(function Sidebar({
                         isCollapsed={isCollapsed}
                         onClick={() => {
                           if (openedFile) {
-                            onToggleFile(file.path)
+                            onToggleFile(file.path);
                           } else {
-                            onSelectFile(file.path)
+                            onSelectFile(file.path);
                           }
                         }}
                         onRemove={() => onRemoveFile(file.path)}
                       />
-                    )
+                    );
                   })}
                 </div>
               ) : !isCollapsed ? (
@@ -812,18 +926,18 @@ export const Sidebar = memo(function Sidebar({
                   <div
                     className="w-12 h-12 mx-auto mb-3 rounded-xl flex items-center justify-center"
                     style={{
-                      background: 'var(--mocha-surface-raised)',
-                      border: '1px solid var(--mocha-border)',
+                      background: "var(--mocha-surface-raised)",
+                      border: "1px solid var(--mocha-border)",
                     }}
                   >
                     <FileText
                       className="w-5 h-5"
-                      style={{ color: 'var(--mocha-text-muted)' }}
+                      style={{ color: "var(--mocha-text-muted)" }}
                     />
                   </div>
                   <p
                     className="text-xs"
-                    style={{ color: 'var(--mocha-text-muted)' }}
+                    style={{ color: "var(--mocha-text-muted)" }}
                   >
                     No recent files
                   </p>
@@ -838,30 +952,30 @@ export const Sidebar = memo(function Sidebar({
       <div
         className="relative z-10 px-3 py-2.5"
         style={{
-          background: 'transparent',
+          background: "transparent",
         }}
       >
         {/* Single row: collapse toggle, status (expanded only), theme toggle */}
         <div
-          className={`flex items-center ${isCollapsed ? 'flex-col gap-2' : 'justify-between'}`}
+          className={`flex items-center ${isCollapsed ? "flex-col gap-2" : "justify-between"}`}
         >
           {/* Collapse toggle button */}
           <button
             onClick={onToggleCollapsed}
             className="p-2 rounded-lg transition-all duration-200 shrink-0"
             style={{
-              color: 'var(--mocha-text-muted)',
-              background: 'transparent',
+              color: "var(--mocha-text-muted)",
+              background: "transparent",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--mocha-surface-hover)'
-              e.currentTarget.style.color = 'var(--mocha-text)'
+              e.currentTarget.style.background = "var(--mocha-surface-hover)";
+              e.currentTarget.style.color = "var(--mocha-text)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent'
-              e.currentTarget.style.color = 'var(--mocha-text-muted)'
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "var(--mocha-text-muted)";
             }}
-            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {isCollapsed ? (
               <PanelLeft className="w-4 h-4" />
@@ -877,28 +991,29 @@ export const Sidebar = memo(function Sidebar({
                 <div
                   className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
                   style={{
-                    background: 'var(--mocha-selection)',
-                    border: '1px solid var(--mocha-selection-border)',
-                    color: 'var(--mocha-info)',
+                    background: "var(--mocha-selection)",
+                    border: "1px solid var(--mocha-selection-border)",
+                    color: "var(--mocha-info)",
                   }}
                 >
                   <div
                     className="w-2 h-2 rounded-full animate-pulse"
-                    style={{ background: 'var(--mocha-info)' }}
+                    style={{ background: "var(--mocha-info)" }}
                   />
                   {activeCount} of {openedCount} active
                 </div>
               ) : recentFiles.length > 0 ? (
                 <p
                   className="text-xs text-center"
-                  style={{ color: 'var(--mocha-text-muted)' }}
+                  style={{ color: "var(--mocha-text-muted)" }}
                 >
-                  {recentFiles.length} recent {recentFiles.length === 1 ? 'file' : 'files'}
+                  {recentFiles.length} recent{" "}
+                  {recentFiles.length === 1 ? "file" : "files"}
                 </p>
               ) : (
                 <p
                   className="text-xs text-center"
-                  style={{ color: 'var(--mocha-text-faint)' }}
+                  style={{ color: "var(--mocha-text-faint)" }}
                 >
                   Ready to analyze
                 </p>
@@ -908,36 +1023,38 @@ export const Sidebar = memo(function Sidebar({
 
           {/* Theme toggle - cycles through themes */}
           {(() => {
-            const currentTheme = THEMES.find(t => t.id === theme) || THEMES[0]
-            const currentIndex = THEMES.findIndex(t => t.id === theme)
-            const nextTheme = THEMES[(currentIndex + 1) % THEMES.length]
-            const Icon = currentTheme.icon
+            const currentTheme =
+              THEMES.find((t) => t.id === theme) || THEMES[0];
+            const currentIndex = THEMES.findIndex((t) => t.id === theme);
+            const nextTheme = THEMES[(currentIndex + 1) % THEMES.length];
+            const Icon = currentTheme.icon;
             return (
               <button
                 onClick={() => onThemeChange(nextTheme.id)}
                 className="p-2 rounded-lg transition-all duration-200 shrink-0"
                 style={{
-                  color: 'var(--mocha-text-muted)',
-                  background: 'transparent',
+                  color: "var(--mocha-text-muted)",
+                  background: "transparent",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--mocha-surface-hover)'
-                  e.currentTarget.style.color = 'var(--mocha-accent)'
+                  e.currentTarget.style.background =
+                    "var(--mocha-surface-hover)";
+                  e.currentTarget.style.color = "var(--mocha-accent)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.color = 'var(--mocha-text-muted)'
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "var(--mocha-text-muted)";
                 }}
                 title={`${currentTheme.name} theme — click for ${nextTheme.name}`}
               >
                 <Icon className="w-4 h-4" />
               </button>
-            )
+            );
           })()}
         </div>
       </div>
     </aside>
-  )
-})
+  );
+});
 
-export type { SidebarProps }
+export type { SidebarProps };
