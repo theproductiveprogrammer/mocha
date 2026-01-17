@@ -41,7 +41,6 @@ function App() {
     setActiveStory,
     toggleStory,
     removeFromStory,
-    clearStory,
     setStoryPaneWidth,
     setStoryPaneCollapsed,
     setMainViewMode,
@@ -753,13 +752,21 @@ function App() {
             {mainViewMode === 'logbook' ? (
               <LogbookView
                 story={activeStory || null}
-                onClose={() => setMainViewMode('logs')}
+                onClose={() => {
+                  setMainViewMode('logs')
+                  setStoryPaneCollapsed(true)
+                }}
                 onMinimizeToPanel={() => {
                   setMainViewMode('logs')
                   setStoryPaneCollapsed(false)
                 }}
                 onRemoveFromStory={removeFromStory}
-                onClearStory={clearStory}
+                onDeleteStory={() => {
+                  if (activeStoryId) {
+                    deleteStory(activeStoryId)
+                    setMainViewMode('logs')
+                  }
+                }}
                 onRenameStory={renameStory}
                 onJumpToSource={handleJumpToSource}
                 scrollToHash={logbookScrollToHash}
@@ -943,7 +950,11 @@ function App() {
                 collapsed={storyPaneCollapsed}
                 removingHash={removingHash}
                 onRemove={handleAnimatedRemove}
-                onClearStory={clearStory}
+                onDeleteStory={() => {
+                  if (activeStoryId) {
+                    deleteStory(activeStoryId)
+                  }
+                }}
                 onWidthChange={setStoryPaneWidth}
                 onToggleCollapsed={() => setStoryPaneCollapsed(!storyPaneCollapsed)}
                 onOpenFullView={() => {

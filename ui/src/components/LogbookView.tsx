@@ -93,7 +93,7 @@ interface LogbookViewProps {
   onClose: () => void
   onMinimizeToPanel: () => void
   onRemoveFromStory: (hash: string) => void
-  onClearStory: () => void
+  onDeleteStory: () => void
   onRenameStory: (id: string, name: string) => void
   onJumpToSource?: (log: LogEntry) => void
   scrollToHash?: string | null  // Hash of entry to scroll to on mount
@@ -502,7 +502,7 @@ export function LogbookView({
   onClose,
   onMinimizeToPanel,
   onRemoveFromStory,
-  onClearStory,
+  onDeleteStory,
   onRenameStory,
   onJumpToSource,
   scrollToHash,
@@ -893,35 +893,33 @@ export function LogbookView({
         {/* Right side - actions */}
         <div className="flex items-center gap-1">
           {!isEmpty && (
-            <>
-              <button
-                onClick={handleCopy}
-                className="p-1.5 rounded-lg transition-all hover:scale-105"
-                style={{
-                  background: 'var(--mocha-surface-hover)',
-                  color: 'var(--mocha-text-secondary)',
-                }}
-                title="Copy all entries"
-              >
-                {copyFeedback ? (
-                  <Check className="w-4 h-4" style={{ color: 'var(--mocha-success)' }} />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
-              </button>
-              <button
-                onClick={onClearStory}
-                className="p-1.5 rounded-lg transition-all hover:scale-105"
-                style={{
-                  background: 'var(--mocha-surface-hover)',
-                  color: 'var(--mocha-text-secondary)',
-                }}
-                title="Clear all entries"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </>
+            <button
+              onClick={handleCopy}
+              className="p-1.5 rounded-lg transition-all hover:scale-105"
+              style={{
+                background: 'var(--mocha-surface-hover)',
+                color: 'var(--mocha-text-secondary)',
+              }}
+              title="Copy all entries"
+            >
+              {copyFeedback ? (
+                <Check className="w-4 h-4" style={{ color: 'var(--mocha-success)' }} />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+            </button>
           )}
+          <button
+            onClick={onDeleteStory}
+            className="p-1.5 rounded-lg transition-all hover:scale-105"
+            style={{
+              background: 'var(--mocha-surface-hover)',
+              color: 'var(--mocha-text-secondary)',
+            }}
+            title="Delete logbook"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
           <div className="w-px h-5 mx-1" style={{ background: 'var(--mocha-border)' }} />
           <button
             onClick={onMinimizeToPanel}

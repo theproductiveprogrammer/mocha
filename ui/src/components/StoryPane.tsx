@@ -19,7 +19,7 @@ interface StoryPaneProps {
   collapsed: boolean;
   removingHash: string | null;
   onRemove: (hash: string) => void;  // Triggers animated removal flow
-  onClearStory: () => void;
+  onDeleteStory: () => void;
   onWidthChange: (width: number) => void;
   onToggleCollapsed: () => void;
   onOpenFullView: () => void;
@@ -230,7 +230,7 @@ export function StoryPane({
   collapsed,
   removingHash,
   onRemove,
-  onClearStory,
+  onDeleteStory,
   onWidthChange,
   onToggleCollapsed,
   onOpenFullView,
@@ -329,31 +329,31 @@ export function StoryPane({
           {/* Right actions */}
           <div className="flex items-center gap-1">
             {activeStory && !isEmpty && (
-              <>
-                <button
-                  onClick={handleCopy}
-                  className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-all duration-200"
-                  style={{ color: "var(--mocha-text-secondary)" }}
-                  title="Copy all"
-                >
-                  {copyFeedback ? (
-                    <Check
-                      className="w-4 h-4"
-                      style={{ color: "var(--mocha-success)" }}
-                    />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </button>
-                <button
-                  onClick={onClearStory}
-                  className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-colors"
-                  style={{ color: "var(--mocha-text-secondary)" }}
-                  title="Clear all"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </>
+              <button
+                onClick={handleCopy}
+                className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-all duration-200"
+                style={{ color: "var(--mocha-text-secondary)" }}
+                title="Copy all"
+              >
+                {copyFeedback ? (
+                  <Check
+                    className="w-4 h-4"
+                    style={{ color: "var(--mocha-success)" }}
+                  />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+              </button>
+            )}
+            {activeStory && (
+              <button
+                onClick={onDeleteStory}
+                className="p-1.5 rounded-lg hover:bg-[var(--mocha-surface-hover)] transition-colors"
+                style={{ color: "var(--mocha-text-secondary)" }}
+                title="Delete logbook"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             )}
             <button
               onClick={onOpenFullView}
