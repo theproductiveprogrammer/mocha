@@ -322,6 +322,9 @@ export interface SidebarProps {
   // UI state
   isCollapsed: boolean;
   onToggleCollapsed: () => void;
+
+  // Highlight newly added file
+  highlightedFilePath?: string | null;
 }
 
 /**

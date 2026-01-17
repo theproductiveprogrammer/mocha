@@ -91,6 +91,7 @@ interface RecentFileItemProps {
   onRemove: () => void;
   index: number;
   isCollapsed: boolean;
+  isHighlighted?: boolean;
 }
 
 const RecentFileItem = memo(function RecentFileItem({
@@ -100,6 +101,7 @@ const RecentFileItem = memo(function RecentFileItem({
   onRemove,
   index,
   isCollapsed,
+  isHighlighted,
 }: RecentFileItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const isOpened = !!openedFile;
@@ -122,7 +124,7 @@ const RecentFileItem = memo(function RecentFileItem({
       >
         <button
           onClick={onClick}
-          className="w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 mx-auto"
+          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 mx-auto ${isHighlighted ? 'animate-file-added' : ''}`}
           style={{
             background: isActive
               ? "var(--mocha-info)"
@@ -164,7 +166,7 @@ const RecentFileItem = memo(function RecentFileItem({
     >
       <button
         onClick={onClick}
-        className="w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 flex items-center gap-3"
+        className={`w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 flex items-center gap-3 ${isHighlighted ? 'animate-file-added' : ''}`}
         style={{
           background: isActive
             ? "var(--mocha-selection)"
@@ -582,6 +584,8 @@ export const Sidebar = memo(function Sidebar({
   // UI state
   isCollapsed,
   onToggleCollapsed,
+  // Highlight newly added file
+  highlightedFilePath,
 }: SidebarProps) {
   const activeCount = Array.from(openedFiles.values()).filter(
     (f) => f.isActive,
@@ -906,6 +910,7 @@ export const Sidebar = memo(function Sidebar({
                         openedFile={openedFile}
                         index={index}
                         isCollapsed={isCollapsed}
+                        isHighlighted={file.path === highlightedFilePath}
                         onClick={() => {
                           if (openedFile) {
                             onToggleFile(file.path);

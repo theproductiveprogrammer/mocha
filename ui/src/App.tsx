@@ -10,6 +10,8 @@ import { useLogViewerStore, useStoryStore, useFileStore, useSettingsStore, filte
 import { Sidebar, Toolbar, LogViewer } from './components'
 import { StoryPane } from './components/StoryPane'
 import { LogbookView } from './components/LogbookView'
+import { ToastContainer } from './components/Toast'
+import { useToastStore } from './toastStore'
 
 function App() {
   // Log viewer store
@@ -96,6 +98,9 @@ function App() {
 
   // Logbook scroll-to-entry state (for opening logbook at specific entry in raw mode)
   const [logbookScrollToHash, setLogbookScrollToHash] = useState<string | null>(null)
+
+  // Sidebar highlight state (for newly added files)
+  const [highlightedFilePath, setHighlightedFilePath] = useState<string | null>(null)
 
   // Ensure openedFiles is a Map (handles hydration)
   const safeOpenedFiles = useMemo(
@@ -378,6 +383,12 @@ function App() {
         }
         openFile(newFile)
 
+        // Show toast and highlight sidebar
+        const lineCount = parsed.logs.length
+        useToastStore.getState().addToast('added', `Added: ${fileName} (${lineCount.toLocaleString()} lines)`)
+        setHighlightedFilePath(filePath)
+        setTimeout(() => setHighlightedFilePath(null), 1000)
+
         console.timeEnd('total')
 
         // Background updates - use store action to avoid race conditions with multiple drops
@@ -575,8 +586,11 @@ function App() {
   }, [setRecentFiles, clearOpenedFiles])
 
   const handleRemoveFile = useCallback((path: string) => {
+    const file = recentFiles.find(f => f.path === path)
+    const fileName = file?.name || path.split('/').pop() || 'file'
     removeRecentFile(path)
-  }, [removeRecentFile])
+    useToastStore.getState().addToast('removed', `Removed: ${fileName}`)
+  }, [removeRecentFile, recentFiles])
 
   // Polling effect for active files
   // Note: We get fresh state inside the callback to avoid stale closure issues
@@ -668,6 +682,8 @@ function App() {
         // UI state
         isCollapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed(!sidebarCollapsed)}
+        // Highlight newly added file
+        highlightedFilePath={highlightedFilePath}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -1020,6 +1036,9 @@ function App() {
           )}
         </div>
       </div>
+
+      {/* Toast notifications */}
+      <ToastContainer />
     </div>
   )
 }

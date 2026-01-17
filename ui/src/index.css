@@ -683,6 +683,34 @@ body {
   }
 }
 
+/* Toast slide in from right */
+@keyframes toastIn {
+  0% {
+    opacity: 0;
+    transform: translateX(100%) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* File added highlight pulse */
+@keyframes fileAdded {
+  0% {
+    box-shadow: 0 0 0 0 var(--mocha-success-muted);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--mocha-success-muted);
+    transform: scale(1.02);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    transform: scale(1);
+  }
+}
+
 /* === Animation Classes === */
 .animate-fade-in {
   animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -731,6 +759,14 @@ body {
 
 .animate-steam {
   animation: steam 2s ease-out infinite;
+}
+
+.animate-toast-in {
+  animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-file-added {
+  animation: fileAdded 0.8s ease-out;
 }
 
 /* ========================================
