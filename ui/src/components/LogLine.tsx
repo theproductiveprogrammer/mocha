@@ -291,9 +291,6 @@ function LogLineComponent({
       : log.parsed.timestamp.slice(0, 8)
     : null
 
-  // Show tooltip when line is likely truncated or has multiple lines
-  const shouldShowTooltip = firstLine.length > 80 || contentLines.length > 1
-
   // Background based on state priority
   // Selection uses border, not background, to preserve error/warning colors
   const getBackgroundStyle = () => {
@@ -386,41 +383,32 @@ function LogLineComponent({
         }`}
         style={{ color: 'var(--mocha-text)' }}
       >
-        {shouldShowTooltip ? (
-          <Tooltip content={log.data} className="flex-1 min-w-0">
-            {/* First line */}
-            <div className="truncate">
-              <TokenizedContent tokens={displayTokens} isCurrentMatch={isCurrentMatch} />
-            </div>
-
-            {/* Preview lines for multi-line content */}
-            {previewLines.length > 0 && (
-              <div
-                className="mt-1 pl-4 text-[10px] font-mono space-y-0.5"
-                style={{ color: 'var(--mocha-text-muted)' }}
-              >
-                {previewLines.map((line, i) => (
-                  <div key={i} className="truncate">{line || '\u00A0'}</div>
-                ))}
-                {additionalLineCount > 0 && (
-                  <span
-                    className="text-[9px] inline-block mt-0.5"
-                    style={{ color: 'var(--mocha-text-muted)', opacity: 0.7 }}
-                  >
-                    +{additionalLineCount} more
-                  </span>
-                )}
-              </div>
-            )}
-          </Tooltip>
-        ) : (
-          <div className="flex-1 min-w-0">
-            {/* First line */}
-            <div className="truncate">
-              <TokenizedContent tokens={displayTokens} isCurrentMatch={isCurrentMatch} />
-            </div>
+        <Tooltip content={log.data} className="flex-1 min-w-0">
+          {/* First line */}
+          <div className="truncate">
+            <TokenizedContent tokens={displayTokens} isCurrentMatch={isCurrentMatch} />
           </div>
-        )}
+
+          {/* Preview lines for multi-line content */}
+          {previewLines.length > 0 && (
+            <div
+              className="mt-1 pl-4 text-[10px] font-mono space-y-0.5"
+              style={{ color: 'var(--mocha-text-muted)' }}
+            >
+              {previewLines.map((line, i) => (
+                <div key={i} className="truncate">{line || '\u00A0'}</div>
+              ))}
+              {additionalLineCount > 0 && (
+                <span
+                  className="text-[9px] inline-block mt-0.5"
+                  style={{ color: 'var(--mocha-text-muted)', opacity: 0.7 }}
+                >
+                  +{additionalLineCount} more
+                </span>
+              )}
+            </div>
+          )}
+        </Tooltip>
 
         {/* Action buttons - appear on hover */}
         <div
