@@ -406,6 +406,7 @@ export function LogViewer({
                   left: 0,
                   width: '100%',
                   transform: `translateY(${virtualItem.start}px)`,
+                  overflow: 'hidden',
                 }}
               >
                 <LogLine
