@@ -136,6 +136,8 @@ export function LogViewer({
     estimateSize: () => 44,
     overscan: 10,
     measureElement: (element) => element.getBoundingClientRect().height,
+    // Use log hash as key so virtualizer correctly handles new logs at top
+    getItemKey: (index) => displayedLogs[index]?.hash || `log-${index}`,
   })
 
   // Track if user is scrolled away from top

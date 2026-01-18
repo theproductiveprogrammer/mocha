@@ -8,6 +8,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { LogViewerState, StoryState, FileState, ParsedFilter, RecentFile, LogEntry, OpenedFileWithLogs, Story, SettingsState, ThemeName } from './types'
+import { recalculateTimestamps } from './parser'
 
 /**
  * Get short service name from log entry.
@@ -476,6 +477,7 @@ export const useFileStore = create<FileState>()(
 
       /**
        * Append new logs to a file (used for polling/watching).
+       * Recalculates timestamps after merging to ensure correct ordering.
        * @param newSize - The actual new file size in bytes (for next poll offset)
        */
       appendFileLogs: (path: string, newLogs: LogEntry[], newSize?: number) => {
@@ -483,10 +485,17 @@ export const useFileStore = create<FileState>()(
         const file = openedFiles.get(path)
         if (!file) return
 
+        // Merge existing logs with new logs
+        const mergedLogs = [...file.logs, ...newLogs]
+
+        // Recalculate timestamps for the entire merged array
+        // This ensures backfill works correctly if first timestamp appears in polled content
+        recalculateTimestamps(mergedLogs)
+
         const newMap = new Map(openedFiles)
         newMap.set(path, {
           ...file,
-          logs: [...file.logs, ...newLogs],
+          logs: mergedLogs,
           lastModified: newSize ?? file.lastModified, // Use actual file size for next poll
         })
         set({ openedFiles: newMap })

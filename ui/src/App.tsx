@@ -606,6 +606,7 @@ function App() {
             }
           } else if (result.content && newSize > file.lastModified) {
             // Normal append - file grew
+            // Just parse and append - recalculateTimestamps in appendFileLogs handles ordering
             const newLines = parseLogFile(result.content, file.name, file.path)
             useFileStore.getState().appendFileLogs(file.path, newLines.logs, newSize)
           }
@@ -613,7 +614,7 @@ function App() {
           console.error(`Polling error for ${file.name}:`, err)
         }
       }
-    }, 5000) // Poll every 5 seconds
+    }, 3000) // Poll every 3 seconds
 
     return () => window.clearInterval(pollInterval)
   }, [safeOpenedFiles]) // Only re-create interval when files change
