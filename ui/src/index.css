@@ -115,6 +115,7 @@
   /* Semantic - Error */
   --mocha-error: #fb3e3e;
   --mocha-error-bg: rgba(84, 3, 3, 1);
+  --mocha-error-bg-hover: rgba(100, 10, 10, 1);
   --mocha-error-border: rgba(251, 62, 62, 0.4);
   --mocha-error-glow: rgba(251, 62, 62, 0.5);
 
@@ -225,6 +226,7 @@
   /* Semantic - Error (adjusted for light) */
   --mocha-error: #c62828;
   --mocha-error-bg: rgba(198, 40, 40, 0.08);
+  --mocha-error-bg-hover: rgba(198, 40, 40, 0.15);
   --mocha-error-border: rgba(198, 40, 40, 0.25);
   --mocha-error-glow: rgba(198, 40, 40, 0.15);
 
@@ -336,6 +338,7 @@
     /* Semantic - Error */
     --mocha-error: #c62828;
     --mocha-error-bg: rgba(198, 40, 40, 0.08);
+    --mocha-error-bg-hover: rgba(198, 40, 40, 0.15);
     --mocha-error-border: rgba(198, 40, 40, 0.25);
     --mocha-error-glow: rgba(198, 40, 40, 0.15);
 
@@ -443,6 +446,7 @@
     /* Semantic - Error */
     --mocha-error: #fb3e3e;
     --mocha-error-bg: rgba(84, 3, 3, 1);
+    --mocha-error-bg-hover: rgba(100, 10, 10, 1);
     --mocha-error-border: rgba(251, 62, 62, 0.4);
     --mocha-error-glow: rgba(251, 62, 62, 0.5);
 
@@ -1030,7 +1034,7 @@ button:active {
 }
 
 .log-error:hover {
-  background: rgba(255, 107, 107, 0.12);
+  background: var(--mocha-error-bg-hover);
 }
 
 .log-warn {

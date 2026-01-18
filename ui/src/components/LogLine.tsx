@@ -48,7 +48,7 @@ function getRowStyle(effectiveLevel?: LogLevel): {
   if (effectiveLevel === 'ERROR') {
     return {
       bg: 'var(--mocha-error-bg)',
-      bgHover: 'rgba(100, 10, 10, 1)',
+      bgHover: 'var(--mocha-error-bg-hover)',
       border: 'var(--mocha-error)',
       signal: 'var(--mocha-error)',
     }
