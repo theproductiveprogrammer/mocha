@@ -806,6 +806,32 @@ body {
 }
 
 /* ========================================
+   RAW LINE TOOLTIP
+   Shows full raw log line on hover
+   ======================================== */
+
+.raw-line-tooltip {
+  position: fixed;
+  z-index: 9999;
+  max-height: 200px;
+  overflow: auto;
+  padding: 8px 12px;
+  background: var(--mocha-surface-raised);
+  border: 1px solid var(--mocha-border);
+  border-radius: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--mocha-text);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  white-space: pre-wrap;
+  word-break: break-all;
+  pointer-events: none;
+}
+
+/* ========================================
    GLASSMORPHIC EFFECTS
    Depth through transparency (theme-aware)
    ======================================== */
