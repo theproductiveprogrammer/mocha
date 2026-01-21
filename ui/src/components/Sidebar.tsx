@@ -966,9 +966,9 @@ export const Sidebar = memo(function Sidebar({
             )}
           </button>
 
-          {/* Status - only show when expanded */}
+          {/* Status and version - only show when expanded */}
           {!isCollapsed && (
-            <div className="flex-1 flex justify-center">
+            <div className="flex-1 flex flex-col items-center gap-1">
               {openCount > 0 ? (
                 <div
                   className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
@@ -1000,6 +1000,12 @@ export const Sidebar = memo(function Sidebar({
                   Ready to analyze
                 </p>
               )}
+              <span
+                className="text-[10px]"
+                style={{ color: "var(--mocha-text-faint)" }}
+              >
+                v{VERSION}
+              </span>
             </div>
           )}
 

@@ -79,6 +79,10 @@ echo "Clean completed!"
 description = "Run the existing app"
 run = "open ./src-tauri/target/debug/bundle/macos/Mocha.app"
 
+[tasks.version]
+description = "Show or set version (usage: mise run version [0.2.0])"
+run = "node scripts/set-version.js"
+
 [tasks.icons]
 description = "Generate app icons from source PNGs in _tmp/icon/"
 run = '''
