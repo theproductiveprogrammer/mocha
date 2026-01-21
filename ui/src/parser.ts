@@ -299,7 +299,25 @@ const patterns: LogPattern[] = [
     },
   },
 
-  // 8. Simple Format (multiple patterns)
+  // 8. Python Logging Format
+  // 2026-01-21 09:04:43,296 - db.py - ERROR - message
+  {
+    name: "python-logging",
+    parse: (line: string): ParsedLogLine | null => {
+      const match = line.match(
+        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]\d+)\s+-\s+(\S+)\s+-\s+(ERROR|WARN(?:ING)?|INFO|DEBUG)\s+-\s*(.*)$/i,
+      );
+      if (!match) return null;
+      return {
+        timestamp: match[1],
+        logger: match[2],
+        level: normalizeLevel(match[3]),
+        content: match[4],
+      };
+    },
+  },
+
+  // 9. Simple Format (multiple patterns)
   {
     name: "simple",
     parse: (line: string): ParsedLogLine | null => {
@@ -330,7 +348,7 @@ const patterns: LogPattern[] = [
     },
   },
 
-  // 9. Logback Time-Only
+  // 10. Logback Time-Only
   // 13:15:39.047 [main] WARN c.s.platform.util.CryptKeyUtil - message
   // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
   {
@@ -349,7 +367,7 @@ const patterns: LogPattern[] = [
     },
   },
 
-  // 10. Level Only (multiple patterns)
+  // 11. Level Only (multiple patterns)
   {
     name: "level-only",
     parse: (line: string): ParsedLogLine | null => {
@@ -389,7 +407,7 @@ const patterns: LogPattern[] = [
     },
   },
 
-  // 11. Genie/Rust Format
+  // 12. Genie/Rust Format
   // [2026-01-09][05:12:22][app_lib::core::setup][INFO] Installing extensions...
   {
     name: "genie-rust",
@@ -407,7 +425,7 @@ const patterns: LogPattern[] = [
     },
   },
 
-  // 12. Single ISO timestamp (for stack traces, simple logs)
+  // 13. Single ISO timestamp (for stack traces, simple logs)
   // 2025-12-19T09:53:52.155Z java.net.SocketTimeoutException: timeout
   // 2025-12-19T09:53:52.155Z at okio.SocketAsyncTimeout.newTimeoutException(JvmOkio.kt:147)
   {
