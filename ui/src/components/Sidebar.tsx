@@ -1002,7 +1002,7 @@ export const Sidebar = memo(function Sidebar({
               )}
               <span
                 className="text-[10px]"
-                style={{ color: "var(--mocha-text-faint)" }}
+                style={{ color: "var(--mocha-text-muted)" }}
               >
                 v{VERSION}
               </span>
