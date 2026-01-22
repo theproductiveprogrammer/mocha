@@ -317,7 +317,27 @@ const patterns: LogPattern[] = [
     },
   },
 
-  // 9. Simple Format (multiple patterns)
+  // 9. Standard Logback/Spring Boot Format (with thread)
+  // 2026-01-22 12:22:32.735 [scheduled-executor-thread-2] INFO  c.s.c.s.ActivityProcessingScheduler - message
+  // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
+  {
+    name: "logback-with-thread",
+    parse: (line: string): ParsedLogLine | null => {
+      const match = line.match(
+        /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+[-–—]\s*(.*)$/i,
+      );
+      if (!match) return null;
+      return {
+        timestamp: match[1],
+        level: normalizeLevel(match[3]),
+        logger: match[4],
+        content: match[5],
+      };
+    },
+  },
+
+  // 10. Simple Format (multiple patterns)
+  // NOTE: This is a catch-all format and should remain near the end
   {
     name: "simple",
     parse: (line: string): ParsedLogLine | null => {
@@ -348,7 +368,7 @@ const patterns: LogPattern[] = [
     },
   },
 
-  // 10. Logback Time-Only
+  // 11. Logback Time-Only
   // 13:15:39.047 [main] WARN c.s.platform.util.CryptKeyUtil - message
   // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
   {
@@ -367,7 +387,7 @@ const patterns: LogPattern[] = [
     },
   },
 
-  // 11. Level Only (multiple patterns)
+  // 12. Level Only (multiple patterns)
   {
     name: "level-only",
     parse: (line: string): ParsedLogLine | null => {
@@ -407,7 +427,7 @@ const patterns: LogPattern[] = [
     },
   },
 
-  // 12. Genie/Rust Format
+  // 13. Genie/Rust Format
   // [2026-01-09][05:12:22][app_lib::core::setup][INFO] Installing extensions...
   {
     name: "genie-rust",
@@ -425,7 +445,7 @@ const patterns: LogPattern[] = [
     },
   },
 
-  // 13. Single ISO timestamp (for stack traces, simple logs)
+  // 14. Single ISO timestamp (for stack traces, simple logs)
   // 2025-12-19T09:53:52.155Z java.net.SocketTimeoutException: timeout
   // 2025-12-19T09:53:52.155Z at okio.SocketAsyncTimeout.newTimeoutException(JvmOkio.kt:147)
   {
