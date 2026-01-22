@@ -316,6 +316,53 @@ pub fn add_recent_file(path: String) -> bool {
     file.write_all(json.as_bytes()).is_ok()
 }
 
+/// Remove a single file from the recent files list
+#[tauri::command]
+pub fn remove_recent_file(path: String) -> bool {
+    if path.is_empty() {
+        return false;
+    }
+
+    let recent_path = match get_recent_file_path() {
+        Some(p) => p,
+        None => return false,
+    };
+
+    if !recent_path.exists() {
+        return true; // Nothing to remove
+    }
+
+    // Read existing recent files
+    let mut recent_files: Vec<RecentFile> = match fs::read_to_string(&recent_path)
+        .ok()
+        .and_then(|c| serde_json::from_str(&c).ok())
+    {
+        Some(f) => f,
+        None => return false,
+    };
+
+    // Remove the file from the list
+    recent_files.retain(|f| f.path != path);
+
+    // Write back to file
+    let json = match serde_json::to_string_pretty(&recent_files) {
+        Ok(j) => j,
+        Err(_) => return false,
+    };
+
+    let mut file = match OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&recent_path)
+    {
+        Ok(f) => f,
+        Err(_) => return false,
+    };
+
+    file.write_all(json.as_bytes()).is_ok()
+}
+
 /// Clear the recent files list
 #[tauri::command]
 pub fn clear_recent_files() -> bool {

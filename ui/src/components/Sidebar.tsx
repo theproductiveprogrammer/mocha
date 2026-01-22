@@ -236,13 +236,6 @@ const RecentFileItem = memo(function RecentFileItem({
           </div>
         </div>
 
-        {/* Chevron indicator */}
-        <ChevronRight
-          className={`w-4 h-4 shrink-0 transition-all duration-200 ${
-            isHovered ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-1"
-          }`}
-          style={{ color: "var(--mocha-text-muted)" }}
-        />
       </button>
 
       {/* Remove button */}

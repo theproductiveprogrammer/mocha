@@ -1,6 +1,6 @@
 mod commands;
 
-use commands::{read_file, get_recent_files, add_recent_file, clear_recent_files};
+use commands::{read_file, get_recent_files, add_recent_file, remove_recent_file, clear_recent_files};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -13,6 +13,7 @@ pub fn run() {
             read_file,
             get_recent_files,
             add_recent_file,
+            remove_recent_file,
             clear_recent_files
         ])
         .run(tauri::generate_context!())

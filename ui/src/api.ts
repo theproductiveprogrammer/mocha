@@ -92,6 +92,21 @@ export async function addRecentFile(path: string): Promise<void> {
 }
 
 /**
+ * Remove a single file from the recent files list
+ *
+ * @param path - Full path to the file to remove
+ */
+export async function removeRecentFile(path: string): Promise<void> {
+  if (!isTauri()) return;
+
+  try {
+    await invoke('remove_recent_file', { path });
+  } catch (err) {
+    console.error('removeRecentFile error:', err);
+  }
+}
+
+/**
  * Clear the recent files list in ~/.mocha/recent.json
  */
 export async function clearRecentFiles(): Promise<void> {

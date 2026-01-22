@@ -4,7 +4,7 @@ import { open as openFileDialog } from '@tauri-apps/plugin-dialog'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import type { LogEntry, OpenedFileWithLogs } from './types'
 import './types'
-import { isTauri, waitForConnection, readFile, getRecentFiles, addRecentFile, clearRecentFiles } from './api'
+import { isTauri, waitForConnection, readFile, getRecentFiles, addRecentFile, removeRecentFile as removeRecentFileApi, clearRecentFiles } from './api'
 import { parseLogFile } from './parser'
 import { useLogViewerStore, useStoryStore, useFileStore, useSettingsStore, filterLogs } from './store'
 import { Sidebar, Toolbar, LogViewer } from './components'
@@ -565,7 +565,8 @@ function App() {
   const handleRemoveFile = useCallback((path: string) => {
     const file = recentFiles.find(f => f.path === path)
     const fileName = file?.name || path.split('/').pop() || 'file'
-    removeRecentFile(path)
+    removeRecentFile(path)  // Update local state
+    removeRecentFileApi(path)  // Persist to backend
     useToastStore.getState().addToast('removed', `Removed: ${fileName}`)
   }, [removeRecentFile, recentFiles])
 
