@@ -296,6 +296,17 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
   initialShowRaw?: boolean
 }) {
   const [showRaw, setShowRaw] = useState(initialShowRaw ?? false)
+
+  // If initialShowRaw is set, briefly show raw mode then fade back to parsed
+  useEffect(() => {
+    if (initialShowRaw) {
+      const timer = setTimeout(() => {
+        setShowRaw(false)
+      }, 1500)  // Show raw for 1.5 seconds, then switch back to parsed
+      return () => clearTimeout(timer)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])  // Only run on mount
   const [copied, setCopied] = useState(false)
   const serviceName = getServiceName(log)
   const content = log.parsed?.content || log.data
