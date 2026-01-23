@@ -1,17 +1,31 @@
-import { useEffect, useRef, useCallback, useMemo, useState } from 'react'
-import { Upload, FileSearch, Zap } from 'lucide-react'
-import { open as openFileDialog } from '@tauri-apps/plugin-dialog'
-import { getCurrentWebview } from '@tauri-apps/api/webview'
-import type { LogEntry, OpenedFileWithLogs } from './types'
-import './types'
-import { isTauri, waitForConnection, readFile, getRecentFiles, addRecentFile, removeRecentFile as removeRecentFileApi, clearRecentFiles } from './api'
-import { parseLogFile } from './parser'
-import { useLogViewerStore, useStoryStore, useFileStore, useSettingsStore, filterLogs } from './store'
-import { Sidebar, Toolbar, LogViewer } from './components'
-import { StoryPane } from './components/StoryPane'
-import { LogbookView } from './components/LogbookView'
-import { ToastContainer } from './components/Toast'
-import { useToastStore } from './toastStore'
+import { useEffect, useRef, useCallback, useMemo, useState } from "react";
+import { Upload, FileSearch, Zap } from "lucide-react";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import type { LogEntry, OpenedFileWithLogs } from "./types";
+import "./types";
+import {
+  isTauri,
+  waitForConnection,
+  readFile,
+  getRecentFiles,
+  addRecentFile,
+  removeRecentFile as removeRecentFileApi,
+  clearRecentFiles,
+} from "./api";
+import { parseLogFile } from "./parser";
+import {
+  useLogViewerStore,
+  useStoryStore,
+  useFileStore,
+  useSettingsStore,
+  filterLogs,
+} from "./store";
+import { Sidebar, Toolbar, LogViewer } from "./components";
+import { StoryPane } from "./components/StoryPane";
+import { LogbookView } from "./components/LogbookView";
+import { ToastContainer } from "./components/Toast";
+import { useToastStore } from "./toastStore";
 
 function App() {
   // Log viewer store
@@ -22,13 +36,16 @@ function App() {
     addFilter,
     removeFilter,
     setInput,
-  } = useLogViewerStore()
+  } = useLogViewerStore();
 
   // Ensure inactiveNames is a Set (handles hydration race condition)
   const inactiveNames = useMemo(
-    () => (rawInactiveNames instanceof Set ? rawInactiveNames : new Set(Array.isArray(rawInactiveNames) ? rawInactiveNames : [])),
-    [rawInactiveNames]
-  )
+    () =>
+      rawInactiveNames instanceof Set
+        ? rawInactiveNames
+        : new Set(Array.isArray(rawInactiveNames) ? rawInactiveNames : []),
+    [rawInactiveNames],
+  );
 
   // Story store - multi-story support
   const {
@@ -46,16 +63,16 @@ function App() {
     setStoryPaneWidth,
     setStoryPaneCollapsed,
     setMainViewMode,
-  } = useStoryStore()
+  } = useStoryStore();
 
   // Ref to scroll the story pane content
-  const storyPaneScrollRef = useRef<HTMLDivElement>(null)
+  const storyPaneScrollRef = useRef<HTMLDivElement>(null);
 
   // Get active story
   const activeStory = useMemo(
-    () => stories.find(s => s.id === activeStoryId),
-    [stories, activeStoryId]
-  )
+    () => stories.find((s) => s.id === activeStoryId),
+    [stories, activeStoryId],
+  );
 
   // File store - now with multi-file support
   const {
@@ -71,137 +88,146 @@ function App() {
     clearOpenedFiles,
     setLoading,
     setError,
-  } = useFileStore()
+  } = useFileStore();
 
   // Settings store - theme
-  const { theme, setTheme } = useSettingsStore()
+  const { theme, setTheme } = useSettingsStore();
 
   // File input ref (for browser mode)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Drag/drop hover state
-  const [isDragging, setIsDragging] = useState(false)
+  const [isDragging, setIsDragging] = useState(false);
 
   // Sidebar collapsed state
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Search state for log stream
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchIsRegex, setSearchIsRegex] = useState(false)
-  const [searchCurrentIndex, setSearchCurrentIndex] = useState(0)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchIsRegex, setSearchIsRegex] = useState(false);
+  const [searchCurrentIndex, setSearchCurrentIndex] = useState(0);
 
   // Jump-to-source state (from logbook)
-  const [jumpToHash, setJumpToHash] = useState<string | null>(null)
+  const [jumpToHash, setJumpToHash] = useState<string | null>(null);
 
   // Remove animation state - tracks hash being removed for scroll-then-fade animation
-  const [removingHash, setRemovingHash] = useState<string | null>(null)
+  const [removingHash, setRemovingHash] = useState<string | null>(null);
 
   // Logbook scroll-to-entry state (for opening logbook at specific entry in raw mode)
-  const [logbookScrollToHash, setLogbookScrollToHash] = useState<string | null>(null)
+  const [logbookScrollToHash, setLogbookScrollToHash] = useState<string | null>(
+    null,
+  );
 
   // Sidebar highlight state (for newly added files)
-  const [highlightedFilePath, setHighlightedFilePath] = useState<string | null>(null)
+  const [highlightedFilePath, setHighlightedFilePath] = useState<string | null>(
+    null,
+  );
 
   // Ensure openedFiles is a Map (handles hydration)
   const safeOpenedFiles = useMemo(
-    () => (openedFiles instanceof Map ? openedFiles : new Map<string, OpenedFileWithLogs>()),
-    [openedFiles]
-  )
+    () =>
+      openedFiles instanceof Map
+        ? openedFiles
+        : new Map<string, OpenedFileWithLogs>(),
+    [openedFiles],
+  );
 
   // Merged logs from all open files, sorted by (timestamp, sortIndex)
   // sortIndex ensures stable ordering for lines without parseable timestamps
   const mergedLogs = useMemo(() => {
-    const allLogs: LogEntry[] = []
+    const allLogs: LogEntry[] = [];
     safeOpenedFiles.forEach((file) => {
-      allLogs.push(...file.logs)
-    })
+      allLogs.push(...file.logs);
+    });
     // Sort by timestamp first, then by sortIndex for stable ordering within same timestamp
     return allLogs.sort((a, b) => {
-      const timestampDiff = (a.timestamp ?? 0) - (b.timestamp ?? 0)
-      if (timestampDiff !== 0) return timestampDiff
-      return (a.sortIndex ?? 0) - (b.sortIndex ?? 0)
-    })
-  }, [safeOpenedFiles])
+      const timestampDiff = (a.timestamp ?? 0) - (b.timestamp ?? 0);
+      if (timestampDiff !== 0) return timestampDiff;
+      return (a.sortIndex ?? 0) - (b.sortIndex ?? 0);
+    });
+  }, [safeOpenedFiles]);
 
   // Story logs come directly from the story (independent of loaded files)
   const storyLogs = useMemo(() => {
-    const entries = activeStory?.entries || []
+    const entries = activeStory?.entries || [];
     // Sort by timestamp ascending (chronological order), then by sortIndex for stable ordering
     return [...entries].sort((a, b) => {
-      const timestampDiff = (a.timestamp ?? 0) - (b.timestamp ?? 0)
-      if (timestampDiff !== 0) return timestampDiff
-      return (a.sortIndex ?? 0) - (b.sortIndex ?? 0)
-    })
-  }, [activeStory])
+      const timestampDiff = (a.timestamp ?? 0) - (b.timestamp ?? 0);
+      if (timestampDiff !== 0) return timestampDiff;
+      return (a.sortIndex ?? 0) - (b.sortIndex ?? 0);
+    });
+  }, [activeStory]);
 
   // Filter logs for display (apply filters)
   const filteredLogs = useMemo(() => {
-    return filterLogs(mergedLogs, filters, inactiveNames)
-  }, [mergedLogs, filters, inactiveNames])
+    return filterLogs(mergedLogs, filters, inactiveNames);
+  }, [mergedLogs, filters, inactiveNames]);
 
   // Search matches in filtered logs
   // Note: filteredLogs is in ascending order (oldest first), but LogViewer displays
   // newest-first. So we reverse the matches to match visual order (top to bottom).
   const searchMatches = useMemo(() => {
-    if (!searchQuery.trim()) return []
+    if (!searchQuery.trim()) return [];
 
-    const matches: number[] = [] // indices into filteredLogs
+    const matches: number[] = []; // indices into filteredLogs
 
     try {
       const regex = searchIsRegex
-        ? new RegExp(searchQuery, 'gi')
-        : new RegExp(searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+        ? new RegExp(searchQuery, "gi")
+        : new RegExp(searchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
 
       filteredLogs.forEach((log, index) => {
         if (regex.test(log.data)) {
-          matches.push(index)
+          matches.push(index);
         }
-        regex.lastIndex = 0 // Reset for next test
-      })
+        regex.lastIndex = 0; // Reset for next test
+      });
     } catch {
       // Invalid regex
     }
 
     // Reverse to match visual order (newest/top first)
-    return matches.reverse()
-  }, [searchQuery, searchIsRegex, filteredLogs])
+    return matches.reverse();
+  }, [searchQuery, searchIsRegex, filteredLogs]);
 
   // Reset search index when query changes
   useEffect(() => {
-    setSearchCurrentIndex(0)
-  }, [searchQuery, searchIsRegex])
+    setSearchCurrentIndex(0);
+  }, [searchQuery, searchIsRegex]);
 
   // Auto-collapse story pane when all logs are closed
   useEffect(() => {
     if (mergedLogs.length === 0) {
-      setStoryPaneCollapsed(true)
+      setStoryPaneCollapsed(true);
     }
-  }, [mergedLogs.length, setStoryPaneCollapsed])
+  }, [mergedLogs.length, setStoryPaneCollapsed]);
 
   // Apply theme to document element
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-  }, [theme])
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
   // Current match hash for scrolling and highlighting
   const searchCurrentMatchHash = useMemo(() => {
-    if (searchMatches.length === 0) return null
-    const matchIndex = searchMatches[searchCurrentIndex]
-    return filteredLogs[matchIndex]?.hash || null
-  }, [searchMatches, searchCurrentIndex, filteredLogs])
+    if (searchMatches.length === 0) return null;
+    const matchIndex = searchMatches[searchCurrentIndex];
+    return filteredLogs[matchIndex]?.hash || null;
+  }, [searchMatches, searchCurrentIndex, filteredLogs]);
 
   // Search navigation
   const handleSearchNext = useCallback(() => {
     if (searchMatches.length > 0) {
-      setSearchCurrentIndex((prev) => (prev + 1) % searchMatches.length)
+      setSearchCurrentIndex((prev) => (prev + 1) % searchMatches.length);
     }
-  }, [searchMatches.length])
+  }, [searchMatches.length]);
 
   const handleSearchPrev = useCallback(() => {
     if (searchMatches.length > 0) {
-      setSearchCurrentIndex((prev) => (prev - 1 + searchMatches.length) % searchMatches.length)
+      setSearchCurrentIndex(
+        (prev) => (prev - 1 + searchMatches.length) % searchMatches.length,
+      );
     }
-  }, [searchMatches.length])
+  }, [searchMatches.length]);
 
   // Error/warning navigation - LogViewer handles the actual navigation,
   // we just track stats and trigger navigation via counter increments
@@ -210,418 +236,536 @@ function App() {
     warningCount: 0,
     currentErrorIndex: -1,
     currentWarningIndex: -1,
-  })
+  });
 
   // Navigation triggers - increment to trigger navigation in LogViewer
-  const [jumpToNextErrorTrigger, setJumpToNextErrorTrigger] = useState(0)
-  const [jumpToPrevErrorTrigger, setJumpToPrevErrorTrigger] = useState(0)
-  const [jumpToNextWarningTrigger, setJumpToNextWarningTrigger] = useState(0)
-  const [jumpToPrevWarningTrigger, setJumpToPrevWarningTrigger] = useState(0)
+  const [jumpToNextErrorTrigger, setJumpToNextErrorTrigger] = useState(0);
+  const [jumpToPrevErrorTrigger, setJumpToPrevErrorTrigger] = useState(0);
+  const [jumpToNextWarningTrigger, setJumpToNextWarningTrigger] = useState(0);
+  const [jumpToPrevWarningTrigger, setJumpToPrevWarningTrigger] = useState(0);
 
   const handleJumpToNextError = useCallback(() => {
-    setJumpToNextErrorTrigger(prev => prev + 1)
-  }, [])
+    setJumpToNextErrorTrigger((prev) => prev + 1);
+  }, []);
 
   const handleJumpToPrevError = useCallback(() => {
-    setJumpToPrevErrorTrigger(prev => prev + 1)
-  }, [])
+    setJumpToPrevErrorTrigger((prev) => prev + 1);
+  }, []);
 
   const handleJumpToNextWarning = useCallback(() => {
-    setJumpToNextWarningTrigger(prev => prev + 1)
-  }, [])
+    setJumpToNextWarningTrigger((prev) => prev + 1);
+  }, []);
 
   const handleJumpToPrevWarning = useCallback(() => {
-    setJumpToPrevWarningTrigger(prev => prev + 1)
-  }, [])
+    setJumpToPrevWarningTrigger((prev) => prev + 1);
+  }, []);
 
   // Handle toggling a log in/out of story - expand pane and scroll when adding
-  const handleToggleStory = useCallback((log: LogEntry) => {
-    // If no active story exists, create one first
-    if (!activeStory) {
-      createStory()
-    }
-
-    // Check if this log is already in the story (will be removed)
-    const isRemoving = activeStory?.entries.some(e => e.hash === log.hash)
-
-    if (isRemoving && log.hash) {
-      // Removing - animate first, then remove after delay
-      // Expand pane if collapsed so user can see the animation
-      if (storyPaneCollapsed) {
-        setStoryPaneCollapsed(false)
+  const handleToggleStory = useCallback(
+    (log: LogEntry) => {
+      // If no active story exists, create one first
+      if (!activeStory) {
+        createStory();
       }
 
-      // Scroll to the card and set removing state for visual feedback
-      setTimeout(() => {
-        const card = document.querySelector(`[data-story-hash="${log.hash}"]`)
-        if (card) {
-          card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Check if this log is already in the story (will be removed)
+      const isRemoving = activeStory?.entries.some((e) => e.hash === log.hash);
+
+      if (isRemoving && log.hash) {
+        // Removing - animate first, then remove after delay
+        // Expand pane if collapsed so user can see the animation
+        if (storyPaneCollapsed) {
+          setStoryPaneCollapsed(false);
         }
-        setRemovingHash(log.hash!)
-      }, 100)
+
+        // Scroll to the card and set removing state for visual feedback
+        setTimeout(() => {
+          const card = document.querySelector(
+            `[data-story-hash="${log.hash}"]`,
+          );
+          if (card) {
+            card.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          setRemovingHash(log.hash!);
+        }, 100);
+
+        // After animation delay, actually remove
+        setTimeout(() => {
+          toggleStory(log);
+          setRemovingHash(null);
+        }, 600); // 100ms scroll delay + 500ms animation
+      } else {
+        // Adding - toggle immediately, then expand and scroll
+        toggleStory(log);
+
+        // Expand if collapsed
+        if (storyPaneCollapsed) {
+          setStoryPaneCollapsed(false);
+        }
+
+        // Scroll to the specific entry after render
+        setTimeout(() => {
+          const card = document.querySelector(
+            `[data-story-hash="${log.hash}"]`,
+          );
+          if (card) {
+            card.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 150);
+      }
+    },
+    [
+      activeStory,
+      createStory,
+      toggleStory,
+      storyPaneCollapsed,
+      setStoryPaneCollapsed,
+    ],
+  );
+
+  // Handle animated removal from story (used by X button in StoryPane)
+  const handleAnimatedRemove = useCallback(
+    (hash: string) => {
+      // Scroll to the card and set removing state for visual feedback
+      const card = document.querySelector(`[data-story-hash="${hash}"]`);
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      setRemovingHash(hash);
 
       // After animation delay, actually remove
       setTimeout(() => {
-        toggleStory(log)
-        setRemovingHash(null)
-      }, 600) // 100ms scroll delay + 500ms animation
-    } else {
-      // Adding - toggle immediately, then expand and scroll
-      toggleStory(log)
-
-      // Expand if collapsed
-      if (storyPaneCollapsed) {
-        setStoryPaneCollapsed(false)
-      }
-
-      // Scroll to the specific entry after render
-      setTimeout(() => {
-        const card = document.querySelector(`[data-story-hash="${log.hash}"]`)
-        if (card) {
-          card.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }
-      }, 150)
-    }
-  }, [activeStory, createStory, toggleStory, storyPaneCollapsed, setStoryPaneCollapsed])
-
-  // Handle animated removal from story (used by X button in StoryPane)
-  const handleAnimatedRemove = useCallback((hash: string) => {
-    // Scroll to the card and set removing state for visual feedback
-    const card = document.querySelector(`[data-story-hash="${hash}"]`)
-    if (card) {
-      card.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-    setRemovingHash(hash)
-
-    // After animation delay, actually remove
-    setTimeout(() => {
-      removeFromStory(hash)
-      setRemovingHash(null)
-    }, 500)
-  }, [removeFromStory])
+        removeFromStory(hash);
+        setRemovingHash(null);
+      }, 500);
+    },
+    [removeFromStory],
+  );
 
   // Count of open files (all open files are now shown)
   const activeFileCount = useMemo(() => {
-    return safeOpenedFiles.size
-  }, [safeOpenedFiles])
+    return safeOpenedFiles.size;
+  }, [safeOpenedFiles]);
 
-  // Load recent files on mount
+  // Load recent files and restore opened files on mount
   useEffect(() => {
     const loadRecentFiles = async () => {
-      if (!isTauri()) return
-      const connected = await waitForConnection(5000)
-      if (!connected) return
+      if (!isTauri()) return;
+      const connected = await waitForConnection(5000);
+      if (!connected) return;
       try {
-        const recent = await getRecentFiles()
-        setRecentFiles(recent)
+        const recent = await getRecentFiles();
+        setRecentFiles(recent);
       } catch (err) {
-        console.error('Failed to load recent files:', err)
+        console.error("Failed to load recent files:", err);
       }
-    }
-    loadRecentFiles()
-  }, [setRecentFiles])
+    };
+    loadRecentFiles();
+  }, [setRecentFiles]);
+
+  // Restore opened files from previous session (runs once on mount)
+  useEffect(() => {
+    const restoreOpenedFiles = async () => {
+      if (!isTauri()) return;
+
+      // Wait for connection to be established
+      const connected = await waitForConnection(5000);
+      if (!connected) return;
+
+      // Get paths that were open in previous session
+      const pathsToRestore = useFileStore.getState().getPathsToRestore();
+      if (pathsToRestore.length === 0) return;
+
+      // Restore each file (only if it's not already open)
+      for (const path of pathsToRestore) {
+        // Skip if already open (shouldn't happen, but be safe)
+        const currentOpened = useFileStore.getState().openedFiles;
+        if (currentOpened.has(path)) continue;
+
+        // Only restore files that exist on disk (skip if path doesn't start with /)
+        if (!path.startsWith("/")) continue;
+
+        try {
+          // Open the file (this will handle errors if file doesn't exist)
+          // Use the store's state directly to avoid dependency issues
+          await handleOpenFile(path);
+        } catch (err) {
+          // File might have been deleted/moved - silently skip it
+          console.log(`Skipping restore for ${path}:`, err);
+        }
+      }
+
+      // Clear the restore paths after restoration
+      useFileStore.getState().clearPathsToRestore();
+    };
+
+    // Small delay to ensure store is hydrated
+    const timer = setTimeout(() => {
+      restoreOpenedFiles();
+    }, 100);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
   // Handle opening a file (adds to view, doesn't replace)
-  const handleOpenFile = useCallback(async (path?: string) => {
-    if (path) {
-      // Check if file is already opened
-      const existing = safeOpenedFiles.get(path)
-      if (existing) {
-        // File already open - nothing to do
-        return
-      }
-
-      if (!isTauri()) {
-        setError('Cannot open files by path in browser mode')
-        return
-      }
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        console.time('total')
-        console.time('read')
-        const result = await readFile(path, 0)
-        console.timeEnd('read')
-
-        if (!result.success) {
-          setError(result.error || 'Failed to read file')
-          setLoading(false)
-          return
+  const handleOpenFile = useCallback(
+    async (path?: string) => {
+      if (path) {
+        // Check if file is already opened
+        const existing = safeOpenedFiles.get(path);
+        if (existing) {
+          // File already open - nothing to do
+          return;
         }
 
-        const fileContent = result.content ?? ''
-        const filePath = result.path ?? path
-        const fileName = result.name ?? path.split('/').pop() ?? 'unknown'
-        const fileSize = result.size ?? 0
-
-        console.time('parse')
-        const parsed = parseLogFile(fileContent, fileName, filePath)
-        console.timeEnd('parse')
-
-        console.log(`${parsed.logs.length} logs from ${fileName}`)
-
-        // Add file to opened files map
-        const newFile: OpenedFileWithLogs = {
-          path: filePath,
-          name: fileName,
-          size: fileSize,
-          logs: parsed.logs,
-          lastModified: fileSize,
-          mtime: result.mtime,
+        if (!isTauri()) {
+          setError("Cannot open files by path in browser mode");
+          return;
         }
-        openFile(newFile)
 
-        // Show toast and highlight sidebar
-        const lineCount = parsed.logs.length
-        useToastStore.getState().addToast('added', `Added: ${fileName} (${lineCount.toLocaleString()} lines)`)
-        setHighlightedFilePath(filePath)
-        setTimeout(() => setHighlightedFilePath(null), 1000)
+        setLoading(true);
+        setError(null);
 
-        console.timeEnd('total')
-
-        // Background updates - use store action to avoid race conditions with multiple drops
-        setTimeout(() => {
-          addRecentFile(filePath)  // Persist to Tauri backend
-          addRecentFileToStore({ path: filePath, name: fileName, lastOpened: Date.now(), exists: true, size: fileSize, mtime: result.mtime })
-        }, 0)
-
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to open file')
-      } finally {
-        setLoading(false)
-      }
-    } else {
-      if (isTauri()) {
         try {
-          const selected = await openFileDialog({
-            multiple: false,
-            filters: [{ name: 'Log Files', extensions: ['log', 'txt'] }],
-          })
-          if (selected) {
-            handleOpenFile(selected)
+          console.time("total");
+          console.time("read");
+          const result = await readFile(path, 0);
+          console.timeEnd("read");
+
+          if (!result.success) {
+            setError(result.error || "Failed to read file");
+            setLoading(false);
+            return;
           }
+
+          const fileContent = result.content ?? "";
+          const filePath = result.path ?? path;
+          const fileName = result.name ?? path.split("/").pop() ?? "unknown";
+          const fileSize = result.size ?? 0;
+
+          console.time("parse");
+          const parsed = parseLogFile(fileContent, fileName, filePath);
+          console.timeEnd("parse");
+
+          console.log(`${parsed.logs.length} logs from ${fileName}`);
+
+          // Add file to opened files map
+          const newFile: OpenedFileWithLogs = {
+            path: filePath,
+            name: fileName,
+            size: fileSize,
+            logs: parsed.logs,
+            lastModified: fileSize,
+            mtime: result.mtime,
+          };
+          openFile(newFile);
+
+          // Show toast and highlight sidebar
+          const lineCount = parsed.logs.length;
+          useToastStore
+            .getState()
+            .addToast(
+              "added",
+              `Added: ${fileName} (${lineCount.toLocaleString()} lines)`,
+            );
+          setHighlightedFilePath(filePath);
+          setTimeout(() => setHighlightedFilePath(null), 1000);
+
+          console.timeEnd("total");
+
+          // Background updates - use store action to avoid race conditions with multiple drops
+          setTimeout(() => {
+            addRecentFile(filePath); // Persist to Tauri backend
+            addRecentFileToStore({
+              path: filePath,
+              name: fileName,
+              lastOpened: Date.now(),
+              exists: true,
+              size: fileSize,
+              mtime: result.mtime,
+            });
+          }, 0);
         } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to open file dialog')
+          setError(err instanceof Error ? err.message : "Failed to open file");
+        } finally {
+          setLoading(false);
         }
       } else {
-        fileInputRef.current?.click()
+        if (isTauri()) {
+          try {
+            const selected = await openFileDialog({
+              multiple: false,
+              filters: [{ name: "Log Files", extensions: ["log", "txt"] }],
+            });
+            if (selected) {
+              handleOpenFile(selected);
+            }
+          } catch (err) {
+            setError(
+              err instanceof Error ? err.message : "Failed to open file dialog",
+            );
+          }
+        } else {
+          fileInputRef.current?.click();
+        }
       }
-    }
-  }, [safeOpenedFiles, openFile, setLoading, setError, addRecentFileToStore])
+    },
+    [safeOpenedFiles, openFile, setLoading, setError, addRecentFileToStore],
+  );
 
   // Jump to source from logbook - open file if needed, minimize logbook and scroll to the log
-  const handleJumpToSource = useCallback(async (log: LogEntry) => {
-    const hash = log.hash
-    if (!hash) return
+  const handleJumpToSource = useCallback(
+    async (log: LogEntry) => {
+      const hash = log.hash;
+      if (!hash) return;
 
-    // If in logbook view, switch to logs view first
-    if (mainViewMode === 'logbook') {
-      setMainViewMode('logs')
-    }
-
-    // Try to find the file path - use filePath if available, otherwise search recent files by name
-    let filePath = log.filePath
-    if (!filePath) {
-      // Fall back to finding in recent files by filename
-      const recentMatch = recentFiles.find(f => f.name === log.name)
-      if (recentMatch) {
-        filePath = recentMatch.path
+      // If in logbook view, switch to logs view first
+      if (mainViewMode === "logbook") {
+        setMainViewMode("logs");
       }
-    }
 
-    // Check if the file is currently open
-    const openedFile = filePath ? safeOpenedFiles.get(filePath) : null
+      // Try to find the file path - use filePath if available, otherwise search recent files by name
+      let filePath = log.filePath;
+      if (!filePath) {
+        // Fall back to finding in recent files by filename
+        const recentMatch = recentFiles.find((f) => f.name === log.name);
+        if (recentMatch) {
+          filePath = recentMatch.path;
+        }
+      }
 
-    if (filePath && !openedFile) {
-      // File is not open - need to open it first
-      await handleOpenFile(filePath)
+      // Check if the file is currently open
+      const openedFile = filePath ? safeOpenedFiles.get(filePath) : null;
 
-      // Wait for the file to be loaded and rendered, then scroll
-      setTimeout(() => {
-        setJumpToHash(hash)
-      }, 300)
-    } else {
-      // File is already open - just scroll
-      setJumpToHash(hash)
-    }
-  }, [mainViewMode, setMainViewMode, safeOpenedFiles, recentFiles, handleOpenFile])
+      if (filePath && !openedFile) {
+        // File is not open - need to open it first
+        await handleOpenFile(filePath);
+
+        // Wait for the file to be loaded and rendered, then scroll
+        setTimeout(() => {
+          setJumpToHash(hash);
+        }, 300);
+      } else {
+        // File is already open - just scroll
+        setJumpToHash(hash);
+      }
+    },
+    [
+      mainViewMode,
+      setMainViewMode,
+      safeOpenedFiles,
+      recentFiles,
+      handleOpenFile,
+    ],
+  );
 
   // Clear jump hash after scroll completes
   const handleJumpComplete = useCallback(() => {
-    setJumpToHash(null)
-  }, [])
+    setJumpToHash(null);
+  }, []);
 
   // Handle file selection from browser file input
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
 
-    // Check if file is already opened
-    const existing = safeOpenedFiles.get(file.name)
-    if (existing) {
-      // File already open - nothing to do
-      e.target.value = ''
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-
-    const reader = new FileReader()
-    reader.onload = (evt) => {
-      try {
-        const content = evt.target?.result as string
-        const parsed = parseLogFile(content, file.name, file.name)
-
-        const newFile: OpenedFileWithLogs = {
-          path: file.name,
-          name: file.name,
-          size: content.length,
-          logs: parsed.logs,
-          lastModified: content.length,
-        }
-        openFile(newFile)
-
-        setTimeout(() => {
-          addRecentFileToStore({ path: file.name, name: file.name, lastOpened: Date.now(), exists: true, size: content.length })
-        }, 0)
-
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to parse file')
-      } finally {
-        setLoading(false)
+      // Check if file is already opened
+      const existing = safeOpenedFiles.get(file.name);
+      if (existing) {
+        // File already open - nothing to do
+        e.target.value = "";
+        return;
       }
-    }
-    reader.onerror = () => {
-      setError('Failed to read file')
-      setLoading(false)
-    }
-    reader.readAsText(file)
-    e.target.value = ''
-  }, [safeOpenedFiles, openFile, setLoading, setError, addRecentFileToStore])
+
+      setLoading(true);
+      setError(null);
+
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const content = evt.target?.result as string;
+          const parsed = parseLogFile(content, file.name, file.name);
+
+          const newFile: OpenedFileWithLogs = {
+            path: file.name,
+            name: file.name,
+            size: content.length,
+            logs: parsed.logs,
+            lastModified: content.length,
+          };
+          openFile(newFile);
+
+          setTimeout(() => {
+            addRecentFileToStore({
+              path: file.name,
+              name: file.name,
+              lastOpened: Date.now(),
+              exists: true,
+              size: content.length,
+            });
+          }, 0);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Failed to parse file");
+        } finally {
+          setLoading(false);
+        }
+      };
+      reader.onerror = () => {
+        setError("Failed to read file");
+        setLoading(false);
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    },
+    [safeOpenedFiles, openFile, setLoading, setError, addRecentFileToStore],
+  );
 
   // Tauri drag/drop event listener - uses native file paths for recent files persistence
   useEffect(() => {
-    if (!isTauri()) return
+    if (!isTauri()) return;
 
-    let unlisten: (() => void) | undefined
+    let unlisten: (() => void) | undefined;
 
-    getCurrentWebview().onDragDropEvent((event) => {
-      if (event.payload.type === 'over') {
-        setIsDragging(true)
-      } else if (event.payload.type === 'drop') {
-        setIsDragging(false)
-        // Open each dropped file using the same path as "Open File"
-        const paths = event.payload.paths as string[]
-        for (const path of paths) {
-          // Filter to only .log and .txt files
-          const lowerPath = path.toLowerCase()
-          if (lowerPath.endsWith('.log') || lowerPath.endsWith('.txt')) {
-            handleOpenFile(path)
+    getCurrentWebview()
+      .onDragDropEvent((event) => {
+        if (event.payload.type === "over") {
+          setIsDragging(true);
+        } else if (event.payload.type === "drop") {
+          setIsDragging(false);
+          // Open each dropped file using the same path as "Open File"
+          const paths = event.payload.paths as string[];
+          for (const path of paths) {
+            // Filter to only .log and .txt files
+            const lowerPath = path.toLowerCase();
+            if (lowerPath.endsWith(".log") || lowerPath.endsWith(".txt")) {
+              handleOpenFile(path);
+            }
           }
+        } else {
+          // cancel
+          setIsDragging(false);
         }
-      } else {
-        // cancel
-        setIsDragging(false)
-      }
-    }).then((fn) => {
-      unlisten = fn
-    })
+      })
+      .then((fn) => {
+        unlisten = fn;
+      });
 
     return () => {
-      unlisten?.()
-    }
-  }, [handleOpenFile])
+      unlisten?.();
+    };
+  }, [handleOpenFile]);
 
   // Handle clicking a file in sidebar - open if not already open
-  const handleSelectFile = useCallback((path?: string) => {
-    if (!path) {
-      handleOpenFile()
-      return
-    }
+  const handleSelectFile = useCallback(
+    (path?: string) => {
+      if (!path) {
+        handleOpenFile();
+        return;
+      }
 
-    const existing = safeOpenedFiles.get(path)
-    if (!existing) {
-      // File not opened - open it
-      handleOpenFile(path)
-    }
-    // If already open, do nothing (Sidebar handles close via onCloseFile)
-  }, [safeOpenedFiles, handleOpenFile])
+      const existing = safeOpenedFiles.get(path);
+      if (!existing) {
+        // File not opened - open it
+        handleOpenFile(path);
+      }
+      // If already open, do nothing (Sidebar handles close via onCloseFile)
+    },
+    [safeOpenedFiles, handleOpenFile],
+  );
 
   // Close a file (called from sidebar when clicking an open file)
-  const handleCloseFile = useCallback((path: string) => {
-    closeFile(path)
-    useToastStore.getState().addToast('removed', `Closed: ${recentFiles.find(f => f.path === path)?.name || path.split('/').pop() || 'file'}`)
-  }, [closeFile, recentFiles])
+  const handleCloseFile = useCallback(
+    (path: string) => {
+      closeFile(path);
+      useToastStore
+        .getState()
+        .addToast(
+          "removed",
+          `Closed: ${recentFiles.find((f) => f.path === path)?.name || path.split("/").pop() || "file"}`,
+        );
+    },
+    [closeFile, recentFiles],
+  );
 
   const handleClearRecent = useCallback(() => {
-    setRecentFiles([])
-    clearOpenedFiles()  // Also clear opened files so logs disappear
-    clearRecentFiles()  // Also clear Tauri's ~/.mocha/recent.json
-  }, [setRecentFiles, clearOpenedFiles])
+    setRecentFiles([]);
+    clearOpenedFiles(); // Also clear opened files so logs disappear
+    clearRecentFiles(); // Also clear Tauri's ~/.mocha/recent.json
+  }, [setRecentFiles, clearOpenedFiles]);
 
-  const handleRemoveFile = useCallback((path: string) => {
-    const file = recentFiles.find(f => f.path === path)
-    const fileName = file?.name || path.split('/').pop() || 'file'
-    removeRecentFile(path)  // Update local state
-    removeRecentFileApi(path)  // Persist to backend
-    useToastStore.getState().addToast('removed', `Removed: ${fileName}`)
-  }, [removeRecentFile, recentFiles])
+  const handleRemoveFile = useCallback(
+    (path: string) => {
+      const file = recentFiles.find((f) => f.path === path);
+      const fileName = file?.name || path.split("/").pop() || "file";
+      removeRecentFile(path); // Update local state
+      removeRecentFileApi(path); // Persist to backend
+      useToastStore.getState().addToast("removed", `Removed: ${fileName}`);
+    },
+    [removeRecentFile, recentFiles],
+  );
 
   // Polling effect for open files
   // Note: We get fresh state inside the callback to avoid stale closure issues
   // that could cause lines to be skipped or duplicated
   useEffect(() => {
-    if (!isTauri()) return
+    if (!isTauri()) return;
 
     // Only run polling if we have open files (quick check)
-    const hasOpenFiles = Array.from(safeOpenedFiles.values()).some(
-      f => f.path.startsWith('/')
-    )
-    if (!hasOpenFiles) return
+    const hasOpenFiles = Array.from(safeOpenedFiles.values()).some((f) =>
+      f.path.startsWith("/"),
+    );
+    if (!hasOpenFiles) return;
 
     const pollInterval = window.setInterval(async () => {
       // Get FRESH state inside callback to avoid stale closures
-      const currentFiles = useFileStore.getState().openedFiles
-      const openFiles = Array.from(currentFiles.values()).filter(
-        f => f.path.startsWith('/')
-      )
+      const currentFiles = useFileStore.getState().openedFiles;
+      const openFiles = Array.from(currentFiles.values()).filter((f) =>
+        f.path.startsWith("/"),
+      );
 
       for (const file of openFiles) {
         try {
-          const result = await readFile(file.path, file.lastModified)
-          if (!result.success) continue
-          const newSize = result.size ?? 0
+          const result = await readFile(file.path, file.lastModified);
+          if (!result.success) continue;
+          const newSize = result.size ?? 0;
 
           if (result.truncated && result.content) {
             // File was replaced/truncated - reload entirely
-            const newLines = parseLogFile(result.content, file.name, file.path)
-            useFileStore.getState().updateFileLogs(file.path, newLines.logs)
+            const newLines = parseLogFile(result.content, file.name, file.path);
+            useFileStore.getState().updateFileLogs(file.path, newLines.logs);
             // Also update the lastModified (size) for next poll
-            const currentFiles = useFileStore.getState().openedFiles
-            const updatedFile = currentFiles.get(file.path)
+            const currentFiles = useFileStore.getState().openedFiles;
+            const updatedFile = currentFiles.get(file.path);
             if (updatedFile) {
-              useFileStore.getState().openFile({ ...updatedFile, lastModified: newSize, mtime: result.mtime })
+              useFileStore
+                .getState()
+                .openFile({
+                  ...updatedFile,
+                  lastModified: newSize,
+                  mtime: result.mtime,
+                });
             }
           } else if (result.content && newSize > file.lastModified) {
             // Normal append - file grew
             // Just parse and append - recalculateTimestamps in appendFileLogs handles ordering
-            const newLines = parseLogFile(result.content, file.name, file.path)
-            useFileStore.getState().appendFileLogs(file.path, newLines.logs, newSize)
+            const newLines = parseLogFile(result.content, file.name, file.path);
+            useFileStore
+              .getState()
+              .appendFileLogs(file.path, newLines.logs, newSize);
           }
         } catch (err) {
-          console.error(`Polling error for ${file.name}:`, err)
+          console.error(`Polling error for ${file.name}:`, err);
         }
       }
-    }, 3000) // Poll every 3 seconds
+    }, 3000); // Poll every 3 seconds
 
-    return () => window.clearInterval(pollInterval)
-  }, [safeOpenedFiles]) // Only re-create interval when files change
+    return () => window.clearInterval(pollInterval);
+  }, [safeOpenedFiles]); // Only re-create interval when files change
 
   return (
-    <div className="h-screen flex" style={{ background: 'var(--mocha-bg)' }}>
+    <div className="h-screen flex" style={{ background: "var(--mocha-bg)" }}>
       <input
         type="file"
         ref={fileInputRef}
@@ -636,10 +780,10 @@ function App() {
         openedFiles={safeOpenedFiles}
         onSelectFile={(path) => {
           // When selecting a file, switch to logs view if in logbook view
-          if (mainViewMode === 'logbook') {
-            setMainViewMode('logs')
+          if (mainViewMode === "logbook") {
+            setMainViewMode("logs");
           }
-          handleSelectFile(path)
+          handleSelectFile(path);
         }}
         onCloseFile={handleCloseFile}
         onRemoveFile={handleRemoveFile}
@@ -649,8 +793,8 @@ function App() {
         activeStoryId={activeStoryId}
         mainViewMode={mainViewMode}
         onSelectLogbook={(id) => {
-          setActiveStory(id)
-          setMainViewMode('logbook')
+          setActiveStory(id);
+          setMainViewMode("logbook");
         }}
         onCreateLogbook={createStory}
         onDeleteLogbook={deleteStory}
@@ -667,7 +811,7 @@ function App() {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Only show toolbar when viewing logs, not logbook */}
-        {mainViewMode === 'logs' && (
+        {mainViewMode === "logs" && (
           <Toolbar
             filters={filters}
             filterInput={input}
@@ -704,16 +848,19 @@ function App() {
             <div
               className="animate-fade-in px-5 py-3 text-sm flex items-center justify-between"
               style={{
-                background: 'var(--mocha-error-bg)',
-                borderBottom: '1px solid var(--mocha-error-border)',
-                color: 'var(--mocha-error)'
+                background: "var(--mocha-error-bg)",
+                borderBottom: "1px solid var(--mocha-error-border)",
+                color: "var(--mocha-error)",
               }}
             >
               <span className="font-medium">{error}</span>
               <button
                 onClick={() => setError(null)}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 hover:scale-105"
-                style={{ background: 'var(--mocha-error)', color: 'var(--mocha-bg)' }}
+                style={{
+                  background: "var(--mocha-error)",
+                  color: "var(--mocha-bg)",
+                }}
               >
                 Dismiss
               </button>
@@ -725,16 +872,16 @@ function App() {
             <div
               className="animate-fade-in px-5 py-3 text-sm flex items-center gap-3"
               style={{
-                background: 'var(--mocha-surface-raised)',
-                borderBottom: '1px solid var(--mocha-border)',
-                color: 'var(--mocha-accent)'
+                background: "var(--mocha-surface-raised)",
+                borderBottom: "1px solid var(--mocha-border)",
+                color: "var(--mocha-accent)",
               }}
             >
               <div
                 className="w-4 h-4 rounded-full animate-spin"
                 style={{
-                  border: '2px solid var(--mocha-accent-muted)',
-                  borderTopColor: 'var(--mocha-accent)',
+                  border: "2px solid var(--mocha-accent-muted)",
+                  borderTopColor: "var(--mocha-accent)",
                 }}
               />
               <span className="font-medium">Loading file...</span>
@@ -744,22 +891,22 @@ function App() {
           {/* Main content area with log viewer and story pane side by side */}
           <div className="flex-1 flex overflow-hidden">
             {/* Conditional main view - either LogbookView or LogViewer */}
-            {mainViewMode === 'logbook' ? (
+            {mainViewMode === "logbook" ? (
               <LogbookView
                 story={activeStory || null}
                 onClose={() => {
-                  setMainViewMode('logs')
-                  setStoryPaneCollapsed(true)
+                  setMainViewMode("logs");
+                  setStoryPaneCollapsed(true);
                 }}
                 onMinimizeToPanel={() => {
-                  setMainViewMode('logs')
-                  setStoryPaneCollapsed(false)
+                  setMainViewMode("logs");
+                  setStoryPaneCollapsed(false);
                 }}
                 onRemoveFromStory={removeFromStory}
                 onDeleteStory={() => {
                   if (activeStoryId) {
-                    deleteStory(activeStoryId)
-                    setMainViewMode('logs')
+                    deleteStory(activeStoryId);
+                    setMainViewMode("logs");
                   }
                 }}
                 onRenameStory={renameStory}
@@ -769,197 +916,231 @@ function App() {
                 onScrollComplete={() => setLogbookScrollToHash(null)}
               />
             ) : (
-            /* Log viewer container */
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Virtualized Log viewer */}
-              {mergedLogs.length > 0 ? (
-                <LogViewer
-                  logs={mergedLogs}
-                  onToggleStory={handleToggleStory}
-                  searchQuery={searchQuery}
-                  searchIsRegex={searchIsRegex}
-                  searchCurrentMatchHash={searchCurrentMatchHash}
-                  jumpToHash={jumpToHash}
-                  onJumpComplete={handleJumpComplete}
-                  // Error/warning navigation - LogViewer handles internally with displayedLogs order
-                  onErrorWarningStats={setErrorWarningStats}
-                  jumpToNextError={jumpToNextErrorTrigger}
-                  jumpToPrevError={jumpToPrevErrorTrigger}
-                  jumpToNextWarning={jumpToNextWarningTrigger}
-                  jumpToPrevWarning={jumpToPrevWarningTrigger}
-                />
-              ) : (
-                /* Beautiful empty state */
-                <div
-                  className="flex-1 flex items-center justify-center relative overflow-hidden"
-                  style={{ background: 'var(--mocha-bg)' }}
-                >
-                  {/* Ambient background glow */}
-                  <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      background: 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(232, 168, 84, 0.06) 0%, transparent 60%)',
-                    }}
+              /* Log viewer container */
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Virtualized Log viewer */}
+                {mergedLogs.length > 0 ? (
+                  <LogViewer
+                    logs={mergedLogs}
+                    onToggleStory={handleToggleStory}
+                    searchQuery={searchQuery}
+                    searchIsRegex={searchIsRegex}
+                    searchCurrentMatchHash={searchCurrentMatchHash}
+                    jumpToHash={jumpToHash}
+                    onJumpComplete={handleJumpComplete}
+                    // Error/warning navigation - LogViewer handles internally with displayedLogs order
+                    onErrorWarningStats={setErrorWarningStats}
+                    jumpToNextError={jumpToNextErrorTrigger}
+                    jumpToPrevError={jumpToPrevErrorTrigger}
+                    jumpToNextWarning={jumpToNextWarningTrigger}
+                    jumpToPrevWarning={jumpToPrevWarningTrigger}
                   />
-
-                  {/* Grid pattern overlay */}
+                ) : (
+                  /* Beautiful empty state */
                   <div
-                    className="absolute inset-0 pointer-events-none opacity-30 grid-pattern"
-                  />
+                    className="flex-1 flex items-center justify-center relative overflow-hidden"
+                    style={{ background: "var(--mocha-bg)" }}
+                  >
+                    {/* Ambient background glow */}
+                    <div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        background:
+                          "radial-gradient(ellipse 80% 60% at 50% 30%, rgba(232, 168, 84, 0.06) 0%, transparent 60%)",
+                      }}
+                    />
 
-                  <div className="relative z-10 text-center max-w-lg px-8 animate-fade-in-up">
-                    {/* Iconic illustration with distant orbiting particles */}
-                    <div className="relative mb-10 w-72 h-72 mx-auto">
-                      {/* Center icon */}
-                      <div
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex items-center justify-center"
-                        style={{
-                          background: 'linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface) 100%)',
-                          border: '1px solid var(--mocha-border)',
-                          boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
-                        }}
+                    {/* Grid pattern overlay */}
+                    <div className="absolute inset-0 pointer-events-none opacity-30 grid-pattern" />
+
+                    <div className="relative z-10 text-center max-w-lg px-8 animate-fade-in-up">
+                      {/* Iconic illustration with distant orbiting particles */}
+                      <div className="relative mb-10 w-72 h-72 mx-auto">
+                        {/* Center icon */}
+                        <div
+                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex items-center justify-center"
+                          style={{
+                            background:
+                              "linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface) 100%)",
+                            border: "1px solid var(--mocha-border)",
+                            boxShadow:
+                              "0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)",
+                          }}
+                        >
+                          <FileSearch
+                            className="w-9 h-9"
+                            style={{ color: "var(--mocha-accent)" }}
+                            strokeWidth={1.5}
+                          />
+                        </div>
+
+                        {/* Orbiting particles - very slow, spread apart radially, offset starting positions */}
+                        {/* Outer orbit - 12 o'clock start */}
+                        <div
+                          className="absolute inset-0 animate-orbit"
+                          style={{
+                            animationDuration: "140s",
+                            animationDelay: "0s",
+                          }}
+                        >
+                          <div
+                            className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full"
+                            style={{
+                              background: "var(--mocha-accent)",
+                              opacity: 0.5,
+                              boxShadow: "0 0 6px var(--mocha-accent)",
+                            }}
+                          />
+                        </div>
+                        {/* Middle-outer orbit - 4 o'clock start (120°) */}
+                        <div
+                          className="absolute inset-8 animate-orbit"
+                          style={{
+                            animationDuration: "170s",
+                            animationDelay: "-56.7s",
+                            animationDirection: "reverse",
+                          }}
+                        >
+                          <div
+                            className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
+                            style={{
+                              background: "var(--mocha-info)",
+                              opacity: 0.45,
+                              boxShadow: "0 0 5px var(--mocha-info)",
+                            }}
+                          />
+                        </div>
+                        {/* Middle-inner orbit - 7 o'clock start (210°) */}
+                        <div
+                          className="absolute inset-16 animate-orbit"
+                          style={{
+                            animationDuration: "130s",
+                            animationDelay: "-75.8s",
+                          }}
+                        >
+                          <div
+                            className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
+                            style={{
+                              background: "var(--mocha-accent)",
+                              opacity: 0.35,
+                              boxShadow: "0 0 4px var(--mocha-accent)",
+                            }}
+                          />
+                        </div>
+                        {/* Inner orbit - 10 o'clock start (300°) */}
+                        <div
+                          className="absolute inset-[68px] animate-orbit"
+                          style={{
+                            animationDuration: "110s",
+                            animationDelay: "-91.7s",
+                            animationDirection: "reverse",
+                          }}
+                        >
+                          <div
+                            className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                            style={{
+                              background: "var(--mocha-info)",
+                              opacity: 0.3,
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <h2
+                        className="text-2xl font-semibold mb-4 font-display"
+                        style={{ color: "var(--mocha-text)" }}
                       >
-                        <FileSearch
-                          className="w-9 h-9"
-                          style={{ color: 'var(--mocha-accent)' }}
-                          strokeWidth={1.5}
-                        />
-                      </div>
+                        Ready to analyze
+                      </h2>
 
-                      {/* Orbiting particles - very slow, spread apart radially, offset starting positions */}
-                      {/* Outer orbit - 12 o'clock start */}
-                      <div className="absolute inset-0 animate-orbit" style={{ animationDuration: '140s', animationDelay: '0s' }}>
-                        <div
-                          className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full"
+                      <p
+                        className="text-sm mb-10 leading-relaxed"
+                        style={{ color: "var(--mocha-text-secondary)" }}
+                      >
+                        Drop a log file anywhere on this window, or use the
+                        button below.
+                        <br />
+                        <span style={{ color: "var(--mocha-text-muted)" }}>
+                          Your recent files are waiting in the sidebar.
+                        </span>
+                      </p>
+
+                      <button
+                        onClick={() => handleOpenFile()}
+                        className="group empty-cta-btn px-8 py-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-3 mx-auto transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
+                        data-testid="open-file-btn"
+                      >
+                        <Zap className="w-5 h-5 transition-transform duration-300 group-hover:rotate-12" />
+                        Open Log File
+                      </button>
+
+                      {/* Keyboard shortcut hint */}
+                      <p
+                        className="mt-8 text-xs flex items-center justify-center gap-2"
+                        style={{ color: "var(--mocha-text-muted)" }}
+                      >
+                        <span
+                          className="px-2 py-1 rounded text-[10px] font-medium"
                           style={{
-                            background: 'var(--mocha-accent)',
-                            opacity: 0.5,
-                            boxShadow: '0 0 6px var(--mocha-accent)',
+                            background: "var(--mocha-surface-raised)",
+                            border: "1px solid var(--mocha-border)",
                           }}
-                        />
-                      </div>
-                      {/* Middle-outer orbit - 4 o'clock start (120°) */}
-                      <div className="absolute inset-8 animate-orbit" style={{ animationDuration: '170s', animationDelay: '-56.7s', animationDirection: 'reverse' }}>
-                        <div
-                          className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
+                        >
+                          Drag & Drop
+                        </span>
+                        <span>or</span>
+                        <span
+                          className="px-2 py-1 rounded text-[10px] font-medium"
                           style={{
-                            background: 'var(--mocha-info)',
-                            opacity: 0.45,
-                            boxShadow: '0 0 5px var(--mocha-info)',
+                            background: "var(--mocha-surface-raised)",
+                            border: "1px solid var(--mocha-border)",
                           }}
-                        />
-                      </div>
-                      {/* Middle-inner orbit - 7 o'clock start (210°) */}
-                      <div className="absolute inset-16 animate-orbit" style={{ animationDuration: '130s', animationDelay: '-75.8s' }}>
-                        <div
-                          className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
-                          style={{
-                            background: 'var(--mocha-accent)',
-                            opacity: 0.35,
-                            boxShadow: '0 0 4px var(--mocha-accent)',
-                          }}
-                        />
-                      </div>
-                      {/* Inner orbit - 10 o'clock start (300°) */}
-                      <div className="absolute inset-[68px] animate-orbit" style={{ animationDuration: '110s', animationDelay: '-91.7s', animationDirection: 'reverse' }}>
-                        <div
-                          className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-                          style={{
-                            background: 'var(--mocha-info)',
-                            opacity: 0.3,
-                          }}
-                        />
-                      </div>
+                        >
+                          .log / .txt
+                        </span>
+                      </p>
                     </div>
-
-                    <h2
-                      className="text-2xl font-semibold mb-4 font-display"
-                      style={{ color: 'var(--mocha-text)' }}
-                    >
-                      Ready to analyze
-                    </h2>
-
-                    <p
-                      className="text-sm mb-10 leading-relaxed"
-                      style={{ color: 'var(--mocha-text-secondary)' }}
-                    >
-                      Drop a log file anywhere on this window, or use the button below.
-                      <br />
-                      <span style={{ color: 'var(--mocha-text-muted)' }}>
-                        Your recent files are waiting in the sidebar.
-                      </span>
-                    </p>
-
-                    <button
-                      onClick={() => handleOpenFile()}
-                      className="group empty-cta-btn px-8 py-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-3 mx-auto transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
-                      data-testid="open-file-btn"
-                    >
-                      <Zap className="w-5 h-5 transition-transform duration-300 group-hover:rotate-12" />
-                      Open Log File
-                    </button>
-
-                    {/* Keyboard shortcut hint */}
-                    <p
-                      className="mt-8 text-xs flex items-center justify-center gap-2"
-                      style={{ color: 'var(--mocha-text-muted)' }}
-                    >
-                      <span
-                        className="px-2 py-1 rounded text-[10px] font-medium"
-                        style={{
-                          background: 'var(--mocha-surface-raised)',
-                          border: '1px solid var(--mocha-border)',
-                        }}
-                      >
-                        Drag & Drop
-                      </span>
-                      <span>or</span>
-                      <span
-                        className="px-2 py-1 rounded text-[10px] font-medium"
-                        style={{
-                          background: 'var(--mocha-surface-raised)',
-                          border: '1px solid var(--mocha-border)',
-                        }}
-                      >
-                        .log / .txt
-                      </span>
-                    </p>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
             )}
 
             {/* Story pane - right side panel (preview) */}
-            {(mergedLogs.length > 0 || storyLogs.length > 0 || stories.length > 0) && !storyPaneCollapsed && mainViewMode === 'logs' && (
-              <StoryPane
-                stories={stories}
-                activeStoryId={activeStoryId}
-                storyLogs={storyLogs}
-                width={storyPaneWidth}
-                collapsed={storyPaneCollapsed}
-                removingHash={removingHash}
-                onRemove={handleAnimatedRemove}
-                onDeleteStory={() => {
-                  if (activeStoryId) {
-                    deleteStory(activeStoryId)
+            {(mergedLogs.length > 0 ||
+              storyLogs.length > 0 ||
+              stories.length > 0) &&
+              !storyPaneCollapsed &&
+              mainViewMode === "logs" && (
+                <StoryPane
+                  stories={stories}
+                  activeStoryId={activeStoryId}
+                  storyLogs={storyLogs}
+                  width={storyPaneWidth}
+                  collapsed={storyPaneCollapsed}
+                  removingHash={removingHash}
+                  onRemove={handleAnimatedRemove}
+                  onDeleteStory={() => {
+                    if (activeStoryId) {
+                      deleteStory(activeStoryId);
+                    }
+                  }}
+                  onWidthChange={setStoryPaneWidth}
+                  onToggleCollapsed={() =>
+                    setStoryPaneCollapsed(!storyPaneCollapsed)
                   }
-                }}
-                onWidthChange={setStoryPaneWidth}
-                onToggleCollapsed={() => setStoryPaneCollapsed(!storyPaneCollapsed)}
-                onOpenFullView={() => {
-                  if (activeStoryId) {
-                    setMainViewMode('logbook')
-                  }
-                }}
-                onOpenAtEntry={(hash) => {
-                  setLogbookScrollToHash(hash)
-                  setMainViewMode('logbook')
-                }}
-                onJumpToSource={handleJumpToSource}
-                scrollRef={storyPaneScrollRef}
-              />
-            )}
+                  onOpenFullView={() => {
+                    if (activeStoryId) {
+                      setMainViewMode("logbook");
+                    }
+                  }}
+                  onOpenAtEntry={(hash) => {
+                    setLogbookScrollToHash(hash);
+                    setMainViewMode("logbook");
+                  }}
+                  onJumpToSource={handleJumpToSource}
+                  scrollRef={storyPaneScrollRef}
+                />
+              )}
           </div>
 
           {/* Drag overlay */}
@@ -967,40 +1148,42 @@ function App() {
             <div
               className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none animate-fade-in"
               style={{
-                background: 'rgba(8, 9, 12, 0.95)',
-                backdropFilter: 'blur(12px)',
+                background: "rgba(8, 9, 12, 0.95)",
+                backdropFilter: "blur(12px)",
               }}
             >
               <div
                 className="px-12 py-10 rounded-3xl flex flex-col items-center gap-6 animate-scale-in"
                 style={{
-                  background: 'linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface) 100%)',
-                  border: '2px dashed var(--mocha-accent)',
-                  boxShadow: '0 0 60px var(--mocha-accent-glow), 0 20px 60px rgba(0,0,0,0.4)',
+                  background:
+                    "linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface) 100%)",
+                  border: "2px dashed var(--mocha-accent)",
+                  boxShadow:
+                    "0 0 60px var(--mocha-accent-glow), 0 20px 60px rgba(0,0,0,0.4)",
                 }}
               >
                 <div
                   className="w-20 h-20 rounded-2xl flex items-center justify-center"
                   style={{
-                    background: 'var(--mocha-accent-muted)',
-                    border: '1px solid rgba(232, 168, 84, 0.3)',
+                    background: "var(--mocha-accent-muted)",
+                    border: "1px solid rgba(232, 168, 84, 0.3)",
                   }}
                 >
                   <Upload
                     className="w-10 h-10 animate-float"
-                    style={{ color: 'var(--mocha-accent)' }}
+                    style={{ color: "var(--mocha-accent)" }}
                   />
                 </div>
                 <div className="text-center">
                   <div
                     className="font-semibold text-xl mb-2 font-display"
-                    style={{ color: 'var(--mocha-text)' }}
+                    style={{ color: "var(--mocha-text)" }}
                   >
                     Drop to analyze
                   </div>
                   <div
                     className="text-sm"
-                    style={{ color: 'var(--mocha-text-secondary)' }}
+                    style={{ color: "var(--mocha-text-secondary)" }}
                   >
                     Accepts .log and .txt files
                   </div>
@@ -1014,7 +1197,7 @@ function App() {
       {/* Toast notifications */}
       <ToastContainer />
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

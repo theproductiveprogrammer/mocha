@@ -5,10 +5,21 @@
  * Persisted to localStorage where appropriate.
  */
 
-import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
-import type { LogViewerState, StoryState, FileState, ParsedFilter, RecentFile, LogEntry, OpenedFileWithLogs, Story, SettingsState, ThemeName } from './types'
-import { recalculateTimestamps } from './parser'
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import type {
+  LogViewerState,
+  StoryState,
+  FileState,
+  ParsedFilter,
+  RecentFile,
+  LogEntry,
+  OpenedFileWithLogs,
+  Story,
+  SettingsState,
+  ThemeName,
+} from "./types";
+import { recalculateTimestamps } from "./parser";
 
 /**
  * Get short service name from log entry.
@@ -18,17 +29,17 @@ import { recalculateTimestamps } from './parser'
  */
 function getServiceName(log: LogEntry): string {
   if (log.parsed?.logger) {
-    let logger = log.parsed.logger
+    let logger = log.parsed.logger;
     // Strip [File.java:123] suffix if present
-    logger = logger.replace(/\s*\[[^\]]+\.java:\d+\]$/, '')
-    const withoutLineNum = logger.split(':')[0]
-    const parts = withoutLineNum.split('.')
-    return parts[parts.length - 1] || withoutLineNum
+    logger = logger.replace(/\s*\[[^\]]+\.java:\d+\]$/, "");
+    const withoutLineNum = logger.split(":")[0];
+    const parts = withoutLineNum.split(".");
+    return parts[parts.length - 1] || withoutLineNum;
   }
 
   // For unstructured lines, use filename as-is
   // This clearly indicates we couldn't parse the line
-  return log.name
+  return log.name;
 }
 
 // ============================================================================
@@ -43,26 +54,29 @@ function getServiceName(log: LogEntry): string {
  */
 const logViewerStorage = {
   getItem: (name: string) => {
-    const str = localStorage.getItem(name)
-    if (!str) return null
+    const str = localStorage.getItem(name);
+    if (!str) return null;
 
     try {
-      const parsed = JSON.parse(str)
+      const parsed = JSON.parse(str);
       // Convert arrays back to Sets
       if (parsed.state) {
         if (Array.isArray(parsed.state.inactiveNames)) {
-          parsed.state.inactiveNames = new Set(parsed.state.inactiveNames)
+          parsed.state.inactiveNames = new Set(parsed.state.inactiveNames);
         }
       }
-      return parsed
+      return parsed;
     } catch {
-      return null
+      return null;
     }
   },
   setItem: (name: string, value: unknown): void => {
     try {
       // value is the raw state object (not stringified yet)
-      const toStore = value as { state?: { inactiveNames?: Set<string> }; version?: number }
+      const toStore = value as {
+        state?: { inactiveNames?: Set<string> };
+        version?: number;
+      };
 
       // Convert Sets to arrays before serializing
       const serializable = {
@@ -70,23 +84,23 @@ const logViewerStorage = {
         state: toStore.state
           ? {
               ...toStore.state,
-              inactiveNames: toStore.state.inactiveNames instanceof Set
-                ? Array.from(toStore.state.inactiveNames)
-                : toStore.state.inactiveNames,
+              inactiveNames:
+                toStore.state.inactiveNames instanceof Set
+                  ? Array.from(toStore.state.inactiveNames)
+                  : toStore.state.inactiveNames,
             }
           : undefined,
-      }
+      };
 
-      localStorage.setItem(name, JSON.stringify(serializable))
+      localStorage.setItem(name, JSON.stringify(serializable));
     } catch (e) {
-      console.error('Failed to persist log viewer state:', e)
+      console.error("Failed to persist log viewer state:", e);
     }
   },
   removeItem: (name: string): void => {
-    localStorage.removeItem(name)
+    localStorage.removeItem(name);
   },
-}
-
+};
 
 // ============================================================================
 // useLogViewerStore - Service visibility and text filters
@@ -108,7 +122,7 @@ export const useLogViewerStore = create<LogViewerState>()(
       // State
       inactiveNames: new Set<string>(),
       filters: [],
-      input: '',
+      input: "",
 
       // Actions
       setInactiveNames: (names: Set<string>) => set({ inactiveNames: names }),
@@ -120,29 +134,32 @@ export const useLogViewerStore = create<LogViewerState>()(
        * Otherwise toggle the clicked service.
        */
       toggleName: (allNames: string[], name: string) => {
-        const { inactiveNames } = get()
-        const newInactive = new Set(inactiveNames)
+        const { inactiveNames } = get();
+        const newInactive = new Set(inactiveNames);
 
         if (inactiveNames.size === 0) {
           // No filters active - clicking a service solos it (hides all others)
           for (const n of allNames) {
             if (n !== name) {
-              newInactive.add(n)
+              newInactive.add(n);
             }
           }
-        } else if (inactiveNames.size === allNames.length - 1 && !inactiveNames.has(name)) {
+        } else if (
+          inactiveNames.size === allNames.length - 1 &&
+          !inactiveNames.has(name)
+        ) {
           // Only this service is visible - clicking it shows all
-          newInactive.clear()
+          newInactive.clear();
         } else {
           // Toggle the specific service
           if (newInactive.has(name)) {
-            newInactive.delete(name)
+            newInactive.delete(name);
           } else {
-            newInactive.add(name)
+            newInactive.add(name);
           }
         }
 
-        set({ inactiveNames: newInactive })
+        set({ inactiveNames: newInactive });
       },
 
       setFilters: (filters: ParsedFilter[]) => set({ filters }),
@@ -160,16 +177,16 @@ export const useLogViewerStore = create<LogViewerState>()(
       setInput: (input: string) => set({ input }),
     }),
     {
-      name: 'mocha-log-viewer-state',
+      name: "mocha-log-viewer-state",
       storage: logViewerStorage,
       partialize: (state) => ({
         inactiveNames: state.inactiveNames,
         filters: state.filters,
         // Don't persist input - always start empty
       }),
-    }
-  )
-)
+    },
+  ),
+);
 
 // ============================================================================
 // useStoryStore - Multi-story management
@@ -179,7 +196,7 @@ export const useLogViewerStore = create<LogViewerState>()(
  * Generate a unique ID for stories
  */
 function generateStoryId(): string {
-  return `story-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  return `story-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**
@@ -201,171 +218,176 @@ export const useStoryStore = create<StoryState>()(
       activeStoryId: null,
       storyPaneWidth: 380,
       storyPaneCollapsed: true,
-      mainViewMode: 'logs' as const,
+      mainViewMode: "logs" as const,
 
       // Story management
 
       createStory: (name?: string) => {
-        const id = generateStoryId()
-        const { stories } = get()
+        const id = generateStoryId();
+        const { stories } = get();
         // Find the next available number by checking existing "Logbook N" names
         const usedNumbers = new Set(
           stories
-            .map(s => s.name.match(/^Logbook (\d+)$/))
+            .map((s) => s.name.match(/^Logbook (\d+)$/))
             .filter((m): m is RegExpMatchArray => m !== null)
-            .map(m => parseInt(m[1], 10))
-        )
-        let storyNumber = 1
+            .map((m) => parseInt(m[1], 10)),
+        );
+        let storyNumber = 1;
         while (usedNumbers.has(storyNumber)) {
-          storyNumber++
+          storyNumber++;
         }
         const newStory: Story = {
           id,
           name: name || `Logbook ${storyNumber}`,
-          entries: [],  // Store full log entries
+          entries: [], // Store full log entries
           createdAt: Date.now(),
-        }
+        };
         set({
           stories: [...stories, newStory],
           activeStoryId: id,
-        })
-        return id
+        });
+        return id;
       },
 
       deleteStory: (id: string) => {
-        const { stories, activeStoryId } = get()
-        const newStories = stories.filter(s => s.id !== id)
+        const { stories, activeStoryId } = get();
+        const newStories = stories.filter((s) => s.id !== id);
         set({
           stories: newStories,
-          activeStoryId: activeStoryId === id
-            ? (newStories[0]?.id || null)
-            : activeStoryId,
-        })
+          activeStoryId:
+            activeStoryId === id ? newStories[0]?.id || null : activeStoryId,
+        });
       },
 
       renameStory: (id: string, name: string) => {
-        const { stories } = get()
+        const { stories } = get();
         set({
-          stories: stories.map(s =>
-            s.id === id ? { ...s, name } : s
-          ),
-        })
+          stories: stories.map((s) => (s.id === id ? { ...s, name } : s)),
+        });
       },
 
       setActiveStory: (id: string | null) => {
-        set({ activeStoryId: id })
+        set({ activeStoryId: id });
       },
 
       // Log management (operates on active story) - stores full LogEntry
 
       addToStory: (log: LogEntry) => {
-        const { stories, activeStoryId, createStory } = get()
-        if (!log.hash) return  // Need hash for deduplication
+        const { stories, activeStoryId, createStory } = get();
+        if (!log.hash) return; // Need hash for deduplication
 
         // Auto-create a story if none exists
-        let targetId = activeStoryId
-        if (!targetId || !stories.find(s => s.id === targetId)) {
-          targetId = createStory()
+        let targetId = activeStoryId;
+        if (!targetId || !stories.find((s) => s.id === targetId)) {
+          targetId = createStory();
         }
 
         // Re-fetch stories after potential create
-        const currentStories = get().stories
+        const currentStories = get().stories;
 
         set({
-          stories: currentStories.map(s => {
-            if (s.id !== targetId) return s
+          stories: currentStories.map((s) => {
+            if (s.id !== targetId) return s;
             // Check if already in story by hash
-            if (s.entries.some(e => e.hash === log.hash)) return s
-            return { ...s, entries: [...s.entries, log] }
+            if (s.entries.some((e) => e.hash === log.hash)) return s;
+            return { ...s, entries: [...s.entries, log] };
           }),
-        })
+        });
       },
 
       removeFromStory: (hash: string) => {
-        const { stories, activeStoryId } = get()
-        if (!activeStoryId) return
+        const { stories, activeStoryId } = get();
+        if (!activeStoryId) return;
 
         set({
-          stories: stories.map(s =>
+          stories: stories.map((s) =>
             s.id === activeStoryId
-              ? { ...s, entries: s.entries.filter(e => e.hash !== hash) }
-              : s
+              ? { ...s, entries: s.entries.filter((e) => e.hash !== hash) }
+              : s,
           ),
-        })
+        });
       },
 
       toggleStory: (log: LogEntry) => {
-        const { stories, activeStoryId, createStory, addToStory, removeFromStory } = get()
-        if (!log.hash) return
+        const {
+          stories,
+          activeStoryId,
+          createStory,
+          addToStory,
+          removeFromStory,
+        } = get();
+        if (!log.hash) return;
 
         // Auto-create a story if none exists
-        if (!activeStoryId || !stories.find(s => s.id === activeStoryId)) {
-          createStory()
-          addToStory(log)
-          return
+        if (!activeStoryId || !stories.find((s) => s.id === activeStoryId)) {
+          createStory();
+          addToStory(log);
+          return;
         }
 
-        const activeStory = stories.find(s => s.id === activeStoryId)
-        if (!activeStory) return
+        const activeStory = stories.find((s) => s.id === activeStoryId);
+        if (!activeStory) return;
 
-        if (activeStory.entries.some(e => e.hash === log.hash)) {
-          removeFromStory(log.hash)
+        if (activeStory.entries.some((e) => e.hash === log.hash)) {
+          removeFromStory(log.hash);
         } else {
-          addToStory(log)
+          addToStory(log);
         }
       },
 
       clearStory: () => {
-        const { stories, activeStoryId } = get()
-        if (!activeStoryId) return
+        const { stories, activeStoryId } = get();
+        if (!activeStoryId) return;
 
         set({
-          stories: stories.map(s =>
-            s.id === activeStoryId
-              ? { ...s, entries: [] }
-              : s
+          stories: stories.map((s) =>
+            s.id === activeStoryId ? { ...s, entries: [] } : s,
           ),
-        })
+        });
       },
 
       reorderStory: (fromIndex: number, toIndex: number) => {
-        const { stories, activeStoryId } = get()
-        if (!activeStoryId) return
+        const { stories, activeStoryId } = get();
+        if (!activeStoryId) return;
 
         set({
-          stories: stories.map(s => {
-            if (s.id !== activeStoryId) return s
-            const newEntries = [...s.entries]
-            const [removed] = newEntries.splice(fromIndex, 1)
-            newEntries.splice(toIndex, 0, removed)
-            return { ...s, entries: newEntries }
+          stories: stories.map((s) => {
+            if (s.id !== activeStoryId) return s;
+            const newEntries = [...s.entries];
+            const [removed] = newEntries.splice(fromIndex, 1);
+            newEntries.splice(toIndex, 0, removed);
+            return { ...s, entries: newEntries };
           }),
-        })
+        });
       },
 
       // UI state
 
       setStoryPaneWidth: (width: number) => {
-        set({ storyPaneWidth: width })
+        set({ storyPaneWidth: width });
       },
 
       setStoryPaneCollapsed: (collapsed: boolean) => {
-        set({ storyPaneCollapsed: collapsed })
+        set({ storyPaneCollapsed: collapsed });
       },
 
-      setMainViewMode: (mode: 'logs' | 'logbook') => {
-        set({ mainViewMode: mode })
+      setMainViewMode: (mode: "logs" | "logbook") => {
+        set({ mainViewMode: mode });
       },
 
       // Helper to get hashes from active story (for highlighting in log viewer)
       getActiveStoryHashes: () => {
-        const { stories, activeStoryId } = get()
-        const activeStory = stories.find(s => s.id === activeStoryId)
-        return activeStory?.entries.map(e => e.hash).filter((h): h is string => !!h) || []
+        const { stories, activeStoryId } = get();
+        const activeStory = stories.find((s) => s.id === activeStoryId);
+        return (
+          activeStory?.entries
+            .map((e) => e.hash)
+            .filter((h): h is string => !!h) || []
+        );
       },
     }),
     {
-      name: 'mocha-stories',
+      name: "mocha-stories",
       storage: createJSONStorage(() => localStorage),
       // Don't persist mainViewMode - always start with logs view
       partialize: (state) => ({
@@ -379,11 +401,11 @@ export const useStoryStore = create<StoryState>()(
       merge: (persistedState, currentState) => ({
         ...currentState,
         ...(persistedState as Partial<StoryState>),
-        mainViewMode: 'logs' as const,
+        mainViewMode: "logs" as const,
       }),
-    }
-  )
-)
+    },
+  ),
+);
 
 // ============================================================================
 // useFileStore - Multi-file viewing state
@@ -402,31 +424,45 @@ export const useStoryStore = create<StoryState>()(
  * openedFiles are not persisted - they reload on app start.
  */
 
+// Store for opened file paths to restore (set during merge, cleared after restoration)
+let pathsToRestore: string[] = [];
+
 /**
  * Merge function for File store - deduplicates recentFiles by path
+ * Also stores list of opened file paths for restoration on app start
  */
 const mergeFileState = (
   persistedState: unknown,
-  currentState: FileState
+  currentState: FileState,
 ): FileState => {
-  const persisted = persistedState as Partial<{ recentFiles: RecentFile[] }>
+  const persisted = persistedState as Partial<{
+    recentFiles: RecentFile[];
+    openedFilePaths?: string[];
+  }>;
+
+  const merged: FileState = { ...currentState };
 
   // If we have persisted recentFiles, use them but ensure no duplicates
   if (persisted?.recentFiles && Array.isArray(persisted.recentFiles)) {
-    const seen = new Set<string>()
-    const deduplicated = persisted.recentFiles.filter(file => {
-      if (seen.has(file.path)) return false
-      seen.add(file.path)
-      return true
-    })
-    return {
-      ...currentState,
-      recentFiles: deduplicated,
-    }
+    const seen = new Set<string>();
+    const deduplicated = persisted.recentFiles.filter((file) => {
+      if (seen.has(file.path)) return false;
+      seen.add(file.path);
+      return true;
+    });
+    merged.recentFiles = deduplicated;
   }
 
-  return currentState
-}
+  // Store opened file paths for restoration (openedFiles Map starts empty)
+  // The actual files will be loaded in App.tsx on mount
+  if (persisted?.openedFilePaths && Array.isArray(persisted.openedFilePaths)) {
+    pathsToRestore = persisted.openedFilePaths;
+  } else {
+    pathsToRestore = [];
+  }
+
+  return merged;
+};
 
 export const useFileStore = create<FileState>()(
   persist(
@@ -444,35 +480,35 @@ export const useFileStore = create<FileState>()(
        * All opened files are shown in the merged view.
        */
       openFile: (file: OpenedFileWithLogs) => {
-        const { openedFiles } = get()
-        const newMap = new Map(openedFiles)
-        newMap.set(file.path, file)
-        set({ openedFiles: newMap, error: null })
+        const { openedFiles } = get();
+        const newMap = new Map(openedFiles);
+        newMap.set(file.path, file);
+        set({ openedFiles: newMap, error: null });
       },
 
       /**
        * Close a file (remove from opened files, keep in recent).
        */
       closeFile: (path: string) => {
-        const { openedFiles } = get()
-        if (!openedFiles.has(path)) return
+        const { openedFiles } = get();
+        if (!openedFiles.has(path)) return;
 
-        const newMap = new Map(openedFiles)
-        newMap.delete(path)
-        set({ openedFiles: newMap })
+        const newMap = new Map(openedFiles);
+        newMap.delete(path);
+        set({ openedFiles: newMap });
       },
 
       /**
        * Replace all logs for a file (used for reload).
        */
       updateFileLogs: (path: string, logs: LogEntry[]) => {
-        const { openedFiles } = get()
-        const file = openedFiles.get(path)
-        if (!file) return
+        const { openedFiles } = get();
+        const file = openedFiles.get(path);
+        if (!file) return;
 
-        const newMap = new Map(openedFiles)
-        newMap.set(path, { ...file, logs })
-        set({ openedFiles: newMap })
+        const newMap = new Map(openedFiles);
+        newMap.set(path, { ...file, logs });
+        set({ openedFiles: newMap });
       },
 
       /**
@@ -481,79 +517,96 @@ export const useFileStore = create<FileState>()(
        * @param newSize - The actual new file size in bytes (for next poll offset)
        */
       appendFileLogs: (path: string, newLogs: LogEntry[], newSize?: number) => {
-        const { openedFiles } = get()
-        const file = openedFiles.get(path)
-        if (!file) return
+        const { openedFiles } = get();
+        const file = openedFiles.get(path);
+        if (!file) return;
 
         // Merge existing logs with new logs
-        const mergedLogs = [...file.logs, ...newLogs]
+        const mergedLogs = [...file.logs, ...newLogs];
 
         // Recalculate timestamps for the entire merged array
         // This ensures backfill works correctly if first timestamp appears in polled content
-        recalculateTimestamps(mergedLogs)
+        recalculateTimestamps(mergedLogs);
 
-        const newMap = new Map(openedFiles)
+        const newMap = new Map(openedFiles);
         newMap.set(path, {
           ...file,
           logs: mergedLogs,
           lastModified: newSize ?? file.lastModified, // Use actual file size for next poll
-        })
-        set({ openedFiles: newMap })
+        });
+        set({ openedFiles: newMap });
       },
 
       // Deduplicate when setting recent files to prevent duplicates from race conditions
       setRecentFiles: (files: RecentFile[]) => {
-        const seen = new Set<string>()
-        const deduplicated = files.filter(file => {
-          if (seen.has(file.path)) return false
-          seen.add(file.path)
-          return true
-        })
-        set({ recentFiles: deduplicated })
+        const seen = new Set<string>();
+        const deduplicated = files.filter((file) => {
+          if (seen.has(file.path)) return false;
+          seen.add(file.path);
+          return true;
+        });
+        set({ recentFiles: deduplicated });
       },
 
       // Add a single recent file (uses current state to avoid race conditions with multiple drops)
       addRecentFile: (file: RecentFile) => {
-        const { recentFiles } = get()
-        const filtered = recentFiles.filter(f => f.path !== file.path)
-        set({ recentFiles: [file, ...filtered].slice(0, 20) })
+        const { recentFiles } = get();
+        const filtered = recentFiles.filter((f) => f.path !== file.path);
+        set({ recentFiles: [file, ...filtered].slice(0, 20) });
       },
 
       // Clear all opened files (used when clearing recent files)
       clearOpenedFiles: () => {
-        set({ openedFiles: new Map<string, OpenedFileWithLogs>() })
+        set({ openedFiles: new Map<string, OpenedFileWithLogs>() });
       },
 
       // Remove a single recent file by path (also removes from opened files)
       removeRecentFile: (path: string) => {
-        const { recentFiles, openedFiles } = get()
+        const { recentFiles, openedFiles } = get();
         // Remove from recent files list
-        const filtered = recentFiles.filter(f => f.path !== path)
+        const filtered = recentFiles.filter((f) => f.path !== path);
         // Also remove from opened files if present
-        const newOpenedFiles = new Map<string, OpenedFileWithLogs>()
+        const newOpenedFiles = new Map<string, OpenedFileWithLogs>();
         openedFiles.forEach((file, key) => {
           if (key !== path) {
-            newOpenedFiles.set(key, file)
+            newOpenedFiles.set(key, file);
           }
-        })
-        set({ recentFiles: filtered, openedFiles: newOpenedFiles })
+        });
+        set({ recentFiles: filtered, openedFiles: newOpenedFiles });
       },
 
       setLoading: (loading: boolean) => set({ isLoading: loading }),
 
       setError: (error: string | null) => set({ error, isLoading: false }),
+
+      // Get list of opened file paths for persistence
+      getOpenedFilePaths: (): string[] => {
+        const { openedFiles } = get();
+        return Array.from(openedFiles.keys());
+      },
+
+      // Get paths that should be restored on app start
+      getPathsToRestore: (): string[] => {
+        return pathsToRestore;
+      },
+
+      // Clear restore paths after restoration is complete
+      clearPathsToRestore: () => {
+        pathsToRestore = [];
+      },
     }),
     {
-      name: 'mocha-file-state',
+      name: "mocha-file-state",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        // Only persist recentFiles - openedFiles should reload on app start
         recentFiles: state.recentFiles,
+        // Persist opened file paths (not the full log data)
+        openedFilePaths: Array.from(state.openedFiles.keys()),
       }),
       merge: mergeFileState,
-    }
-  )
-)
+    },
+  ),
+);
 
 // ============================================================================
 // useSettingsStore - App-wide settings including theme
@@ -571,16 +624,16 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       // Default to system theme (follows OS preference)
-      theme: 'system' as ThemeName,
+      theme: "system" as ThemeName,
 
       setTheme: (theme: ThemeName) => set({ theme }),
     }),
     {
-      name: 'mocha-settings',
+      name: "mocha-settings",
       storage: createJSONStorage(() => localStorage),
-    }
-  )
-)
+    },
+  ),
+);
 
 // ============================================================================
 // Helper: Parse filter input string
@@ -595,45 +648,45 @@ export const useSettingsStore = create<SettingsState>()(
  * - `text` - plain text filter (shows matching lines)
  */
 export function parseFilterInput(input: string): ParsedFilter | null {
-  const trimmed = input.trim()
-  if (!trimmed) return null
+  const trimmed = input.trim();
+  if (!trimmed) return null;
 
   // Check for regex pattern: /pattern/
-  if (trimmed.startsWith('/') && trimmed.endsWith('/') && trimmed.length > 2) {
-    const pattern = trimmed.slice(1, -1)
+  if (trimmed.startsWith("/") && trimmed.endsWith("/") && trimmed.length > 2) {
+    const pattern = trimmed.slice(1, -1);
     // Validate regex
     try {
-      new RegExp(pattern)
+      new RegExp(pattern);
       return {
-        type: 'regex',
+        type: "regex",
         value: pattern,
         text: trimmed,
-      }
+      };
     } catch {
       // Invalid regex, treat as text
       return {
-        type: 'text',
+        type: "text",
         value: trimmed,
         text: trimmed,
-      }
+      };
     }
   }
 
   // Check for exclude pattern: -text
-  if (trimmed.startsWith('-') && trimmed.length > 1) {
+  if (trimmed.startsWith("-") && trimmed.length > 1) {
     return {
-      type: 'exclude',
+      type: "exclude",
       value: trimmed.slice(1),
       text: trimmed,
-    }
+    };
   }
 
   // Plain text filter
   return {
-    type: 'text',
+    type: "text",
     value: trimmed,
     text: trimmed,
-  }
+  };
 }
 
 // ============================================================================
@@ -644,28 +697,33 @@ export function parseFilterInput(input: string): ParsedFilter | null {
  * Check if a log entry matches a single filter.
  */
 function matchesFilter(log: LogEntry, filter: ParsedFilter): boolean {
-  const searchText = log.data.toLowerCase()
-  const content = log.parsed?.content?.toLowerCase() || ''
+  const searchText = log.data.toLowerCase();
+  const content = log.parsed?.content?.toLowerCase() || "";
 
   switch (filter.type) {
-    case 'regex': {
+    case "regex": {
       try {
-        const regex = new RegExp(filter.value, 'i')
-        return regex.test(log.data) || (log.parsed?.content ? regex.test(log.parsed.content) : false)
+        const regex = new RegExp(filter.value, "i");
+        return (
+          regex.test(log.data) ||
+          (log.parsed?.content ? regex.test(log.parsed.content) : false)
+        );
       } catch {
-        return false
+        return false;
       }
     }
-    case 'text': {
-      const searchValue = filter.value.toLowerCase()
-      return searchText.includes(searchValue) || content.includes(searchValue)
+    case "text": {
+      const searchValue = filter.value.toLowerCase();
+      return searchText.includes(searchValue) || content.includes(searchValue);
     }
-    case 'exclude': {
-      const searchValue = filter.value.toLowerCase()
-      return !(searchText.includes(searchValue) || content.includes(searchValue))
+    case "exclude": {
+      const searchValue = filter.value.toLowerCase();
+      return !(
+        searchText.includes(searchValue) || content.includes(searchValue)
+      );
     }
     default:
-      return true
+      return true;
   }
 }
 
@@ -680,31 +738,35 @@ function matchesFilter(log: LogEntry, filter: ParsedFilter): boolean {
 export function filterLogs(
   logs: LogEntry[],
   filters: ParsedFilter[],
-  inactiveNames: Set<string>
+  inactiveNames: Set<string>,
 ): LogEntry[] {
   return logs.filter((log) => {
     // Check if service is visible (using derived service name from logger)
-    const serviceName = getServiceName(log)
+    const serviceName = getServiceName(log);
     if (inactiveNames instanceof Set && inactiveNames.has(serviceName)) {
-      return false
+      return false;
     }
 
     // Apply all filters (AND logic for include, all excludes must pass)
-    const includeFilters = filters.filter((f) => f.type !== 'exclude')
-    const excludeFilters = filters.filter((f) => f.type === 'exclude')
+    const includeFilters = filters.filter((f) => f.type !== "exclude");
+    const excludeFilters = filters.filter((f) => f.type === "exclude");
 
     // All include filters must match (if any)
     if (includeFilters.length > 0) {
-      const matchesAnyInclude = includeFilters.some((f) => matchesFilter(log, f))
-      if (!matchesAnyInclude) return false
+      const matchesAnyInclude = includeFilters.some((f) =>
+        matchesFilter(log, f),
+      );
+      if (!matchesAnyInclude) return false;
     }
 
     // All exclude filters must pass (none should match the exclude pattern)
     if (excludeFilters.length > 0) {
-      const passesAllExcludes = excludeFilters.every((f) => matchesFilter(log, f))
-      if (!passesAllExcludes) return false
+      const passesAllExcludes = excludeFilters.every((f) =>
+        matchesFilter(log, f),
+      );
+      if (!passesAllExcludes) return false;
     }
 
-    return true
-  })
+    return true;
+  });
 }
