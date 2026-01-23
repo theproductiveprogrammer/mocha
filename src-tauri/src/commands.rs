@@ -4,7 +4,9 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 use chrono::Utc;
 
-const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024; // 10MB limit
+// Read at most 2MB from end of file - enough for ~10K+ lines
+// Frontend only displays last 2000 lines anyway
+const MAX_READ_SIZE: u64 = 2 * 1024 * 1024;
 const MAX_RECENT: usize = 20;
 
 /// Response for readFile command
@@ -115,27 +117,24 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
     }
 
     // If file shrunk since last read, it was truncated/replaced - read from start
-    let (read_start, is_truncated) = if offset > 0 && current_size < offset {
-        (0, true)  // Read entire file from beginning
+    let (read_start, is_truncated, is_tail_read) = if offset > 0 && current_size < offset {
+        (0, true, false)  // Read entire file from beginning
     } else if offset > 0 {
-        (offset, false)  // Normal differential read
+        (offset, false, false)  // Normal differential read
     } else {
-        (0, false)  // Initial read
+        (0, false, false)  // Initial read
     };
-    let read_size = current_size - read_start;
 
-    if read_size > MAX_FILE_SIZE {
-        return FileResult {
-            success: false,
-            content: None,
-            path: None,
-            name: None,
-            size: None,
-            prev_size: None,
-            mtime: None,
-            truncated: None,
-            error: Some("File too large (max 10MB)".to_string()),
-        };
+    // Calculate how much to read
+    let mut actual_read_start = read_start;
+    let mut read_size = current_size - read_start;
+    let mut is_tail_read = is_tail_read;
+
+    // For large files (initial read only), read just the tail
+    if read_size > MAX_READ_SIZE && offset == 0 {
+        actual_read_start = current_size - MAX_READ_SIZE;
+        read_size = MAX_READ_SIZE;
+        is_tail_read = true;
     }
 
     // Open and read file
@@ -157,8 +156,8 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
     };
 
     // Seek to read position
-    if read_start > 0 {
-        if file.seek(SeekFrom::Start(read_start)).is_err() {
+    if actual_read_start > 0 {
+        if file.seek(SeekFrom::Start(actual_read_start)).is_err() {
             return FileResult {
                 success: false,
                 content: None,
@@ -178,13 +177,23 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
     if file.read_exact(&mut content).is_err() {
         // Try reading what we can
         let mut file = File::open(&path).unwrap();
-        file.seek(SeekFrom::Start(read_start)).unwrap();
+        file.seek(SeekFrom::Start(actual_read_start)).unwrap();
         content.clear();
         file.read_to_end(&mut content).ok();
     }
 
-    // Convert to string (handle non-UTF8 gracefully)
-    let content_str = String::from_utf8_lossy(&content).to_string();
+    // For tail reads, skip partial first line (we may have started mid-line)
+    let content_str = if is_tail_read {
+        let s = String::from_utf8_lossy(&content);
+        // Find first newline and skip everything before it
+        if let Some(pos) = s.find('\n') {
+            s[pos + 1..].to_string()
+        } else {
+            s.to_string()
+        }
+    } else {
+        String::from_utf8_lossy(&content).to_string()
+    };
 
     FileResult {
         success: true,
@@ -194,7 +203,7 @@ pub fn read_file(path: String, offset: u64) -> FileResult {
         size: Some(current_size),
         prev_size: Some(offset),
         mtime,
-        truncated: Some(is_truncated),
+        truncated: Some(is_truncated || is_tail_read),
         error: None,
     }
 }
