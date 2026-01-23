@@ -319,19 +319,40 @@ const patterns: LogPattern[] = [
 
   // 9. Standard Logback/Spring Boot Format (with thread)
   // 2026-01-22 12:22:32.735 [scheduled-executor-thread-2] INFO  c.s.c.s.ActivityProcessingScheduler - message
+  // 2026-01-23 08:41:42.909 [main] ERROR io.micronaut.runtime.Micronaut - Error starting Micronaut server...
   // Note: dash separator can be hyphen (-), en dash (–), or em dash (—)
+  // Note: spacing after level can vary (single or multiple spaces)
   {
     name: "logback-with-thread",
     parse: (line: string): ParsedLogLine | null => {
-      const match = line.match(
+      // Handle multi-line content: only match the first line for the pattern
+      // The rest will be part of the content
+      const firstLine = line.split("\n")[0];
+
+      // Pattern: timestamp [thread] LEVEL logger - message
+      // Match the structure on the first line only, content can extend to multiple lines
+      const match = firstLine.match(
         /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,.]\d+)\s+\[([^\]]+)\]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+[-–—]\s*(.*)$/i,
       );
+
       if (!match) return null;
+
+      // Extract content from first line
+      let content = match[5];
+
+      // If the original line has multiple lines, append them to content
+      if (line.includes("\n")) {
+        const remainingLines = line.split("\n").slice(1);
+        if (remainingLines.length > 0) {
+          content = content + "\n" + remainingLines.join("\n");
+        }
+      }
+
       return {
         timestamp: match[1],
         level: normalizeLevel(match[3]),
         logger: match[4],
-        content: match[5],
+        content: content,
       };
     },
   },
@@ -657,6 +678,24 @@ export function parseLogLine(data: string): ParsedLogLine {
     }
   }
   // Fallback: return raw content
+  // Debug unparsed lines
+  if (/\d{4}-\d{2}-\d{2}.*ERROR|WARN|INFO/.test(cleanData)) {
+    console.log(
+      "[parser] UNPARSED:",
+      JSON.stringify(cleanData.substring(0, 80)),
+    );
+    // Show char codes around the spaces after log level
+    const levelMatch = cleanData.match(/(INFO|ERROR|WARN|DEBUG|TRACE)(\s+)/);
+    if (levelMatch) {
+      const spaces = levelMatch[2];
+      console.log(
+        "[parser] Spaces after level:",
+        spaces.length,
+        "chars:",
+        [...spaces].map((c) => c.charCodeAt(0)),
+      );
+    }
+  }
   return { content: cleanData };
 }
 
