@@ -130,18 +130,23 @@ export function LogViewer({
   }, [logs, filters, inactiveNames, isSameGroup])
 
   // Virtualizer with dynamic measurement - uses displayedLogs (not filteredLogs)
-  // Key includes both hash and index to ensure uniqueness and proper invalidation
+  // Key is ONLY the hash - including index causes measurement cache misses when logs shift
   const virtualizer = useVirtualizer({
     count: displayedLogs.length,
     getScrollElement: () => containerRef.current,
     estimateSize: () => 44,
     overscan: 10,
-    measureElement: (element) => element.getBoundingClientRect().height,
-    // Use log hash + index as key to ensure uniqueness and proper invalidation on updates
-    // Including index prevents stale positioning when logs are updated during polling
+    measureElement: (element) => {
+      const height = element.getBoundingClientRect().height
+      // Ensure minimum height to prevent 0-height rows causing overlap
+      return Math.max(height, 20)
+    },
+    // Use ONLY the hash as key - NOT the index
+    // When logs shift (new logs added at top), using index causes all keys to change,
+    // which invalidates the measurement cache and falls back to estimates, causing overlap
     getItemKey: (index) => {
       const log = displayedLogs[index]
-      return log?.hash ? `${log.hash}-${index}` : `log-${index}`
+      return log?.hash || `log-${index}`
     },
   })
 
@@ -181,19 +186,37 @@ export function LogViewer({
     }
   }, [filteredLogs])
   
+  // Track previous displayedLogs length to detect structural changes
+  const prevLogsLengthRef = useRef(0)
+
   // Force virtualizer to remeasure when displayedLogs changes
   // This prevents overlapping when logs are updated during polling
-  // We need multiple frames to ensure content (especially multi-line previews) has rendered
   useEffect(() => {
     if (displayedLogs.length > 0) {
-      // First measure after initial render
-      requestAnimationFrame(() => {
+      const logsChanged = prevLogsLengthRef.current !== displayedLogs.length
+      prevLogsLengthRef.current = displayedLogs.length
+
+      // Always request a measurement pass
+      // Use multiple frames to ensure DOM has settled
+      const measurePass = () => {
         virtualizer.measure()
-        // Second measure after content settles (fonts loaded, previews rendered)
+      }
+
+      // If logs count changed, scroll position might need adjustment
+      // Force multiple measurement passes to ensure layout is correct
+      if (logsChanged) {
+        // Immediate measure
+        measurePass()
+        // After first frame
         requestAnimationFrame(() => {
-          virtualizer.measure()
+          measurePass()
+          // After second frame (fonts, images loaded)
+          requestAnimationFrame(measurePass)
         })
-      })
+      } else {
+        // Just a re-render, single pass is sufficient
+        requestAnimationFrame(measurePass)
+      }
     }
   }, [displayedLogs, virtualizer])
 
