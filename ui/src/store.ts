@@ -514,6 +514,7 @@ export const useFileStore = create<FileState>()(
       /**
        * Append new logs to a file (used for polling/watching).
        * Recalculates timestamps after merging to ensure correct ordering.
+       * Caps total logs to prevent memory exhaustion during long sessions.
        * @param newSize - The actual new file size in bytes (for next poll offset)
        */
       appendFileLogs: (path: string, newLogs: LogEntry[], newSize?: number) => {
@@ -522,11 +523,25 @@ export const useFileStore = create<FileState>()(
         if (!file) return;
 
         // Merge existing logs with new logs
-        const mergedLogs = [...file.logs, ...newLogs];
+        let mergedLogs = [...file.logs, ...newLogs];
 
         // Recalculate timestamps for the entire merged array
         // This ensures backfill works correctly if first timestamp appears in polled content
         recalculateTimestamps(mergedLogs);
+
+        // Cap logs to prevent memory exhaustion
+        // Trim when exceeding 50k, down to 30k (20k headroom avoids trimming every poll)
+        const MAX_LOGS = 30_000;
+        const TRIM_THRESHOLD = 50_000;
+        if (mergedLogs.length > TRIM_THRESHOLD) {
+          // Sort by timestamp desc (newest first), then trim to MAX_LOGS
+          mergedLogs.sort((a, b) => {
+            const timestampDiff = (b.timestamp ?? 0) - (a.timestamp ?? 0);
+            if (timestampDiff !== 0) return timestampDiff;
+            return (b.sortIndex ?? 0) - (a.sortIndex ?? 0);
+          });
+          mergedLogs = mergedLogs.slice(0, MAX_LOGS);
+        }
 
         const newMap = new Map(openedFiles);
         newMap.set(path, {

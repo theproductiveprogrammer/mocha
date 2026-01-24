@@ -130,14 +130,19 @@ export function LogViewer({
   }, [logs, filters, inactiveNames, isSameGroup])
 
   // Virtualizer with dynamic measurement - uses displayedLogs (not filteredLogs)
+  // Key includes both hash and index to ensure uniqueness and proper invalidation
   const virtualizer = useVirtualizer({
     count: displayedLogs.length,
     getScrollElement: () => containerRef.current,
     estimateSize: () => 44,
     overscan: 10,
     measureElement: (element) => element.getBoundingClientRect().height,
-    // Use log hash as key so virtualizer correctly handles new logs at top
-    getItemKey: (index) => displayedLogs[index]?.hash || `log-${index}`,
+    // Use log hash + index as key to ensure uniqueness and proper invalidation on updates
+    // Including index prevents stale positioning when logs are updated during polling
+    getItemKey: (index) => {
+      const log = displayedLogs[index]
+      return log?.hash ? `${log.hash}-${index}` : `log-${index}`
+    },
   })
 
   // Track if user is scrolled away from top
@@ -175,6 +180,52 @@ export function LogViewer({
       }
     }
   }, [filteredLogs])
+  
+  // Force virtualizer to remeasure when displayedLogs changes
+  // This prevents overlapping when logs are updated during polling
+  // We need multiple frames to ensure content (especially multi-line previews) has rendered
+  useEffect(() => {
+    if (displayedLogs.length > 0) {
+      // First measure after initial render
+      requestAnimationFrame(() => {
+        virtualizer.measure()
+        // Second measure after content settles (fonts loaded, previews rendered)
+        requestAnimationFrame(() => {
+          virtualizer.measure()
+        })
+      })
+    }
+  }, [displayedLogs, virtualizer])
+
+  // Remeasure when window regains focus (fixes stale measurements after tab switch)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && displayedLogs.length > 0) {
+        // Double RAF to ensure DOM is ready
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            virtualizer.measure()
+          })
+        })
+      }
+    }
+
+    const handleFocus = () => {
+      if (displayedLogs.length > 0) {
+        requestAnimationFrame(() => {
+          virtualizer.measure()
+        })
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [displayedLogs.length, virtualizer])
 
   // Show buffered logs when clicking the indicator
   const showNewLogs = useCallback(() => {
@@ -399,6 +450,7 @@ export function LogViewer({
               <div
                 key={virtualItem.key}
                 data-index={virtualItem.index}
+                data-hash={log.hash || ''}
                 ref={virtualizer.measureElement}
                 style={{
                   position: 'absolute',
