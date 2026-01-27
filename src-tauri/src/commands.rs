@@ -395,3 +395,13 @@ pub fn clear_recent_files() -> bool {
 
     file.write_all(json.as_bytes()).is_ok()
 }
+
+/// Export content to a file (used for logbook export)
+#[tauri::command]
+pub fn export_file(path: String, content: String) -> bool {
+    if path.is_empty() {
+        return false;
+    }
+
+    fs::write(&path, content.as_bytes()).is_ok()
+}

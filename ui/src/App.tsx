@@ -54,6 +54,7 @@ function App() {
     storyPaneWidth,
     storyPaneCollapsed,
     mainViewMode,
+    streamingToStoryId,
     createStory,
     deleteStory,
     renameStory,
@@ -63,7 +64,13 @@ function App() {
     setStoryPaneWidth,
     setStoryPaneCollapsed,
     setMainViewMode,
+    setStreamingStory,
+    addLogsToStory,
   } = useStoryStore();
+
+  // Buffer for streaming logs - we collect them here and add to story when streaming stops
+  // This prevents constant re-renders of the LogViewer during streaming
+  const streamingBufferRef = useRef<LogEntry[]>([]);
 
   // Ref to scroll the story pane content
   const storyPaneScrollRef = useRef<HTMLDivElement>(null);
@@ -706,6 +713,39 @@ function App() {
     [removeRecentFile, recentFiles],
   );
 
+  // Toggle streaming logs to a logbook
+  const handleToggleStreaming = useCallback(
+    (storyId: string) => {
+      const isCurrentlyStreaming = streamingToStoryId === storyId;
+      if (isCurrentlyStreaming) {
+        // Stop streaming - flush buffered logs to story
+        const bufferedLogs = streamingBufferRef.current;
+        if (bufferedLogs.length > 0) {
+          addLogsToStory(bufferedLogs, storyId);
+          streamingBufferRef.current = [];
+        }
+        setStreamingStory(null);
+        const story = stories.find((s) => s.id === storyId);
+        const logCount = bufferedLogs.length;
+        useToastStore
+          .getState()
+          .addToast(
+            "removed",
+            `Stopped streaming to ${story?.name || "logbook"}${logCount > 0 ? ` (${logCount} logs added)` : ""}`,
+          );
+      } else {
+        // Start streaming - clear buffer
+        streamingBufferRef.current = [];
+        setStreamingStory(storyId);
+        const story = stories.find((s) => s.id === storyId);
+        useToastStore
+          .getState()
+          .addToast("added", `Streaming logs to ${story?.name || "logbook"}`);
+      }
+    },
+    [streamingToStoryId, setStreamingStory, stories, addLogsToStory],
+  );
+
   // Polling effect for open files
   // Note: We get fresh state inside the callback to avoid stale closure issues
   // that could cause lines to be skipped or duplicated
@@ -747,6 +787,11 @@ function App() {
                   mtime: result.mtime,
                 });
             }
+            // Buffer new logs for streaming (will be added when streaming stops)
+            const streamingId = useStoryStore.getState().streamingToStoryId;
+            if (streamingId && newLines.logs.length > 0) {
+              streamingBufferRef.current.push(...newLines.logs);
+            }
           } else if (result.content && newSize > file.lastModified) {
             // Normal append - file grew
             // Just parse and append - recalculateTimestamps in appendFileLogs handles ordering
@@ -754,6 +799,11 @@ function App() {
             useFileStore
               .getState()
               .appendFileLogs(file.path, newLines.logs, newSize);
+            // Buffer new logs for streaming (will be added when streaming stops)
+            const streamingId = useStoryStore.getState().streamingToStoryId;
+            if (streamingId && newLines.logs.length > 0) {
+              streamingBufferRef.current.push(...newLines.logs);
+            }
           }
         } catch (err) {
           console.error(`Polling error for ${file.name}:`, err);
@@ -799,6 +849,9 @@ function App() {
         onCreateLogbook={createStory}
         onDeleteLogbook={deleteStory}
         onRenameLogbook={renameStory}
+        // Streaming control
+        streamingToStoryId={streamingToStoryId}
+        onToggleStreaming={handleToggleStreaming}
         // Theme
         theme={theme}
         onThemeChange={setTheme}

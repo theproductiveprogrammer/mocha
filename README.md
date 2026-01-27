@@ -59,6 +59,13 @@ Logbooks let you curate and save interesting log entries for investigation or sh
 - Each logbook stores full log data (persists even if source files are closed)
 - Entries persist across app restarts
 
+### Streaming Logs:
+- Click the radio icon next to a logbook name to start streaming
+- When streaming is ON, all new logs from polled files are automatically added to that logbook
+- Pulsing animation indicates streaming is active
+- Click the icon again to stop streaming
+- Streaming automatically stops when you switch to a different logbook
+
 ### Logbook Panel:
 - Toggle the right-side panel with the logbook button in toolbar
 - Shows compact preview cards of all entries

@@ -118,3 +118,22 @@ export async function clearRecentFiles(): Promise<void> {
     console.error('clearRecentFiles error:', err);
   }
 }
+
+/**
+ * Export content to a file (used for logbook export)
+ *
+ * @param path - Full path to the file to write
+ * @param content - Content to write to the file
+ * @returns true if successful, false otherwise
+ */
+export async function exportFile(path: string, content: string): Promise<boolean> {
+  if (!isTauri()) return false;
+
+  try {
+    const result = await invoke<boolean>('export_file', { path, content });
+    return result;
+  } catch (err) {
+    console.error('exportFile error:', err);
+    return false;
+  }
+}

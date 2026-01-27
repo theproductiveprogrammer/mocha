@@ -253,6 +253,7 @@ export interface StoryState {
   storyPaneWidth: number;
   storyPaneCollapsed: boolean;
   mainViewMode: MainViewMode;
+  streamingToStoryId: string | null; // ID of story currently streaming new logs
 
   // Story management
   createStory: (name?: string) => string;
@@ -262,6 +263,7 @@ export interface StoryState {
 
   // Log management (operates on active story) - now takes full LogEntry
   addToStory: (log: LogEntry) => void;
+  addLogsToStory: (logs: LogEntry[], storyId: string) => void; // Batch add for streaming
   removeFromStory: (hash: string) => void;
   toggleStory: (log: LogEntry) => void;
   clearStory: () => void;
@@ -271,6 +273,9 @@ export interface StoryState {
   setStoryPaneWidth: (width: number) => void;
   setStoryPaneCollapsed: (collapsed: boolean) => void;
   setMainViewMode: (mode: MainViewMode) => void;
+
+  // Streaming control
+  setStreamingStory: (id: string | null) => void;
 
   // Helper to get hashes from active story (for highlighting in log viewer)
   getActiveStoryHashes: () => string[];
@@ -326,6 +331,10 @@ export interface SidebarProps {
   onCreateLogbook: (name?: string) => void;
   onDeleteLogbook: (id: string) => void;
   onRenameLogbook: (id: string, name: string) => void;
+
+  // Streaming control
+  streamingToStoryId: string | null;
+  onToggleStreaming: (id: string) => void;
 
   // Theme
   theme: ThemeName;

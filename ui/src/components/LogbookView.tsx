@@ -11,7 +11,10 @@ import {
   Command,
   Check,
   Minimize2,
+  Download,
 } from 'lucide-react'
+import { save } from '@tauri-apps/plugin-dialog'
+import { exportFile } from '../api'
 import { JsonView } from 'react-json-view-lite'
 import 'react-json-view-lite/dist/index.css'
 import type { LogEntry, LogToken, Story } from '../types'
@@ -673,6 +676,28 @@ export function LogbookView({
     setTimeout(() => setCopyFeedback(false), 2000)
   }, [storyLogs])
 
+  const [exportFeedback, setExportFeedback] = useState(false)
+
+  const handleExport = useCallback(async () => {
+    if (!story || storyLogs.length === 0) return
+
+    const content = storyLogs.map(log => log.data).join('\n')
+    const defaultName = `${story.name.replace(/[^a-zA-Z0-9-_]/g, '_')}.txt`
+
+    const path = await save({
+      defaultPath: defaultName,
+      filters: [{ name: 'Text Files', extensions: ['txt'] }]
+    })
+
+    if (path) {
+      const success = await exportFile(path, content)
+      if (success) {
+        setExportFeedback(true)
+        setTimeout(() => setExportFeedback(false), 2000)
+      }
+    }
+  }, [story, storyLogs])
+
   const handleRename = useCallback(() => {
     if (story && editName.trim() && editName !== story.name) {
       onRenameStory(story.id, editName.trim())
@@ -903,6 +928,23 @@ export function LogbookView({
 
         {/* Right side - actions */}
         <div className="flex items-center gap-1">
+          {!isEmpty && (
+            <button
+              onClick={handleExport}
+              className="p-1.5 rounded-lg transition-all hover:scale-105"
+              style={{
+                background: 'var(--mocha-surface-hover)',
+                color: 'var(--mocha-text-secondary)',
+              }}
+              title="Export logbook"
+            >
+              {exportFeedback ? (
+                <Check className="w-4 h-4" style={{ color: 'var(--mocha-success)' }} />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+            </button>
+          )}
           {!isEmpty && (
             <button
               onClick={handleCopy}

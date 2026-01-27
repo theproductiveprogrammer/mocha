@@ -219,6 +219,7 @@ export const useStoryStore = create<StoryState>()(
       storyPaneWidth: 380,
       storyPaneCollapsed: true,
       mainViewMode: "logs" as const,
+      streamingToStoryId: null,
 
       // Story management
 
@@ -250,12 +251,14 @@ export const useStoryStore = create<StoryState>()(
       },
 
       deleteStory: (id: string) => {
-        const { stories, activeStoryId } = get();
+        const { stories, activeStoryId, streamingToStoryId } = get();
         const newStories = stories.filter((s) => s.id !== id);
         set({
           stories: newStories,
           activeStoryId:
             activeStoryId === id ? newStories[0]?.id || null : activeStoryId,
+          // Stop streaming if the deleted story was being streamed
+          streamingToStoryId: streamingToStoryId === id ? null : streamingToStoryId,
         });
       },
 
@@ -267,7 +270,14 @@ export const useStoryStore = create<StoryState>()(
       },
 
       setActiveStory: (id: string | null) => {
-        set({ activeStoryId: id });
+        // Stop streaming when switching to a different logbook (atomic update)
+        set((state) => ({
+          activeStoryId: id,
+          streamingToStoryId:
+            state.streamingToStoryId && state.streamingToStoryId !== id
+              ? null
+              : state.streamingToStoryId,
+        }));
       },
 
       // Log management (operates on active story) - stores full LogEntry
@@ -291,6 +301,36 @@ export const useStoryStore = create<StoryState>()(
             // Check if already in story by hash
             if (s.entries.some((e) => e.hash === log.hash)) return s;
             return { ...s, entries: [...s.entries, log] };
+          }),
+        });
+      },
+
+      // Batch add logs to a specific story (for streaming)
+      // This is more efficient than calling addToStory repeatedly
+      addLogsToStory: (logs: LogEntry[], storyId: string) => {
+        if (logs.length === 0) return;
+        const { stories } = get();
+
+        // Get existing hashes for deduplication
+        const targetStory = stories.find((s) => s.id === storyId);
+        if (!targetStory) return;
+
+        const existingHashes = new Set(
+          targetStory.entries.map((e) => e.hash).filter(Boolean),
+        );
+
+        // Filter out logs that are already in the story or don't have hashes
+        const newLogs = logs.filter(
+          (log) => log.hash && !existingHashes.has(log.hash),
+        );
+
+        if (newLogs.length === 0) return;
+
+        // Single state update for all new logs
+        set({
+          stories: stories.map((s) => {
+            if (s.id !== storyId) return s;
+            return { ...s, entries: [...s.entries, ...newLogs] };
           }),
         });
       },
@@ -375,6 +415,11 @@ export const useStoryStore = create<StoryState>()(
         set({ mainViewMode: mode });
       },
 
+      // Streaming control
+      setStreamingStory: (id: string | null) => {
+        set({ streamingToStoryId: id });
+      },
+
       // Helper to get hashes from active story (for highlighting in log viewer)
       getActiveStoryHashes: () => {
         const { stories, activeStoryId } = get();
@@ -389,19 +434,21 @@ export const useStoryStore = create<StoryState>()(
     {
       name: "mocha-stories",
       storage: createJSONStorage(() => localStorage),
-      // Don't persist mainViewMode - always start with logs view
+      // Don't persist mainViewMode or streamingToStoryId - always start fresh
       partialize: (state) => ({
         stories: state.stories,
         activeStoryId: state.activeStoryId,
         storyPaneWidth: state.storyPaneWidth,
         storyPaneCollapsed: state.storyPaneCollapsed,
         // mainViewMode intentionally excluded - always start with 'logs'
+        // streamingToStoryId intentionally excluded - never persist streaming state
       }),
-      // Force mainViewMode to 'logs' on hydration
+      // Force mainViewMode to 'logs' and streamingToStoryId to null on hydration
       merge: (persistedState, currentState) => ({
         ...currentState,
         ...(persistedState as Partial<StoryState>),
         mainViewMode: "logs" as const,
+        streamingToStoryId: null,
       }),
     },
   ),

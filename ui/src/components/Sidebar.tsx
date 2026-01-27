@@ -15,6 +15,7 @@ import {
   Moon,
   Sun,
   Monitor,
+  Radio,
 } from "lucide-react";
 import type {
   SidebarProps,
@@ -273,9 +274,11 @@ interface LogbookItemProps {
   story: Story;
   isActive: boolean;
   isSelected: boolean;
+  isStreaming: boolean;
   onClick: () => void;
   onDelete: () => void;
   onRename: (name: string) => void;
+  onToggleStreaming: () => void;
   index: number;
   isCollapsed: boolean;
 }
@@ -284,9 +287,11 @@ const LogbookItem = memo(function LogbookItem({
   story,
   isActive,
   isSelected,
+  isStreaming,
   onClick,
   onDelete,
   onRename,
+  onToggleStreaming,
   index,
   isCollapsed,
 }: LogbookItemProps) {
@@ -316,6 +321,14 @@ const LogbookItem = memo(function LogbookItem({
       onDelete();
     },
     [onDelete],
+  );
+
+  const handleToggleStreaming = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onToggleStreaming();
+    },
+    [onToggleStreaming],
   );
 
   // Collapsed view - just the icon
@@ -368,6 +381,16 @@ const LogbookItem = memo(function LogbookItem({
             >
               {story.entries.length}
             </span>
+          )}
+          {/* Streaming indicator - pulsing ring */}
+          {isStreaming && (
+            <div
+              className="absolute inset-0 rounded-lg animate-pulse pointer-events-none"
+              style={{
+                border: "2px solid var(--mocha-accent)",
+                opacity: 0.7,
+              }}
+            />
           )}
         </button>
       </div>
@@ -474,6 +497,41 @@ const LogbookItem = memo(function LogbookItem({
           </div>
         </div>
 
+        {/* Streaming toggle button */}
+        {!isEditing && (
+          <button
+            onClick={handleToggleStreaming}
+            className={`relative w-7 h-7 rounded-md flex items-center justify-center shrink-0 transition-all duration-200 ${
+              isStreaming || isHovered ? "opacity-100" : "opacity-0"
+            }`}
+            style={{
+              background: isStreaming
+                ? "var(--mocha-accent-muted)"
+                : "var(--mocha-surface-hover)",
+              color: isStreaming
+                ? "var(--mocha-accent)"
+                : "var(--mocha-text-muted)",
+            }}
+            title={
+              isStreaming
+                ? "Stop streaming logs"
+                : "Stream new logs to this logbook"
+            }
+          >
+            <Radio className="w-3.5 h-3.5" />
+            {/* Pulsing ring when streaming */}
+            {isStreaming && (
+              <div
+                className="absolute inset-0 rounded-md animate-ping pointer-events-none"
+                style={{
+                  background: "var(--mocha-accent)",
+                  opacity: 0.3,
+                }}
+              />
+            )}
+          </button>
+        )}
+
         {/* Entry count badge */}
         {story.entries.length > 0 && (
           <span
@@ -551,6 +609,9 @@ export const Sidebar = memo(function Sidebar({
   onCreateLogbook,
   onDeleteLogbook,
   onRenameLogbook,
+  // Streaming control
+  streamingToStoryId,
+  onToggleStreaming,
   // Theme
   theme,
   onThemeChange,
@@ -791,9 +852,11 @@ export const Sidebar = memo(function Sidebar({
                   isSelected={
                     story.id === activeStoryId && mainViewMode === "logbook"
                   }
+                  isStreaming={streamingToStoryId === story.id}
                   onClick={() => onSelectLogbook(story.id)}
                   onDelete={() => onDeleteLogbook(story.id)}
                   onRename={(name) => onRenameLogbook(story.id, name)}
+                  onToggleStreaming={() => onToggleStreaming(story.id)}
                   index={index}
                   isCollapsed={isCollapsed}
                 />

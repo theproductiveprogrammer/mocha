@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useEffect, useState } from 'react'
+import { useCallback, useMemo, useRef, useEffect, useLayoutEffect, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Search, FilterX, ChevronUp } from 'lucide-react'
 import type { LogEntry } from '../types'
@@ -191,7 +191,7 @@ export function LogViewer({
 
   // Force virtualizer to remeasure when displayedLogs changes
   // This prevents overlapping when logs are updated during polling
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (displayedLogs.length > 0) {
       const logsChanged = prevLogsLengthRef.current !== displayedLogs.length
       prevLogsLengthRef.current = displayedLogs.length
