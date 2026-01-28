@@ -194,5 +194,13 @@ cp $SRC/1024x1024.png $DEST/icon.iconset/icon_512x512@2x.png
 iconutil -c icns $DEST/icon.iconset -o $DEST/icon.icns
 rm -rf $DEST/icon.iconset
 
+# Generate Windows icon.ico (requires ImageMagick)
+if command -v magick &> /dev/null; then
+  magick $DEST/icon.png -define icon:auto-resize=256,128,64,48,32,16 $DEST/icon.ico
+  echo "✓ Generated icon.ico"
+else
+  echo "⚠ ImageMagick not found, skipping icon.ico (install with: brew install imagemagick)"
+fi
+
 echo "✓ Generated icons in $DEST"
 '''
