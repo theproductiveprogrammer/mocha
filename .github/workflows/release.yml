@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create Draft Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: "v${{ steps.get_version.outputs.version }}"
+          draft: true
+          prerelease: false
+          generate_release_notes: true
+
+  build-macos:
+    uses: ./.github/workflows/build-macos.yml
+    secrets: inherit
+    needs: create-release
+    with:
+      version: ${{ needs.create-release.outputs.version }}
+      upload_url: ${{ needs.create-release.outputs.upload_url }}
+
+  build-windows:
+    uses: ./.github/workflows/build-windows.yml
+    secrets: inherit
+    needs: create-release
+    with:
+      version: ${{ needs.create-release.outputs.version }}
+      upload_url: ${{ needs.create-release.outputs.upload_url }}

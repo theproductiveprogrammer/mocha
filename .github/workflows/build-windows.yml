@@ -1,0 +1,77 @@
+name: Build Windows
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      upload_url:
+        required: true
+        type: string
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Install jq
+        uses: dcarbone/install-jq-action@v2
+
+      - name: Update version in config files
+        shell: bash
+        run: |
+          # Update tauri.conf.json
+          jq --arg version "${{ inputs.version }}" '.version = $version' ./src-tauri/tauri.conf.json > /tmp/tauri.conf.json
+          mv /tmp/tauri.conf.json ./src-tauri/tauri.conf.json
+
+          # Update Cargo.toml version
+          sed -i "s/^version = \".*\"/version = \"${{ inputs.version }}\"/" ./src-tauri/Cargo.toml
+
+          # Update ui/package.json
+          jq --arg version "${{ inputs.version }}" '.version = $version' ./ui/package.json > /tmp/package.json
+          mv /tmp/package.json ./ui/package.json
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: ui
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version '^2.0'
+
+      - name: Build Windows app
+        run: cargo tauri build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mocha-windows-${{ inputs.version }}
+          path: ./src-tauri/target/release/bundle/nsis/*.exe
+
+      - name: Get installer filename
+        id: exe_name
+        shell: bash
+        run: |
+          cd ./src-tauri/target/release/bundle/nsis
+          FILE_NAME=$(ls -1 *.exe | grep -v '.exe.sig' | head -1)
+          echo "filename=$FILE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ inputs.upload_url }}
+          asset_path: ./src-tauri/target/release/bundle/nsis/${{ steps.exe_name.outputs.filename }}
+          asset_name: ${{ steps.exe_name.outputs.filename }}
+          asset_content_type: application/octet-stream

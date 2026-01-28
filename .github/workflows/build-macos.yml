@@ -1,0 +1,77 @@
+name: Build macOS
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      upload_url:
+        required: true
+        type: string
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Install Rust targets for universal build
+        run: |
+          rustup target add x86_64-apple-darwin
+          rustup target add aarch64-apple-darwin
+
+      - name: Update version in config files
+        run: |
+          # Update tauri.conf.json
+          jq --arg version "${{ inputs.version }}" '.version = $version' ./src-tauri/tauri.conf.json > /tmp/tauri.conf.json
+          mv /tmp/tauri.conf.json ./src-tauri/tauri.conf.json
+
+          # Update Cargo.toml version
+          sed -i '' "s/^version = \".*\"/version = \"${{ inputs.version }}\"/" ./src-tauri/Cargo.toml
+
+          # Update ui/package.json
+          jq --arg version "${{ inputs.version }}" '.version = $version' ./ui/package.json > /tmp/package.json
+          mv /tmp/package.json ./ui/package.json
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: ui
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version '^2.0'
+
+      - name: Build universal macOS app
+        run: cargo tauri build --target universal-apple-darwin
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mocha-macos-${{ inputs.version }}
+          path: ./src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+
+      - name: Get DMG filename
+        id: dmg_name
+        run: |
+          cd ./src-tauri/target/universal-apple-darwin/release/bundle/dmg
+          FILE_NAME=$(ls -1 *.dmg | head -1)
+          echo "filename=$FILE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ inputs.upload_url }}
+          asset_path: ./src-tauri/target/universal-apple-darwin/release/bundle/dmg/${{ steps.dmg_name.outputs.filename }}
+          asset_name: ${{ steps.dmg_name.outputs.filename }}
+          asset_content_type: application/octet-stream
