@@ -71,6 +71,7 @@ function App() {
   // Buffer for streaming logs - we collect them here and add to story when streaming stops
   // This prevents constant re-renders of the LogViewer during streaming
   const streamingBufferRef = useRef<LogEntry[]>([]);
+  const [streamingBufferCount, setStreamingBufferCount] = useState(0);
 
   // Ref to scroll the story pane content
   const storyPaneScrollRef = useRef<HTMLDivElement>(null);
@@ -724,6 +725,7 @@ function App() {
           addLogsToStory(bufferedLogs, storyId);
           streamingBufferRef.current = [];
         }
+        setStreamingBufferCount(0);
         setStreamingStory(null);
         const story = stories.find((s) => s.id === storyId);
         const logCount = bufferedLogs.length;
@@ -736,6 +738,7 @@ function App() {
       } else {
         // Start streaming - clear buffer
         streamingBufferRef.current = [];
+        setStreamingBufferCount(0);
         setStreamingStory(storyId);
         const story = stories.find((s) => s.id === storyId);
         useToastStore
@@ -791,6 +794,7 @@ function App() {
             const streamingId = useStoryStore.getState().streamingToStoryId;
             if (streamingId && newLines.logs.length > 0) {
               streamingBufferRef.current.push(...newLines.logs);
+              setStreamingBufferCount(streamingBufferRef.current.length);
             }
           } else if (result.content && newSize > file.lastModified) {
             // Normal append - file grew
@@ -803,6 +807,7 @@ function App() {
             const streamingId = useStoryStore.getState().streamingToStoryId;
             if (streamingId && newLines.logs.length > 0) {
               streamingBufferRef.current.push(...newLines.logs);
+              setStreamingBufferCount(streamingBufferRef.current.length);
             }
           }
         } catch (err) {
@@ -851,6 +856,7 @@ function App() {
         onRenameLogbook={renameStory}
         // Streaming control
         streamingToStoryId={streamingToStoryId}
+        streamingBufferCount={streamingBufferCount}
         onToggleStreaming={handleToggleStreaming}
         // Theme
         theme={theme}

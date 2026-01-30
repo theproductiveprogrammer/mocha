@@ -275,6 +275,7 @@ interface LogbookItemProps {
   isActive: boolean;
   isSelected: boolean;
   isStreaming: boolean;
+  streamingBufferCount: number;
   onClick: () => void;
   onDelete: () => void;
   onRename: (name: string) => void;
@@ -288,6 +289,7 @@ const LogbookItem = memo(function LogbookItem({
   isActive,
   isSelected,
   isStreaming,
+  streamingBufferCount,
   onClick,
   onDelete,
   onRename,
@@ -369,7 +371,7 @@ const LogbookItem = memo(function LogbookItem({
                   : "var(--mocha-text-muted)",
             }}
           />
-          {story.entries.length > 0 && (
+          {(story.entries.length > 0 || (isStreaming && streamingBufferCount > 0)) && (
             <span
               className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full text-[9px] font-bold flex items-center justify-center px-1"
               style={{
@@ -379,7 +381,7 @@ const LogbookItem = memo(function LogbookItem({
                 color: "var(--mocha-bg)",
               }}
             >
-              {story.entries.length}
+              {isStreaming ? streamingBufferCount : story.entries.length}
             </span>
           )}
           {/* Streaming indicator - pulsing ring */}
@@ -492,8 +494,16 @@ const LogbookItem = memo(function LogbookItem({
             className="text-xs mt-0.5"
             style={{ color: "var(--mocha-text-faint)" }}
           >
-            {story.entries.length}{" "}
-            {story.entries.length === 1 ? "entry" : "entries"}
+            {isStreaming && streamingBufferCount > 0 ? (
+              <span style={{ color: "var(--mocha-accent)" }}>
+                {streamingBufferCount} gathering...
+              </span>
+            ) : (
+              <>
+                {story.entries.length}{" "}
+                {story.entries.length === 1 ? "entry" : "entries"}
+              </>
+            )}
           </div>
         </div>
 
@@ -533,19 +543,23 @@ const LogbookItem = memo(function LogbookItem({
         )}
 
         {/* Entry count badge */}
-        {story.entries.length > 0 && (
+        {(story.entries.length > 0 || (isStreaming && streamingBufferCount > 0)) && (
           <span
             className="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0"
             style={{
-              background: isActive
+              background: isStreaming && streamingBufferCount > 0
                 ? "var(--mocha-accent-muted)"
-                : "var(--mocha-surface-hover)",
-              color: isActive
+                : isActive
+                  ? "var(--mocha-accent-muted)"
+                  : "var(--mocha-surface-hover)",
+              color: isStreaming && streamingBufferCount > 0
                 ? "var(--mocha-accent)"
-                : "var(--mocha-text-muted)",
+                : isActive
+                  ? "var(--mocha-accent)"
+                  : "var(--mocha-text-muted)",
             }}
           >
-            {story.entries.length}
+            {isStreaming ? streamingBufferCount : story.entries.length}
           </span>
         )}
 
@@ -611,6 +625,7 @@ export const Sidebar = memo(function Sidebar({
   onRenameLogbook,
   // Streaming control
   streamingToStoryId,
+  streamingBufferCount,
   onToggleStreaming,
   // Theme
   theme,
@@ -853,6 +868,9 @@ export const Sidebar = memo(function Sidebar({
                     story.id === activeStoryId && mainViewMode === "logbook"
                   }
                   isStreaming={streamingToStoryId === story.id}
+                  streamingBufferCount={
+                    streamingToStoryId === story.id ? streamingBufferCount : 0
+                  }
                   onClick={() => onSelectLogbook(story.id)}
                   onDelete={() => onDeleteLogbook(story.id)}
                   onRename={(name) => onRenameLogbook(story.id, name)}

@@ -334,6 +334,7 @@ export interface SidebarProps {
 
   // Streaming control
   streamingToStoryId: string | null;
+  streamingBufferCount: number;
   onToggleStreaming: (id: string) => void;
 
   // Theme
