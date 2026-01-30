@@ -1,9 +1,44 @@
-import { useCallback, useMemo, useRef, useEffect, useLayoutEffect, useState } from 'react'
+import { useCallback, useMemo, useRef, useEffect, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Search, FilterX, ChevronUp } from 'lucide-react'
-import type { LogEntry } from '../types'
+import type { LogEntry, HeightCategory } from '../types'
 import { useLogViewerStore, useStoryStore, filterLogs } from '../store'
 import { LogLine, getServiceName } from './LogLine'
+
+// ============================================================================
+// Fixed Height Categories for Zero-Overlap Virtualization
+// ============================================================================
+// These heights must match the CSS in LogLine.tsx exactly.
+// Categories are determined by content line count at parse time.
+// Continuation lines have py-0.5 (4px) vs normal py-2 (16px) = 12px less padding.
+//
+// Height breakdown:
+// - Single normal: left col (52px) dominates = 56px with buffer
+// - Single cont: right col only (4px pad + 20px content) = 28px
+// - Double: adds preview section (~36px)
+// - Triple: adds "+N more" indicator (~16px)
+
+const HEIGHT_SINGLE = 56           // 1 line, normal
+const HEIGHT_SINGLE_CONT = 28      // 1 line, continuation
+const HEIGHT_DOUBLE = 92           // 2-3 lines, normal
+const HEIGHT_DOUBLE_CONT = 52      // 2-3 lines, continuation (reduced)
+const HEIGHT_TRIPLE = 108          // 4+ lines, normal
+const HEIGHT_TRIPLE_CONT = 68      // 4+ lines, continuation (reduced)
+
+/**
+ * Get fixed height for a log entry based on its category and continuation status.
+ * Heights are pre-determined - no DOM measurement needed.
+ */
+function getFixedHeight(category: HeightCategory | undefined, isContinuation: boolean): number {
+  if (!category || category === 'single') {
+    return isContinuation ? HEIGHT_SINGLE_CONT : HEIGHT_SINGLE
+  }
+  if (category === 'double') {
+    return isContinuation ? HEIGHT_DOUBLE_CONT : HEIGHT_DOUBLE
+  }
+  // triple
+  return isContinuation ? HEIGHT_TRIPLE_CONT : HEIGHT_TRIPLE
+}
 
 export interface LogViewerProps {
   logs: LogEntry[]
@@ -129,21 +164,33 @@ export function LogViewer({
     return result
   }, [logs, filters, inactiveNames, isSameGroup])
 
-  // Virtualizer with dynamic measurement - uses displayedLogs (not filteredLogs)
-  // Key is ONLY the hash - including index causes measurement cache misses when logs shift
+  // Pre-compute continuation flags for fixed height calculation
+  // This determines whether each log is a "continuation" of the previous (same group)
+  const continuationFlags = useMemo(() => {
+    const flags = new Map<number, boolean>()
+    for (let i = 0; i < displayedLogs.length; i++) {
+      const log = displayedLogs[i]
+      const prev = i > 0 ? displayedLogs[i - 1] : null
+      flags.set(i, isSameGroup(prev, log))
+    }
+    return flags
+  }, [displayedLogs, isSameGroup])
+
+  // Virtualizer with FIXED heights - no dynamic measurement needed
+  // Heights are pre-computed from content line count (heightCategory) and continuation status
+  // This eliminates the race condition that caused overlapping lines
   const virtualizer = useVirtualizer({
     count: displayedLogs.length,
     getScrollElement: () => containerRef.current,
-    estimateSize: () => 44,
-    overscan: 10,
-    measureElement: (element) => {
-      const height = element.getBoundingClientRect().height
-      // Ensure minimum height to prevent 0-height rows causing overlap
-      return Math.max(height, 20)
+    // Use pre-computed fixed heights based on category + continuation
+    estimateSize: (index) => {
+      const log = displayedLogs[index]
+      const isContinuation = continuationFlags.get(index) ?? false
+      return getFixedHeight(log?.heightCategory, isContinuation)
     },
-    // Use ONLY the hash as key - NOT the index
-    // When logs shift (new logs added at top), using index causes all keys to change,
-    // which invalidates the measurement cache and falls back to estimates, causing overlap
+    overscan: 10,
+    // NO measureElement - fixed heights eliminate the need for DOM measurement
+    // This prevents the race condition between rendering and measurement
     getItemKey: (index) => {
       const log = displayedLogs[index]
       return log?.hash || `log-${index}`
@@ -185,70 +232,10 @@ export function LogViewer({
       }
     }
   }, [filteredLogs])
-  
-  // Track previous displayedLogs length to detect structural changes
-  const prevLogsLengthRef = useRef(0)
 
-  // Force virtualizer to remeasure when displayedLogs changes
-  // This prevents overlapping when logs are updated during polling
-  useLayoutEffect(() => {
-    if (displayedLogs.length > 0) {
-      const logsChanged = prevLogsLengthRef.current !== displayedLogs.length
-      prevLogsLengthRef.current = displayedLogs.length
-
-      // Always request a measurement pass
-      // Use multiple frames to ensure DOM has settled
-      const measurePass = () => {
-        virtualizer.measure()
-      }
-
-      // If logs count changed, scroll position might need adjustment
-      // Force multiple measurement passes to ensure layout is correct
-      if (logsChanged) {
-        // Immediate measure
-        measurePass()
-        // After first frame
-        requestAnimationFrame(() => {
-          measurePass()
-          // After second frame (fonts, images loaded)
-          requestAnimationFrame(measurePass)
-        })
-      } else {
-        // Just a re-render, single pass is sufficient
-        requestAnimationFrame(measurePass)
-      }
-    }
-  }, [displayedLogs, virtualizer])
-
-  // Remeasure when window regains focus (fixes stale measurements after tab switch)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && displayedLogs.length > 0) {
-        // Double RAF to ensure DOM is ready
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            virtualizer.measure()
-          })
-        })
-      }
-    }
-
-    const handleFocus = () => {
-      if (displayedLogs.length > 0) {
-        requestAnimationFrame(() => {
-          virtualizer.measure()
-        })
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [displayedLogs.length, virtualizer])
+  // NOTE: Dynamic measurement hooks removed - fixed heights eliminate the need
+  // for measurement passes and visibility/focus remeasurement handlers.
+  // Heights are now pre-computed from heightCategory + continuation status.
 
   // Show buffered logs when clicking the indicator
   const showNewLogs = useCallback(() => {

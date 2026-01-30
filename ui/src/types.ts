@@ -84,6 +84,12 @@ export interface TokenizeResult {
 }
 
 /**
+ * Height category for virtualization
+ * Pre-computed from content line count for fixed-height rendering
+ */
+export type HeightCategory = 'single' | 'double' | 'triple';
+
+/**
  * A single log entry with original and parsed data
  */
 export interface LogEntry {
@@ -95,6 +101,7 @@ export interface LogEntry {
   timestamp?: number; // Unix timestamp (for sorting)
   sortIndex?: number; // Secondary sort key within same timestamp
   parsed?: ParsedLogLine; // Parsed log information
+  heightCategory?: HeightCategory; // Pre-computed height tier for virtualization
 }
 
 /**

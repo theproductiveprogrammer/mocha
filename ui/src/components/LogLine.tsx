@@ -1,8 +1,33 @@
 import { memo, useCallback, useState } from 'react'
 import { Bookmark, Copy, Check } from 'lucide-react'
-import type { LogEntry, LogToken, LogLevel } from '../types'
+import type { LogEntry, LogToken, LogLevel, HeightCategory } from '../types'
 import { tokenizeContent } from '../parser'
 import { Tooltip } from './Tooltip'
+
+// ============================================================================
+// Fixed Height Categories - must match LogViewer.tsx exactly
+// ============================================================================
+const HEIGHT_SINGLE = 56
+const HEIGHT_SINGLE_CONT = 28
+const HEIGHT_DOUBLE = 92
+const HEIGHT_DOUBLE_CONT = 52
+const HEIGHT_TRIPLE = 108
+const HEIGHT_TRIPLE_CONT = 68
+
+/**
+ * Get fixed height CSS value for enforcing containment.
+ * Must match the virtualizer's estimateSize calculation exactly.
+ */
+function getFixedHeightPx(category: HeightCategory | undefined, isContinuation: boolean): string {
+  if (!category || category === 'single') {
+    return isContinuation ? `${HEIGHT_SINGLE_CONT}px` : `${HEIGHT_SINGLE}px`
+  }
+  if (category === 'double') {
+    return isContinuation ? `${HEIGHT_DOUBLE_CONT}px` : `${HEIGHT_DOUBLE}px`
+  }
+  // triple
+  return isContinuation ? `${HEIGHT_TRIPLE_CONT}px` : `${HEIGHT_TRIPLE}px`
+}
 
 // Service colors - refined palette
 const SERVICE_COLORS: Record<string, string> = {
@@ -315,6 +340,10 @@ function LogLineComponent({
       style={{
         background: getBackgroundStyle(),
         borderBottom: isLastInGroup ? '1px solid var(--mocha-border-subtle)' : 'none',
+        // Fixed height - prevents content from affecting virtualizer layout
+        // overflow:hidden clips any content that exceeds the fixed height
+        height: getFixedHeightPx(log.heightCategory, isContinuation),
+        overflow: 'hidden',
       }}
       data-testid="log-line"
       data-hash={log.hash}

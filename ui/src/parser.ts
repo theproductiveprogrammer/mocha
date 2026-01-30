@@ -15,6 +15,7 @@ import type {
   LogToken,
   TokenType,
   TokenizeResult,
+  HeightCategory,
 } from "./types";
 
 // ============================================================================
@@ -719,6 +720,20 @@ export function normalize(logs: LogEntry[]): LogEntry[] {
 }
 
 /**
+ * Determine height category based on content line count.
+ * Categories:
+ * - 'single': 1 line (44px normal, 24px continuation)
+ * - 'double': 2-3 lines (72px normal, 60px continuation)
+ * - 'triple': 4+ lines (100px normal, 88px continuation)
+ */
+export function getHeightCategory(data: string): HeightCategory {
+  const lineCount = data.split('\n').length;
+  if (lineCount === 1) return 'single';
+  if (lineCount <= 3) return 'double';
+  return 'triple';
+}
+
+/**
  * Generate unique hash for a log entry
  */
 function generateHash(
@@ -997,10 +1012,11 @@ export function parseLogFile(
   } = parseFileLines(content, fileName, hashKey, filePath);
   const normalized = normalize(rawLogs);
 
-  // Parse each log line to extract structured data
+  // Parse each log line to extract structured data and assign height category
   const logs: LogEntry[] = normalized.map((log) => ({
     ...log,
     parsed: parseLogLine(log.data),
+    heightCategory: getHeightCategory(log.data),
   }));
 
   // Calculate timestamp and sortIndex for all logs
