@@ -70,6 +70,8 @@ export function isContinuationLine(line: string): boolean {
   // Check if line starts with date pattern (after trimming) - these are standalone log lines
   const trimmed = line.trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return false;
+  // Lines starting with { are likely JSON structured logs
+  if (trimmed.startsWith("{")) return false;
   // Indented lines
   if (line.startsWith(" ") || line.startsWith("\t")) {
     return true;
@@ -466,7 +468,41 @@ const patterns: LogPattern[] = [
     },
   },
 
-  // 14. Single ISO timestamp (for stack traces, simple logs)
+  // 14. JSON Structured Format
+  // {"label":"service","level":"info","message":"content","timestamp":"2026-01-31T05:15:39.682Z"}
+  {
+    name: "json-structured",
+    parse: (line: string): ParsedLogLine | null => {
+      // Quick check: must start with { and end with }
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return null;
+
+      try {
+        const obj = JSON.parse(trimmed);
+
+        // Must have a message field (required)
+        const message = obj.message || obj.msg;
+        if (typeof message !== "string") return null;
+
+        // Extract fields with common aliases
+        const level = obj.level || obj.severity || obj.levelname;
+        const logger = obj.label || obj.service || obj.logger || obj.component;
+        const timestamp =
+          obj.timestamp || obj.time || obj.datetime || obj["@timestamp"];
+
+        return {
+          timestamp: timestamp,
+          level: level ? normalizeLevel(level) : undefined,
+          logger: logger,
+          content: message,
+        };
+      } catch {
+        return null;
+      }
+    },
+  },
+
+  // 15. Single ISO timestamp (for stack traces, simple logs)
   // 2025-12-19T09:53:52.155Z java.net.SocketTimeoutException: timeout
   // 2025-12-19T09:53:52.155Z at okio.SocketAsyncTimeout.newTimeoutException(JvmOkio.kt:147)
   {
