@@ -262,6 +262,7 @@ function highlightSearchInTokens(
 export interface LogLineProps {
   log: LogEntry;
   isInStory: boolean;
+  isManuallyAdded?: boolean;
   isContinuation: boolean;
   isLastInGroup: boolean;
   onToggleStory: (log: LogEntry) => void;
@@ -274,6 +275,7 @@ export interface LogLineProps {
 function LogLineComponent({
   log,
   isInStory,
+  isManuallyAdded,
   isContinuation,
   isLastInGroup,
   onToggleStory,
@@ -345,7 +347,7 @@ function LogLineComponent({
         group relative flex cursor-pointer transition-all duration-150
         ${isCurrentMatch ? "ring-1 ring-inset ring-[var(--mocha-accent)]" : ""}
         ${isFlashing ? "animate-flash-highlight" : ""}
-        ${isInStory ? "ring-1 ring-inset ring-[var(--mocha-info)]" : ""}
+        ${isInStory && isManuallyAdded ? "ring-1 ring-inset ring-[var(--mocha-info)]" : ""}
       `}
       style={{
         background: getBackgroundStyle(),
@@ -365,17 +367,19 @@ function LogLineComponent({
           background:
             effectiveLevel === "ERROR" || effectiveLevel === "WARN"
               ? rowStyle.signal
-              : isInStory
+              : isInStory && isManuallyAdded
                 ? "var(--mocha-info)"
-                : isHovered
-                  ? rowStyle.signal
-                  : "transparent",
+                : isInStory && !isManuallyAdded
+                  ? "color-mix(in srgb, var(--mocha-info) 40%, transparent)"
+                  : isHovered
+                    ? rowStyle.signal
+                    : "transparent",
           boxShadow:
             effectiveLevel === "ERROR"
               ? "0 0 6px var(--mocha-error-glow)"
               : effectiveLevel === "WARN"
                 ? "0 0 4px var(--mocha-warning-glow)"
-                : isInStory
+                : isInStory && isManuallyAdded
                   ? "0 0 8px var(--mocha-selection-glow)"
                   : "none",
         }}

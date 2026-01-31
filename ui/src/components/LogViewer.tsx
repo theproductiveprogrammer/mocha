@@ -81,6 +81,12 @@ export function LogViewer({
     return new Set(hashes);
   }, [stories, activeStoryId]);
 
+  // Get manually added hashes for differentiated highlighting
+  const manuallyAddedHashSet = useMemo(() => {
+    const activeStory = stories.find((s) => s.id === activeStoryId);
+    return new Set(activeStory?.manuallyAddedHashes || []);
+  }, [stories, activeStoryId]);
+
   // Check if two logs belong to same group (within 300ms + same service + same thread)
   const isSameGroup = useCallback(
     (a: LogEntry | null, b: LogEntry): boolean => {
@@ -356,6 +362,9 @@ export function LogViewer({
       const next =
         index < displayedLogs.length - 1 ? displayedLogs[index + 1] : null;
       const isInStory = log.hash ? storyHashSet.has(log.hash) : false;
+      const isManuallyAdded = log.hash
+        ? manuallyAddedHashSet.has(log.hash)
+        : false;
 
       // Is this line a continuation of the previous?
       const isContinuation = isSameGroup(prev, log);
@@ -368,6 +377,7 @@ export function LogViewer({
         <LogLine
           log={log}
           isInStory={isInStory}
+          isManuallyAdded={isManuallyAdded}
           isContinuation={isContinuation}
           isLastInGroup={isLastInGroup}
           onToggleStory={handleToggleStory}
@@ -381,6 +391,7 @@ export function LogViewer({
     [
       displayedLogs,
       storyHashSet,
+      manuallyAddedHashSet,
       isSameGroup,
       handleToggleStory,
       searchQuery,

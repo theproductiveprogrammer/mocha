@@ -720,12 +720,13 @@ function App() {
       const isCurrentlyStreaming = streamingToStoryId === storyId;
       if (isCurrentlyStreaming) {
         // Stop streaming - flush buffered logs to story
+        // Atomic swap: clear buffer immediately to prevent race with polling interval
         const bufferedLogs = streamingBufferRef.current;
+        streamingBufferRef.current = [];
+        setStreamingBufferCount(0);
         if (bufferedLogs.length > 0) {
           addLogsToStory(bufferedLogs, storyId);
-          streamingBufferRef.current = [];
         }
-        setStreamingBufferCount(0);
         setStreamingStory(null);
         const story = stories.find((s) => s.id === storyId);
         const logCount = bufferedLogs.length;

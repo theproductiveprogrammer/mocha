@@ -242,6 +242,7 @@ export const useStoryStore = create<StoryState>()(
           name: name || `Logbook ${storyNumber}`,
           entries: [], // Store full log entries
           createdAt: Date.now(),
+          manuallyAddedHashes: [], // Track manually added logs for differentiated highlighting
         };
         set({
           stories: [...stories, newStory],
@@ -300,7 +301,11 @@ export const useStoryStore = create<StoryState>()(
             if (s.id !== targetId) return s;
             // Check if already in story by hash
             if (s.entries.some((e) => e.hash === log.hash)) return s;
-            return { ...s, entries: [...s.entries, log] };
+            return {
+              ...s,
+              entries: [...s.entries, log],
+              manuallyAddedHashes: [...(s.manuallyAddedHashes || []), log.hash!],
+            };
           }),
         });
       },
@@ -342,7 +347,13 @@ export const useStoryStore = create<StoryState>()(
         set({
           stories: stories.map((s) =>
             s.id === activeStoryId
-              ? { ...s, entries: s.entries.filter((e) => e.hash !== hash) }
+              ? {
+                  ...s,
+                  entries: s.entries.filter((e) => e.hash !== hash),
+                  manuallyAddedHashes: (s.manuallyAddedHashes || []).filter(
+                    (h) => h !== hash,
+                  ),
+                }
               : s,
           ),
         });

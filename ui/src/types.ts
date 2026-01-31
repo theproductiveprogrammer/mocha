@@ -236,6 +236,7 @@ export interface Story {
   name: string;
   entries: LogEntry[]; // Full log entries (independent of source files)
   createdAt: number;
+  manuallyAddedHashes: string[]; // Hashes of logs added manually (not streamed)
 }
 
 /**
