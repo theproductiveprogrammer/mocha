@@ -11,6 +11,7 @@ import {
   Command,
   Check,
   Download,
+  Clock,
 } from 'lucide-react'
 import { save } from '@tauri-apps/plugin-dialog'
 import { exportFile } from '../api'
@@ -19,6 +20,138 @@ import 'react-json-view-lite/dist/index.css'
 import type { LogEntry, LogToken, Story } from '../types'
 import { tokenizeContent } from '../parser'
 import { getServiceName } from './LogLine'
+
+/**
+ * Format a timestamp for display in time period dividers
+ * Shows relative time for recent logs, absolute for older ones
+ */
+function formatTimePeriod(timestamp: number): string {
+  const now = Date.now()
+  const diff = now - timestamp
+
+  const seconds = Math.floor(diff / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+
+  if (days > 7) {
+    // Show date for older logs
+    const date = new Date(timestamp)
+    const today = new Date()
+    const isThisYear = date.getFullYear() === today.getFullYear()
+
+    if (isThisYear) {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    }
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  if (days >= 1) {
+    return days === 1 ? 'Yesterday' : `${days} days ago`
+  }
+
+  if (hours >= 1) {
+    return hours === 1 ? '1 hour ago' : `${hours} hours ago`
+  }
+
+  if (minutes >= 1) {
+    return minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`
+  }
+
+  return 'Just now'
+}
+
+/**
+ * Get detailed time string for divider subtitle
+ */
+function formatTimeDetail(timestamp: number): string {
+  const date = new Date(timestamp)
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  })
+}
+
+/**
+ * Time period divider component
+ * Elegant separator showing when a group of logs occurred
+ */
+const TimePeriodDivider = memo(function TimePeriodDivider({
+  timestamp,
+  isFirst,
+}: {
+  timestamp: number
+  isFirst?: boolean
+}) {
+  const period = formatTimePeriod(timestamp)
+  const detail = formatTimeDetail(timestamp)
+
+  return (
+    <div
+      className={`relative flex items-center justify-center ${isFirst ? 'pt-0 pb-6' : 'py-8'}`}
+      style={{ maxWidth: '56rem', margin: '0 auto' }}
+    >
+      {/* Decorative line - left */}
+      <div
+        className="flex-1 h-px"
+        style={{
+          background: 'linear-gradient(to right, transparent, var(--mocha-border-strong))',
+        }}
+      />
+
+      {/* Time indicator pill */}
+      <div
+        className="relative mx-4 px-4 py-2 rounded-full flex items-center gap-2.5 transition-all duration-300 hover:scale-105"
+        style={{
+          background: 'var(--mocha-surface-raised)',
+          border: '1px solid var(--mocha-border)',
+          boxShadow: '0 2px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.03)',
+        }}
+      >
+        <Clock
+          className="w-3.5 h-3.5"
+          style={{ color: 'var(--mocha-accent)', opacity: 0.8 }}
+        />
+        <div className="flex items-baseline gap-2">
+          <span
+            className="text-xs font-semibold tracking-wide"
+            style={{ color: 'var(--mocha-text)' }}
+          >
+            {period}
+          </span>
+          <span
+            className="text-[10px] font-mono tabular-nums"
+            style={{ color: 'var(--mocha-text-muted)' }}
+          >
+            {detail}
+          </span>
+        </div>
+      </div>
+
+      {/* Decorative line - right */}
+      <div
+        className="flex-1 h-px"
+        style={{
+          background: 'linear-gradient(to left, transparent, var(--mocha-border-strong))',
+        }}
+      />
+    </div>
+  )
+})
+
+/**
+ * Determines if a time divider should be shown between two timestamps
+ * Returns true if there's a significant time gap (> 5 minutes)
+ */
+function shouldShowDivider(prevTimestamp: number | undefined, currentTimestamp: number | undefined): boolean {
+  if (!prevTimestamp || !currentTimestamp) return false
+
+  const gap = Math.abs(currentTimestamp - prevTimestamp)
+  const fiveMinutes = 5 * 60 * 1000 // 5 minutes in milliseconds
+
+  return gap > fiveMinutes
+}
 
 // Infrastructure packages to filter out (framework/library code)
 const INFRASTRUCTURE_PACKAGES = [
@@ -1021,29 +1154,41 @@ export function LogbookView({
           </div>
         ) : (
           <div className="space-y-2">
-            {storyLogs.map((log, index) => (
-              <LogbookEvidenceCard
-                key={log.hash}
-                log={log}
-                index={index}
-                onRemove={() => log.hash && handleRemove(log.hash)}
-                onJumpToSource={
-                  onJumpToSource && log.hash
-                    ? () => onJumpToSource(log)
-                    : undefined
-                }
-                searchQuery={searchQuery}
-                isRegex={isRegex}
-                isCurrentMatch={log.hash === currentMatchHash}
-                isRemoving={log.hash === removingHash}
-                cardRef={(el) => {
-                  if (el && log.hash) {
-                    cardRefs.current.set(log.hash, el)
-                  }
-                }}
-                initialShowRaw={log.hash === initialRawHash}
-              />
-            ))}
+            {storyLogs.map((log, index) => {
+              const prevLog = index > 0 ? storyLogs[index - 1] : undefined
+              const showDivider = index === 0 || shouldShowDivider(prevLog?.timestamp, log.timestamp)
+
+              return (
+                <div key={log.hash}>
+                  {showDivider && log.timestamp && (
+                    <TimePeriodDivider
+                      timestamp={log.timestamp}
+                      isFirst={index === 0}
+                    />
+                  )}
+                  <LogbookEvidenceCard
+                    log={log}
+                    index={index}
+                    onRemove={() => log.hash && handleRemove(log.hash)}
+                    onJumpToSource={
+                      onJumpToSource && log.hash
+                        ? () => onJumpToSource(log)
+                        : undefined
+                    }
+                    searchQuery={searchQuery}
+                    isRegex={isRegex}
+                    isCurrentMatch={log.hash === currentMatchHash}
+                    isRemoving={log.hash === removingHash}
+                    cardRef={(el) => {
+                      if (el && log.hash) {
+                        cardRefs.current.set(log.hash, el)
+                      }
+                    }}
+                    initialShowRaw={log.hash === initialRawHash}
+                  />
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
