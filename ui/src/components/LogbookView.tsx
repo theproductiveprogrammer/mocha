@@ -13,7 +13,6 @@ import {
   Download,
   Clock,
   ArrowRightLeft,
-  ChevronDown,
 } from 'lucide-react'
 import { save } from '@tauri-apps/plugin-dialog'
 import { exportFile } from '../api'
@@ -466,11 +465,39 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
   const [copied, setCopied] = useState(false)
   const serviceName = getServiceName(log)
   const content = log.parsed?.content || log.data
-  const timestamp = log.parsed?.timestamp
-    ? log.parsed.timestamp.includes(' ')
-      ? log.parsed.timestamp.split(' ')[1]?.slice(0, 8)
-      : log.parsed.timestamp.slice(0, 8)
-    : null
+
+  // Format timestamp - show full time, optionally with date
+  const formatTimestamp = () => {
+    if (!log.parsed?.timestamp) return null
+    const ts = log.parsed.timestamp
+    // If timestamp contains space (date + time), extract time portion
+    if (ts.includes(' ')) {
+      const timePart = ts.split(' ')[1]
+      return timePart?.slice(0, 8) || ts.slice(0, 8)
+    }
+    // If it's a full ISO timestamp, format it nicely
+    if (ts.includes('T')) {
+      const timePart = ts.split('T')[1]
+      return timePart?.slice(0, 8) || ts
+    }
+    return ts.slice(0, 8)
+  }
+
+  // Get full date for display
+  const getFullDate = () => {
+    if (!log.parsed?.timestamp) return null
+    const ts = log.parsed.timestamp
+    if (ts.includes(' ')) {
+      return ts.split(' ')[0]
+    }
+    if (ts.includes('T')) {
+      return ts.split('T')[0]
+    }
+    return null
+  }
+
+  const timestamp = formatTimestamp()
+  const dateStr = getFullDate()
   const level = log.parsed?.level?.toUpperCase()
 
   const getLevelIndicator = () => {
@@ -531,79 +558,230 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
       style={{ zIndex: showMoveMenu ? 100 : 'auto' }}
       data-story-hash={log.hash}
     >
-      <div className={`relative mx-auto max-w-4xl mb-3 rounded-xl transition-all duration-200 hover:shadow-lg logbook-card ${isRemoving ? 'ring-2 ring-[var(--mocha-error)] ring-opacity-50' : ''}`}>
-        {/* Evidence number strip */}
+      <div className={`relative mx-auto max-w-4xl mb-4 rounded-2xl transition-all duration-200 hover:shadow-xl logbook-card ${isRemoving ? 'ring-2 ring-[var(--mocha-error)] ring-opacity-50' : ''}`}>
+
+        {/* Card Header - Clean metadata row */}
         <div
-          className="absolute -left-0 top-0 bottom-0 w-12 flex items-center justify-center"
+          className="relative flex items-center justify-between px-5 py-3 rounded-t-2xl"
           style={{
-            background: 'linear-gradient(135deg, var(--mocha-surface-active) 0%, var(--mocha-surface-hover) 100%)',
-            borderRight: '1px solid var(--mocha-border)',
-            borderLeft: levelIndicator ? `3px solid ${levelIndicator.color}` : undefined,
+            background: 'var(--mocha-surface-hover)',
+            borderBottom: '1px solid var(--mocha-border)',
           }}
         >
-          <span
-            className="text-xs font-bold tabular-nums font-mono"
-            style={{ color: 'var(--mocha-accent)' }}
+          {/* Floating action bar - appears at header/content boundary on hover */}
+          <div
+            className="absolute left-1/2 -translate-x-1/2 -bottom-4 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
           >
-            {String(index + 1).padStart(2, '0')}
-          </span>
+            <div
+              className="flex items-center gap-0.5 px-1 py-1 rounded-full"
+              style={{
+                background: 'var(--mocha-surface-raised)',
+                border: '1px solid var(--mocha-border)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+              }}
+            >
+              <button
+                onClick={handleCopy}
+                className="p-1.5 rounded-full transition-all hover:scale-110"
+                style={{
+                  background: copied ? 'var(--mocha-success-muted)' : 'transparent',
+                  color: copied ? 'var(--mocha-success)' : 'var(--mocha-text-muted)',
+                }}
+                title="Copy log line"
+              >
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+
+              {onJumpToSource && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onJumpToSource()
+                  }}
+                  className="p-1.5 rounded-full transition-all hover:scale-110 hover:bg-[var(--mocha-surface-hover)]"
+                  style={{ color: 'var(--mocha-text-muted)' }}
+                  title="Jump to source"
+                >
+                  <Crosshair className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* Move to dropdown */}
+              {onMoveToStory && otherStories && otherStories.length > 0 && (
+                <div className="relative" ref={moveMenuRef}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowMoveMenu(!showMoveMenu)
+                    }}
+                    className="p-1.5 rounded-full transition-all hover:scale-110"
+                    style={{
+                      background: showMoveMenu ? 'var(--mocha-surface-hover)' : 'transparent',
+                      color: 'var(--mocha-text-muted)',
+                    }}
+                    title="Move to another logbook"
+                  >
+                    <ArrowRightLeft className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Dropdown menu */}
+                  {showMoveMenu && (
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 py-1.5 rounded-xl shadow-xl z-50 min-w-[180px] animate-scale-in"
+                      style={{
+                        background: 'var(--mocha-surface-raised)',
+                        border: '1px solid var(--mocha-border)',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+                      }}
+                    >
+                      <div
+                        className="px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wider"
+                        style={{ color: 'var(--mocha-text-muted)', borderBottom: '1px solid var(--mocha-border)' }}
+                      >
+                        Move to
+                      </div>
+                      {otherStories.map((targetStory) => (
+                        <button
+                          key={targetStory.id}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onMoveToStory(targetStory.id)
+                            setShowMoveMenu(false)
+                          }}
+                          className="w-full px-3 py-2 text-left text-[13px] flex items-center gap-2 transition-colors hover:bg-[var(--mocha-surface-hover)]"
+                          style={{ color: 'var(--mocha-text)' }}
+                        >
+                          <BookOpen className="w-3.5 h-3.5" style={{ color: 'var(--mocha-accent)' }} />
+                          <span className="truncate flex-1">{targetStory.name}</span>
+                          <span
+                            className="text-[10px] tabular-nums"
+                            style={{ color: 'var(--mocha-text-muted)' }}
+                          >
+                            {targetStory.entries.length}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="w-px h-4 mx-0.5" style={{ background: 'var(--mocha-border)' }} />
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRemove()
+                }}
+                className="p-1.5 rounded-full transition-all hover:scale-110 hover:bg-[var(--mocha-error-bg)]"
+                style={{ color: 'var(--mocha-text-muted)' }}
+                title="Remove from logbook"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+          {/* Left side: Index + Timestamp + Level */}
+          <div className="flex items-center gap-4">
+            {/* Evidence number */}
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{
+                background: levelIndicator
+                  ? `color-mix(in srgb, ${levelIndicator.color} 15%, transparent)`
+                  : 'var(--mocha-surface-active)',
+                border: levelIndicator
+                  ? `1px solid color-mix(in srgb, ${levelIndicator.color} 30%, transparent)`
+                  : '1px solid var(--mocha-border)',
+              }}
+            >
+              <span
+                className="text-xs font-bold tabular-nums font-mono"
+                style={{ color: levelIndicator?.color || 'var(--mocha-accent)' }}
+              >
+                {String(index + 1).padStart(2, '0')}
+              </span>
+            </div>
+
+            {/* Timestamp group */}
+            <div className="flex flex-col">
+              {timestamp && (
+                <span
+                  className="text-sm font-mono tabular-nums font-medium"
+                  style={{ color: 'var(--mocha-text)' }}
+                >
+                  {timestamp}
+                </span>
+              )}
+              {dateStr && (
+                <span
+                  className="text-[10px] font-mono tabular-nums"
+                  style={{ color: 'var(--mocha-text-muted)' }}
+                >
+                  {dateStr}
+                </span>
+              )}
+            </div>
+
+            {/* Divider */}
+            {(timestamp || dateStr) && (
+              <div className="h-6 w-px" style={{ background: 'var(--mocha-border)' }} />
+            )}
+
+            {/* Service badge */}
+            <span
+              className="text-[11px] px-2.5 py-1 rounded-lg font-semibold uppercase tracking-wide font-mono"
+              style={{
+                background: 'var(--mocha-surface-active)',
+                color: 'var(--mocha-text-secondary)',
+                border: '1px solid var(--mocha-border)',
+              }}
+            >
+              {serviceName}
+            </span>
+
+            {/* Level indicator */}
+            {levelIndicator && (
+              <span
+                className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider"
+                style={{
+                  background: `color-mix(in srgb, ${levelIndicator.color} 20%, transparent)`,
+                  color: levelIndicator.color,
+                  border: `1px solid color-mix(in srgb, ${levelIndicator.color} 40%, transparent)`,
+                }}
+              >
+                {levelIndicator.label}
+              </span>
+            )}
+          </div>
+
+          {/* Right side: RAW toggle */}
+          <button
+            onClick={() => setShowRaw(!showRaw)}
+            className="text-[10px] px-3 py-1.5 rounded-lg font-semibold uppercase tracking-wider cursor-pointer transition-all hover:scale-105"
+            style={{
+              background: showRaw ? 'var(--mocha-info-muted)' : 'transparent',
+              color: showRaw ? 'var(--mocha-info)' : 'var(--mocha-text-muted)',
+              border: showRaw ? '1px solid var(--mocha-info)' : '1px solid var(--mocha-border)',
+            }}
+          >
+            {showRaw ? 'Raw' : 'Raw'}
+          </button>
         </div>
 
         {/* Content area */}
         <div
-          className="pl-14 pr-12 py-4"
+          className="px-5 py-4"
           style={{
             background: showRaw
               ? 'linear-gradient(135deg, var(--mocha-surface-raised) 0%, var(--mocha-surface) 100%)'
               : 'transparent',
           }}
         >
-          {/* Header */}
-          <div className="flex items-center gap-2 mb-3">
-            {timestamp && (
-              <span
-                className="text-[10px] tracking-wide tabular-nums font-mono"
-                style={{ color: 'var(--mocha-text-muted)' }}
-              >
-                {timestamp}
-              </span>
-            )}
-            {levelIndicator && (
-              <span
-                className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"
-                style={{
-                  background: `color-mix(in srgb, ${levelIndicator.color} 15%, transparent)`,
-                  color: levelIndicator.color,
-                }}
-              >
-                {levelIndicator.label}
-              </span>
-            )}
-            <span
-              className="text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider font-mono"
-              style={{
-                background: 'var(--mocha-surface-hover)',
-                color: 'var(--mocha-text-secondary)',
-              }}
-            >
-              {serviceName}
-            </span>
-            <button
-              onClick={() => setShowRaw(!showRaw)}
-              className="text-[9px] px-2 py-0.5 rounded font-semibold uppercase tracking-wider cursor-pointer transition-all hover:scale-105"
-              style={{
-                background: showRaw ? 'var(--mocha-info-muted)' : 'var(--mocha-surface-active)',
-                color: showRaw ? 'var(--mocha-info)' : 'var(--mocha-text-muted)',
-              }}
-            >
-              {showRaw ? 'RAW' : 'RAW'}
-            </button>
-          </div>
-
           {/* Log content */}
           {showRaw ? (
             <div
-              className="text-[11px] leading-relaxed whitespace-pre-wrap break-all select-text font-mono"
+              className="text-[12px] leading-relaxed whitespace-pre-wrap break-all select-text font-mono"
               style={{ color: 'var(--mocha-text)' }}
             >
               {highlightMatches(rawLog)}
@@ -611,111 +789,6 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
           ) : (
             <SmartContent content={content} tokens={tokens} onShowRaw={() => setShowRaw(true)} />
           )}
-        </div>
-
-        {/* Action buttons */}
-        <div className="absolute right-4 top-4 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200">
-          <button
-            onClick={handleCopy}
-            className="p-2 rounded-lg transition-all hover:scale-110"
-            style={{
-              background: 'var(--mocha-surface-hover)',
-              color: copied ? 'var(--mocha-success)' : 'var(--mocha-text-secondary)',
-            }}
-            title="Copy log line"
-          >
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-          </button>
-          {onJumpToSource && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onJumpToSource()
-              }}
-              className="p-2 rounded-lg transition-all hover:scale-110"
-              style={{
-                background: 'var(--mocha-surface-hover)',
-                color: 'var(--mocha-text-secondary)',
-              }}
-              title="Jump to source in log viewer"
-            >
-              <Crosshair className="w-4 h-4" />
-            </button>
-          )}
-          {/* Move to dropdown */}
-          {onMoveToStory && otherStories && otherStories.length > 0 && (
-            <div className="relative" ref={moveMenuRef}>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowMoveMenu(!showMoveMenu)
-                }}
-                className="p-2 rounded-lg transition-all hover:scale-110 flex items-center gap-0.5"
-                style={{
-                  background: showMoveMenu ? 'var(--mocha-surface-active)' : 'var(--mocha-surface-hover)',
-                  color: 'var(--mocha-text-secondary)',
-                }}
-                title="Move to another logbook"
-              >
-                <ArrowRightLeft className="w-4 h-4" />
-                <ChevronDown className="w-3 h-3" style={{ opacity: 0.6 }} />
-              </button>
-
-              {/* Dropdown menu */}
-              {showMoveMenu && (
-                <div
-                  className="absolute right-0 top-full mt-1 py-1 rounded-lg shadow-xl z-50 min-w-[180px] animate-scale-in"
-                  style={{
-                    background: 'var(--mocha-surface-raised)',
-                    border: '1px solid var(--mocha-border)',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-                  }}
-                >
-                  <div
-                    className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider"
-                    style={{ color: 'var(--mocha-text-muted)' }}
-                  >
-                    Move to
-                  </div>
-                  {otherStories.map((targetStory) => (
-                    <button
-                      key={targetStory.id}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onMoveToStory(targetStory.id)
-                        setShowMoveMenu(false)
-                      }}
-                      className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors hover:bg-[var(--mocha-surface-hover)]"
-                      style={{ color: 'var(--mocha-text)' }}
-                    >
-                      <BookOpen className="w-3.5 h-3.5" style={{ color: 'var(--mocha-accent)' }} />
-                      <span className="truncate">{targetStory.name}</span>
-                      <span
-                        className="ml-auto text-[10px] tabular-nums"
-                        style={{ color: 'var(--mocha-text-muted)' }}
-                      >
-                        {targetStory.entries.length}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onRemove()
-            }}
-            className="p-2 rounded-lg transition-all hover:scale-110"
-            style={{
-              background: 'var(--mocha-surface-hover)',
-              color: 'var(--mocha-text-secondary)',
-            }}
-            title="Remove from logbook"
-          >
-            <X className="w-4 h-4" />
-          </button>
         </div>
       </div>
     </div>
