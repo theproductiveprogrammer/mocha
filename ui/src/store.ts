@@ -357,6 +357,44 @@ export const useStoryStore = create<StoryState>()(
         });
       },
 
+      moveEntryToStory: (hash: string, toStoryId: string) => {
+        const { stories, activeStoryId } = get();
+        if (!activeStoryId || activeStoryId === toStoryId) return;
+
+        // Find the entry to move
+        const sourceStory = stories.find((s) => s.id === activeStoryId);
+        const entry = sourceStory?.entries.find((e) => e.hash === hash);
+        if (!entry) return;
+
+        // Check if already exists in target
+        const targetStory = stories.find((s) => s.id === toStoryId);
+        if (targetStory?.entries.some((e) => e.hash === hash)) return;
+
+        set({
+          stories: stories.map((s) => {
+            if (s.id === activeStoryId) {
+              // Remove from source
+              return {
+                ...s,
+                entries: s.entries.filter((e) => e.hash !== hash),
+                manuallyAddedHashes: (s.manuallyAddedHashes || []).filter(
+                  (h) => h !== hash,
+                ),
+              };
+            }
+            if (s.id === toStoryId) {
+              // Add to target
+              return {
+                ...s,
+                entries: [...s.entries, entry],
+                manuallyAddedHashes: [...(s.manuallyAddedHashes || []), hash],
+              };
+            }
+            return s;
+          }),
+        });
+      },
+
       toggleStory: (log: LogEntry) => {
         const {
           stories,

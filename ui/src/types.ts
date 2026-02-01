@@ -264,6 +264,7 @@ export interface StoryState {
   addToStory: (log: LogEntry) => void;
   addLogsToStory: (logs: LogEntry[], storyId: string) => void; // Batch add for streaming
   removeFromStory: (hash: string) => void;
+  moveEntryToStory: (hash: string, toStoryId: string) => void; // Move entry to different logbook
   toggleStory: (log: LogEntry) => void;
   clearStory: () => void;
   reorderStory: (fromIndex: number, toIndex: number) => void;

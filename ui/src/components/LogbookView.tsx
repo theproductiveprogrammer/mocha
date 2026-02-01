@@ -12,6 +12,8 @@ import {
   Check,
   Download,
   Clock,
+  ArrowRightLeft,
+  ChevronDown,
 } from 'lucide-react'
 import { save } from '@tauri-apps/plugin-dialog'
 import { exportFile } from '../api'
@@ -225,8 +227,10 @@ const logbookJsonStyles = {
 
 interface LogbookViewProps {
   story: Story | null
+  allStories: Story[]  // All stories for "Move to" feature
   onClose: () => void
   onRemoveFromStory: (hash: string) => void
+  onMoveToStory: (hash: string, toStoryId: string) => void
   onDeleteStory: () => void
   onRenameStory: (id: string, name: string) => void
   onJumpToSource?: (log: LogEntry) => void
@@ -411,6 +415,8 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
   index,
   onRemove,
   onJumpToSource,
+  onMoveToStory,
+  otherStories,
   searchQuery,
   isRegex,
   isCurrentMatch,
@@ -422,6 +428,8 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
   index: number
   onRemove: () => void
   onJumpToSource?: () => void
+  onMoveToStory?: (toStoryId: string) => void
+  otherStories?: Story[]
   searchQuery?: string
   isRegex?: boolean
   isCurrentMatch?: boolean
@@ -430,6 +438,20 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
   initialShowRaw?: boolean
 }) {
   const [showRaw, setShowRaw] = useState(initialShowRaw ?? false)
+  const [showMoveMenu, setShowMoveMenu] = useState(false)
+  const moveMenuRef = useRef<HTMLDivElement>(null)
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!showMoveMenu) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moveMenuRef.current && !moveMenuRef.current.contains(e.target as Node)) {
+        setShowMoveMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showMoveMenu])
 
   // If initialShowRaw is set, briefly show raw mode then fade back to parsed
   useEffect(() => {
@@ -506,9 +528,10 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
     <div
       ref={cardRef}
       className={`group relative transition-all duration-300 ${isCurrentMatch ? 'ring-2 ring-[var(--mocha-accent)] ring-offset-2 ring-offset-[var(--mocha-surface)]' : ''} ${isRemoving ? 'opacity-50 scale-95' : ''}`}
+      style={{ zIndex: showMoveMenu ? 100 : 'auto' }}
       data-story-hash={log.hash}
     >
-      <div className={`relative mx-auto max-w-4xl mb-3 rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg logbook-card ${isRemoving ? 'ring-2 ring-[var(--mocha-error)] ring-opacity-50' : ''}`}>
+      <div className={`relative mx-auto max-w-4xl mb-3 rounded-xl transition-all duration-200 hover:shadow-lg logbook-card ${isRemoving ? 'ring-2 ring-[var(--mocha-error)] ring-opacity-50' : ''}`}>
         {/* Evidence number strip */}
         <div
           className="absolute -left-0 top-0 bottom-0 w-12 flex items-center justify-center"
@@ -619,6 +642,66 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
               <Crosshair className="w-4 h-4" />
             </button>
           )}
+          {/* Move to dropdown */}
+          {onMoveToStory && otherStories && otherStories.length > 0 && (
+            <div className="relative" ref={moveMenuRef}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowMoveMenu(!showMoveMenu)
+                }}
+                className="p-2 rounded-lg transition-all hover:scale-110 flex items-center gap-0.5"
+                style={{
+                  background: showMoveMenu ? 'var(--mocha-surface-active)' : 'var(--mocha-surface-hover)',
+                  color: 'var(--mocha-text-secondary)',
+                }}
+                title="Move to another logbook"
+              >
+                <ArrowRightLeft className="w-4 h-4" />
+                <ChevronDown className="w-3 h-3" style={{ opacity: 0.6 }} />
+              </button>
+
+              {/* Dropdown menu */}
+              {showMoveMenu && (
+                <div
+                  className="absolute right-0 top-full mt-1 py-1 rounded-lg shadow-xl z-50 min-w-[180px] animate-scale-in"
+                  style={{
+                    background: 'var(--mocha-surface-raised)',
+                    border: '1px solid var(--mocha-border)',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                  }}
+                >
+                  <div
+                    className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider"
+                    style={{ color: 'var(--mocha-text-muted)' }}
+                  >
+                    Move to
+                  </div>
+                  {otherStories.map((targetStory) => (
+                    <button
+                      key={targetStory.id}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onMoveToStory(targetStory.id)
+                        setShowMoveMenu(false)
+                      }}
+                      className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors hover:bg-[var(--mocha-surface-hover)]"
+                      style={{ color: 'var(--mocha-text)' }}
+                    >
+                      <BookOpen className="w-3.5 h-3.5" style={{ color: 'var(--mocha-accent)' }} />
+                      <span className="truncate">{targetStory.name}</span>
+                      <span
+                        className="ml-auto text-[10px] tabular-nums"
+                        style={{ color: 'var(--mocha-text-muted)' }}
+                      >
+                        {targetStory.entries.length}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -644,8 +727,10 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
  */
 export function LogbookView({
   story,
+  allStories,
   onClose,
   onRemoveFromStory,
+  onMoveToStory,
   onDeleteStory,
   onRenameStory,
   onJumpToSource,
@@ -653,6 +738,11 @@ export function LogbookView({
   initialRawHash,
   onScrollComplete,
 }: LogbookViewProps) {
+  // Filter out current story for "Move to" options
+  const otherStories = useMemo(
+    () => allStories.filter((s) => s.id !== story?.id),
+    [allStories, story?.id]
+  )
   const [copyFeedback, setCopyFeedback] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(story?.name || '')
@@ -1175,6 +1265,12 @@ export function LogbookView({
                         ? () => onJumpToSource(log)
                         : undefined
                     }
+                    onMoveToStory={
+                      log.hash
+                        ? (toStoryId) => onMoveToStory(log.hash!, toStoryId)
+                        : undefined
+                    }
+                    otherStories={otherStories}
                     searchQuery={searchQuery}
                     isRegex={isRegex}
                     isCurrentMatch={log.hash === currentMatchHash}

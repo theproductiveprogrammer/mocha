@@ -58,6 +58,7 @@ function App() {
     setActiveStory,
     toggleStory,
     removeFromStory,
+    moveEntryToStory,
     setMainViewMode,
     setStreamingStory,
     addLogsToStory,
@@ -851,10 +852,12 @@ function App() {
             {mainViewMode === "logbook" ? (
               <LogbookView
                 story={activeStory || null}
+                allStories={stories}
                 onClose={() => {
                   setMainViewMode("logs");
                 }}
                 onRemoveFromStory={removeFromStory}
+                onMoveToStory={moveEntryToStory}
                 onDeleteStory={() => {
                   if (activeStoryId) {
                     deleteStory(activeStoryId);
