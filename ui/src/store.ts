@@ -216,8 +216,6 @@ export const useStoryStore = create<StoryState>()(
       // State
       stories: [],
       activeStoryId: null,
-      storyPaneWidth: 380,
-      storyPaneCollapsed: true,
       mainViewMode: "logs" as const,
       streamingToStoryId: null,
 
@@ -414,14 +412,6 @@ export const useStoryStore = create<StoryState>()(
 
       // UI state
 
-      setStoryPaneWidth: (width: number) => {
-        set({ storyPaneWidth: width });
-      },
-
-      setStoryPaneCollapsed: (collapsed: boolean) => {
-        set({ storyPaneCollapsed: collapsed });
-      },
-
       setMainViewMode: (mode: "logs" | "logbook") => {
         set({ mainViewMode: mode });
       },
@@ -449,8 +439,6 @@ export const useStoryStore = create<StoryState>()(
       partialize: (state) => ({
         stories: state.stories,
         activeStoryId: state.activeStoryId,
-        storyPaneWidth: state.storyPaneWidth,
-        storyPaneCollapsed: state.storyPaneCollapsed,
         // mainViewMode intentionally excluded - always start with 'logs'
         // streamingToStoryId intentionally excluded - never persist streaming state
       }),

@@ -22,7 +22,6 @@ import {
   filterLogs,
 } from "./store";
 import { Sidebar, Toolbar, LogViewer } from "./components";
-import { StoryPane } from "./components/StoryPane";
 import { LogbookView } from "./components/LogbookView";
 import { ToastContainer } from "./components/Toast";
 import { useToastStore } from "./toastStore";
@@ -51,8 +50,6 @@ function App() {
   const {
     stories,
     activeStoryId,
-    storyPaneWidth,
-    storyPaneCollapsed,
     mainViewMode,
     streamingToStoryId,
     createStory,
@@ -61,8 +58,6 @@ function App() {
     setActiveStory,
     toggleStory,
     removeFromStory,
-    setStoryPaneWidth,
-    setStoryPaneCollapsed,
     setMainViewMode,
     setStreamingStory,
     addLogsToStory,
@@ -72,9 +67,6 @@ function App() {
   // This prevents constant re-renders of the LogViewer during streaming
   const streamingBufferRef = useRef<LogEntry[]>([]);
   const [streamingBufferCount, setStreamingBufferCount] = useState(0);
-
-  // Ref to scroll the story pane content
-  const storyPaneScrollRef = useRef<HTMLDivElement>(null);
 
   // Get active story
   const activeStory = useMemo(
@@ -118,9 +110,6 @@ function App() {
   // Jump-to-source state (from logbook)
   const [jumpToHash, setJumpToHash] = useState<string | null>(null);
 
-  // Remove animation state - tracks hash being removed for scroll-then-fade animation
-  const [removingHash, setRemovingHash] = useState<string | null>(null);
-
   // Logbook scroll-to-entry state (for opening logbook at specific entry in raw mode)
   const [logbookScrollToHash, setLogbookScrollToHash] = useState<string | null>(
     null,
@@ -154,17 +143,6 @@ function App() {
       return (a.sortIndex ?? 0) - (b.sortIndex ?? 0);
     });
   }, [safeOpenedFiles]);
-
-  // Story logs come directly from the story (independent of loaded files)
-  const storyLogs = useMemo(() => {
-    const entries = activeStory?.entries || [];
-    // Sort by timestamp ascending (chronological order), then by sortIndex for stable ordering
-    return [...entries].sort((a, b) => {
-      const timestampDiff = (a.timestamp ?? 0) - (b.timestamp ?? 0);
-      if (timestampDiff !== 0) return timestampDiff;
-      return (a.sortIndex ?? 0) - (b.sortIndex ?? 0);
-    });
-  }, [activeStory]);
 
   // Filter logs for display (apply filters)
   const filteredLogs = useMemo(() => {
@@ -202,13 +180,6 @@ function App() {
   useEffect(() => {
     setSearchCurrentIndex(0);
   }, [searchQuery, searchIsRegex]);
-
-  // Auto-collapse story pane when all logs are closed
-  useEffect(() => {
-    if (mergedLogs.length === 0) {
-      setStoryPaneCollapsed(true);
-    }
-  }, [mergedLogs.length, setStoryPaneCollapsed]);
 
   // Apply theme to document element
   useEffect(() => {
@@ -268,72 +239,16 @@ function App() {
     setJumpToPrevWarningTrigger((prev) => prev + 1);
   }, []);
 
-  // Handle toggling a log in/out of story - expand pane and scroll when adding
+  // Handle toggling a log in/out of story
   const handleToggleStory = useCallback(
     (log: LogEntry) => {
       // If no active story exists, create one first
       if (!activeStory) {
         createStory();
       }
-
-      // Check if this log is already in the story (will be removed)
-      const isRemoving = activeStory?.entries.some((e) => e.hash === log.hash);
-
-      if (isRemoving && log.hash) {
-        // Removing - if pane is open, animate there; otherwise just remove
-        if (!storyPaneCollapsed) {
-          // Pane is open - scroll to card and animate removal
-          setTimeout(() => {
-            const card = document.querySelector(
-              `[data-story-hash="${log.hash}"]`,
-            );
-            if (card) {
-              card.scrollIntoView({ behavior: "smooth", block: "center" });
-            }
-            setRemovingHash(log.hash!);
-          }, 100);
-
-          // After animation delay, actually remove
-          setTimeout(() => {
-            toggleStory(log);
-            setRemovingHash(null);
-          }, 600); // 100ms scroll delay + 500ms animation
-        } else {
-          // Pane is closed - just remove immediately (LogLine handles visual collapse)
-          toggleStory(log);
-        }
-      } else {
-        // Adding - just toggle the story (log line handles its own expansion)
-        // Story pane does NOT auto-open - user can open it manually if desired
-        toggleStory(log);
-      }
+      toggleStory(log);
     },
-    [
-      activeStory,
-      createStory,
-      toggleStory,
-      storyPaneCollapsed,
-      setStoryPaneCollapsed,
-    ],
-  );
-
-  // Handle animated removal from story (used by X button in StoryPane)
-  const handleAnimatedRemove = useCallback(
-    (hash: string) => {
-      // Scroll to the card and set removing state for visual feedback
-      const card = document.querySelector(`[data-story-hash="${hash}"]`);
-      if (card) {
-        card.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-      setRemovingHash(hash);
-
-      // After animation delay, actually remove
-      setTimeout(() => {
-        removeFromStory(hash);
-        setRemovingHash(null);
-      }, 500);
-    },
-    [removeFromStory],
+    [activeStory, createStory, toggleStory],
   );
 
   // Count of open files (all open files are now shown)
@@ -881,8 +796,6 @@ function App() {
             onJumpToPrevError={handleJumpToPrevError}
             onJumpToNextWarning={handleJumpToNextWarning}
             onJumpToPrevWarning={handleJumpToPrevWarning}
-            logbookCollapsed={storyPaneCollapsed}
-            onToggleLogbook={() => setStoryPaneCollapsed(!storyPaneCollapsed)}
           />
         )}
 
@@ -940,11 +853,6 @@ function App() {
                 story={activeStory || null}
                 onClose={() => {
                   setMainViewMode("logs");
-                  setStoryPaneCollapsed(true);
-                }}
-                onMinimizeToPanel={() => {
-                  setMainViewMode("logs");
-                  setStoryPaneCollapsed(false);
                 }}
                 onRemoveFromStory={removeFromStory}
                 onDeleteStory={() => {
@@ -1149,42 +1057,6 @@ function App() {
               </div>
             )}
 
-            {/* Story pane - right side panel (preview) */}
-            {(mergedLogs.length > 0 ||
-              storyLogs.length > 0 ||
-              stories.length > 0) &&
-              !storyPaneCollapsed &&
-              mainViewMode === "logs" && (
-                <StoryPane
-                  stories={stories}
-                  activeStoryId={activeStoryId}
-                  storyLogs={storyLogs}
-                  width={storyPaneWidth}
-                  collapsed={storyPaneCollapsed}
-                  removingHash={removingHash}
-                  onRemove={handleAnimatedRemove}
-                  onDeleteStory={() => {
-                    if (activeStoryId) {
-                      deleteStory(activeStoryId);
-                    }
-                  }}
-                  onWidthChange={setStoryPaneWidth}
-                  onToggleCollapsed={() =>
-                    setStoryPaneCollapsed(!storyPaneCollapsed)
-                  }
-                  onOpenFullView={() => {
-                    if (activeStoryId) {
-                      setMainViewMode("logbook");
-                    }
-                  }}
-                  onOpenAtEntry={(hash) => {
-                    setLogbookScrollToHash(hash);
-                    setMainViewMode("logbook");
-                  }}
-                  onJumpToSource={handleJumpToSource}
-                  scrollRef={storyPaneScrollRef}
-                />
-              )}
           </div>
 
           {/* Drag overlay */}

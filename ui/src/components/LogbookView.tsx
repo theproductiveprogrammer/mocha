@@ -10,7 +10,6 @@ import {
   Crosshair,
   Command,
   Check,
-  Minimize2,
   Download,
 } from 'lucide-react'
 import { save } from '@tauri-apps/plugin-dialog'
@@ -94,7 +93,6 @@ const logbookJsonStyles = {
 interface LogbookViewProps {
   story: Story | null
   onClose: () => void
-  onMinimizeToPanel: () => void
   onRemoveFromStory: (hash: string) => void
   onDeleteStory: () => void
   onRenameStory: (id: string, name: string) => void
@@ -514,7 +512,6 @@ const LogbookEvidenceCard = memo(function LogbookEvidenceCard({
 export function LogbookView({
   story,
   onClose,
-  onMinimizeToPanel,
   onRemoveFromStory,
   onDeleteStory,
   onRenameStory,
@@ -974,17 +971,6 @@ export function LogbookView({
             <Trash2 className="w-4 h-4" />
           </button>
           <div className="w-px h-5 mx-1" style={{ background: 'var(--mocha-border)' }} />
-          <button
-            onClick={onMinimizeToPanel}
-            className="p-1.5 rounded-lg transition-all hover:scale-105"
-            style={{
-              background: 'var(--mocha-surface-hover)',
-              color: 'var(--mocha-text-secondary)',
-            }}
-            title="Minimize to panel"
-          >
-            <Minimize2 className="w-4 h-4" />
-          </button>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg transition-all hover:scale-105"

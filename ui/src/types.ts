@@ -251,8 +251,6 @@ export type MainViewMode = "logs" | "logbook";
 export interface StoryState {
   stories: Story[];
   activeStoryId: string | null;
-  storyPaneWidth: number;
-  storyPaneCollapsed: boolean;
   mainViewMode: MainViewMode;
   streamingToStoryId: string | null; // ID of story currently streaming new logs
 
@@ -271,8 +269,6 @@ export interface StoryState {
   reorderStory: (fromIndex: number, toIndex: number) => void;
 
   // UI state
-  setStoryPaneWidth: (width: number) => void;
-  setStoryPaneCollapsed: (collapsed: boolean) => void;
   setMainViewMode: (mode: MainViewMode) => void;
 
   // Streaming control
