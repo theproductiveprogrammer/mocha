@@ -280,46 +280,32 @@ function App() {
       const isRemoving = activeStory?.entries.some((e) => e.hash === log.hash);
 
       if (isRemoving && log.hash) {
-        // Removing - animate first, then remove after delay
-        // Expand pane if collapsed so user can see the animation
-        if (storyPaneCollapsed) {
-          setStoryPaneCollapsed(false);
-        }
+        // Removing - if pane is open, animate there; otherwise just remove
+        if (!storyPaneCollapsed) {
+          // Pane is open - scroll to card and animate removal
+          setTimeout(() => {
+            const card = document.querySelector(
+              `[data-story-hash="${log.hash}"]`,
+            );
+            if (card) {
+              card.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+            setRemovingHash(log.hash!);
+          }, 100);
 
-        // Scroll to the card and set removing state for visual feedback
-        setTimeout(() => {
-          const card = document.querySelector(
-            `[data-story-hash="${log.hash}"]`,
-          );
-          if (card) {
-            card.scrollIntoView({ behavior: "smooth", block: "center" });
-          }
-          setRemovingHash(log.hash!);
-        }, 100);
-
-        // After animation delay, actually remove
-        setTimeout(() => {
+          // After animation delay, actually remove
+          setTimeout(() => {
+            toggleStory(log);
+            setRemovingHash(null);
+          }, 600); // 100ms scroll delay + 500ms animation
+        } else {
+          // Pane is closed - just remove immediately (LogLine handles visual collapse)
           toggleStory(log);
-          setRemovingHash(null);
-        }, 600); // 100ms scroll delay + 500ms animation
-      } else {
-        // Adding - toggle immediately, then expand and scroll
-        toggleStory(log);
-
-        // Expand if collapsed
-        if (storyPaneCollapsed) {
-          setStoryPaneCollapsed(false);
         }
-
-        // Scroll to the specific entry after render
-        setTimeout(() => {
-          const card = document.querySelector(
-            `[data-story-hash="${log.hash}"]`,
-          );
-          if (card) {
-            card.scrollIntoView({ behavior: "smooth", block: "center" });
-          }
-        }, 150);
+      } else {
+        // Adding - just toggle the story (log line handles its own expansion)
+        // Story pane does NOT auto-open - user can open it manually if desired
+        toggleStory(log);
       }
     },
     [
@@ -783,13 +769,11 @@ function App() {
             const currentFiles = useFileStore.getState().openedFiles;
             const updatedFile = currentFiles.get(file.path);
             if (updatedFile) {
-              useFileStore
-                .getState()
-                .openFile({
-                  ...updatedFile,
-                  lastModified: newSize,
-                  mtime: result.mtime,
-                });
+              useFileStore.getState().openFile({
+                ...updatedFile,
+                lastModified: newSize,
+                mtime: result.mtime,
+              });
             }
             // Buffer new logs for streaming (will be added when streaming stops)
             const streamingId = useStoryStore.getState().streamingToStoryId;

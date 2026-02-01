@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState, useEffect, useRef } from "react";
 import {
   FolderOpen,
   FileText,
@@ -123,14 +123,12 @@ const RecentFileItem = memo(function RecentFileItem({
       >
         <button
           onClick={onClick}
-          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 mx-auto ${isHighlighted ? 'animate-file-added' : ''}`}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 mx-auto ${isHighlighted ? "animate-file-added" : ""}`}
           style={{
             background: isOpen
               ? "var(--mocha-info)"
               : "var(--mocha-surface-raised)",
-            boxShadow: isOpen
-              ? "0 0 12px var(--mocha-selection-glow)"
-              : "none",
+            boxShadow: isOpen ? "0 0 12px var(--mocha-selection-glow)" : "none",
           }}
           title={file.name}
           data-testid={`recent-file-${file.name}`}
@@ -158,7 +156,7 @@ const RecentFileItem = memo(function RecentFileItem({
     >
       <button
         onClick={onClick}
-        className={`w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 flex items-center gap-3 ${isHighlighted ? 'animate-file-added' : ''}`}
+        className={`w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200 flex items-center gap-3 ${isHighlighted ? "animate-file-added" : ""}`}
         style={{
           background: isOpen
             ? "var(--mocha-selection)"
@@ -179,9 +177,7 @@ const RecentFileItem = memo(function RecentFileItem({
             background: isOpen
               ? "var(--mocha-info)"
               : "var(--mocha-surface-raised)",
-            boxShadow: isOpen
-              ? "0 0 12px var(--mocha-selection-glow)"
-              : "none",
+            boxShadow: isOpen ? "0 0 12px var(--mocha-selection-glow)" : "none",
           }}
         >
           {isOpen ? (
@@ -236,7 +232,6 @@ const RecentFileItem = memo(function RecentFileItem({
             )}
           </div>
         </div>
-
       </button>
 
       {/* Remove button */}
@@ -300,6 +295,23 @@ const LogbookItem = memo(function LogbookItem({
   const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(story.name);
+  const [badgePulsing, setBadgePulsing] = useState(false);
+  const prevEntryCountRef = useRef(story.entries.length);
+
+  // Detect when entries are added and trigger pulse animation
+  useEffect(() => {
+    const prevCount = prevEntryCountRef.current;
+    const newCount = story.entries.length;
+
+    if (newCount > prevCount) {
+      // Entry was added - trigger pulse
+      setBadgePulsing(true);
+      const timer = setTimeout(() => setBadgePulsing(false), 400);
+      return () => clearTimeout(timer);
+    }
+
+    prevEntryCountRef.current = newCount;
+  }, [story.entries.length]);
 
   const handleDoubleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -371,9 +383,10 @@ const LogbookItem = memo(function LogbookItem({
                   : "var(--mocha-text-muted)",
             }}
           />
-          {(story.entries.length > 0 || (isStreaming && streamingBufferCount > 0)) && (
+          {(story.entries.length > 0 ||
+            (isStreaming && streamingBufferCount > 0)) && (
             <span
-              className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full text-[9px] font-bold flex items-center justify-center px-1"
+              className={`absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full text-[9px] font-bold flex items-center justify-center px-1 ${badgePulsing ? "animate-badge-pulse" : ""}`}
               style={{
                 background: isActive
                   ? "var(--mocha-accent)"
@@ -543,20 +556,23 @@ const LogbookItem = memo(function LogbookItem({
         )}
 
         {/* Entry count badge */}
-        {(story.entries.length > 0 || (isStreaming && streamingBufferCount > 0)) && (
+        {(story.entries.length > 0 ||
+          (isStreaming && streamingBufferCount > 0)) && (
           <span
-            className="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0"
+            className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${badgePulsing ? "animate-badge-pulse" : ""}`}
             style={{
-              background: isStreaming && streamingBufferCount > 0
-                ? "var(--mocha-accent-muted)"
-                : isActive
+              background:
+                isStreaming && streamingBufferCount > 0
                   ? "var(--mocha-accent-muted)"
-                  : "var(--mocha-surface-hover)",
-              color: isStreaming && streamingBufferCount > 0
-                ? "var(--mocha-accent)"
-                : isActive
+                  : isActive
+                    ? "var(--mocha-accent-muted)"
+                    : "var(--mocha-surface-hover)",
+              color:
+                isStreaming && streamingBufferCount > 0
                   ? "var(--mocha-accent)"
-                  : "var(--mocha-text-muted)",
+                  : isActive
+                    ? "var(--mocha-accent)"
+                    : "var(--mocha-text-muted)",
             }}
           >
             {isStreaming ? streamingBufferCount : story.entries.length}

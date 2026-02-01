@@ -751,6 +751,17 @@ body {
   }
 }
 
+/* Badge pulse for logbook entry count */
+@keyframes badgePulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.25);
+    box-shadow: 0 0 8px var(--mocha-info);
+  }
+}
+
 /* === Animation Classes === */
 .animate-fade-in {
   animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -807,6 +818,10 @@ body {
 
 .animate-file-added {
   animation: fileAdded 0.8s ease-out;
+}
+
+.animate-badge-pulse {
+  animation: badgePulse 0.4s ease-out;
 }
 
 /* ========================================

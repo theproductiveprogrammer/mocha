@@ -1,8 +1,109 @@
-import { memo, useCallback, useState } from "react";
-import { Bookmark, Copy, Check } from "lucide-react";
+import { memo, useCallback, useState, useEffect, useMemo } from "react";
+import { Bookmark, Copy, Check, X } from "lucide-react";
+import { JsonView } from "react-json-view-lite";
+import "react-json-view-lite/dist/index.css";
 import type { LogEntry, LogToken, LogLevel } from "../types";
 import { tokenizeContent } from "../parser";
 import { Tooltip } from "./Tooltip";
+
+// Infrastructure packages to filter out (framework/library code)
+const INFRASTRUCTURE_PACKAGES = [
+  "java.",
+  "javax.",
+  "sun.",
+  "jdk.",
+  "com.sun.",
+  "org.springframework.",
+  "io.micronaut.",
+  "org.hibernate.",
+  "org.apache.",
+  "com.fasterxml.jackson.",
+  "org.slf4j.",
+  "ch.qos.logback.",
+  "org.apache.log4j.",
+  "org.apache.logging.",
+  "com.google.common.",
+  "com.google.guava.",
+  "com.google.inject.",
+  "kotlin.",
+  "kotlinx.",
+  "scala.",
+  "okhttp3.",
+  "okio.",
+  "com.mysql.",
+  "org.postgresql.",
+  "com.zaxxer.hikari.",
+  "org.jooq.",
+  "io.quarkus.",
+  "io.vertx.",
+  "com.vaadin.",
+  "io.netty.",
+  "org.wicket.",
+  "org.joda.",
+  "android.",
+  "dalvik.",
+  "androidx.",
+  "clojure.",
+  "reactor.",
+  "io.reactivex.",
+  "rx.",
+  "lombok.",
+];
+
+function isInfrastructureFrame(line: string): boolean {
+  return INFRASTRUCTURE_PACKAGES.some((pkg) => line.includes(pkg));
+}
+
+function isImportantLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (/^[\w.$]+Exception|^[\w.$]+Error|^Caused by:/.test(trimmed)) return true;
+  if (/^\.\.\. \d+ (more|common frames)/.test(trimmed)) return true;
+  if (trimmed.startsWith("at ")) {
+    return !isInfrastructureFrame(trimmed);
+  }
+  return false;
+}
+
+function extractImportantLines(content: string): {
+  firstLine: string;
+  importantLines: string[];
+  hiddenCount: number;
+  totalLines: number;
+} {
+  const lines = content.split("\n");
+  const firstLine = lines[0] || "";
+  const restLines = lines.slice(1);
+
+  const importantLines: string[] = [];
+  let hiddenCount = 0;
+
+  for (const line of restLines) {
+    if (isImportantLine(line)) {
+      importantLines.push(line);
+    } else if (line.trim()) {
+      hiddenCount++;
+    }
+  }
+
+  return { firstLine, importantLines, hiddenCount, totalLines: lines.length };
+}
+
+// Custom JSON viewer styles for inline expansion (same as logbook)
+const inlineJsonStyles = {
+  container: "jv-logbook-container",
+  basicChildStyle: "jv-logbook-child",
+  label: "jv-logbook-label",
+  nullValue: "jv-logbook-null",
+  undefinedValue: "jv-logbook-null",
+  stringValue: "jv-logbook-string",
+  booleanValue: "jv-logbook-boolean",
+  numberValue: "jv-logbook-number",
+  otherValue: "jv-logbook-other",
+  punctuation: "jv-logbook-punctuation",
+  collapseIcon: "jv-logbook-collapse-icon",
+  expandIcon: "jv-logbook-expand-icon",
+  collapsedContent: "jv-logbook-collapsed",
+};
 
 // Service colors - refined palette
 const SERVICE_COLORS: Record<string, string> = {
@@ -218,6 +319,171 @@ function TokenizedContent({
 }
 
 /**
+ * Expanded content view with smart content and JSON rendering
+ */
+function ExpandedContent({
+  content,
+  tokens,
+  onShowRaw,
+  showRaw,
+}: {
+  content: string;
+  tokens: LogToken[];
+  onShowRaw: () => void;
+  showRaw: boolean;
+}) {
+  const { firstLine, importantLines, hiddenCount, totalLines } = useMemo(
+    () => extractImportantLines(content),
+    [content],
+  );
+
+  const isMultiLine = totalLines > 1;
+  const hasImportantLines = importantLines.length > 0;
+
+  // For raw mode, show the full content
+  if (showRaw) {
+    return (
+      <div
+        className="text-[12px] leading-relaxed font-mono whitespace-pre-wrap break-all"
+        style={{ color: "var(--mocha-text)" }}
+      >
+        {content}
+      </div>
+    );
+  }
+
+  // Single line - render with JSON expansion
+  if (!isMultiLine) {
+    return (
+      <div
+        className="text-[12px] leading-relaxed font-mono"
+        style={{ color: "var(--mocha-text)", wordBreak: "break-word" }}
+      >
+        {tokens.map((token, i) => {
+          if (token.type === "json") {
+            try {
+              const parsed = JSON.parse(token.text);
+              return (
+                <div
+                  key={i}
+                  className="my-2 p-2.5 rounded-lg text-[11px]"
+                  style={{
+                    background: "var(--mocha-surface-hover)",
+                    border: "1px solid var(--mocha-border)",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <JsonView
+                    data={parsed}
+                    shouldExpandNode={(level) => level < 2}
+                    style={inlineJsonStyles}
+                  />
+                </div>
+              );
+            } catch {
+              // Parse failed, render as text
+            }
+          }
+          return <TokenSpan key={i} token={token} />;
+        })}
+      </div>
+    );
+  }
+
+  // Multi-line content - show first line with JSON, then important lines
+  const firstLineTokens = tokenizeContent(firstLine).tokens;
+
+  return (
+    <div className="font-mono" style={{ color: "var(--mocha-text)" }}>
+      {/* First line with JSON rendering */}
+      <div
+        className="text-[12px] leading-relaxed"
+        style={{ wordBreak: "break-word" }}
+      >
+        {firstLineTokens.map((token, i) => {
+          if (token.type === "json") {
+            try {
+              const parsed = JSON.parse(token.text);
+              return (
+                <div
+                  key={i}
+                  className="my-2 p-2.5 rounded-lg text-[11px]"
+                  style={{
+                    background: "var(--mocha-surface-hover)",
+                    border: "1px solid var(--mocha-border)",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <JsonView
+                    data={parsed}
+                    shouldExpandNode={(level) => level < 2}
+                    style={inlineJsonStyles}
+                  />
+                </div>
+              );
+            } catch {
+              // Parse failed
+            }
+          }
+          return <TokenSpan key={i} token={token} />;
+        })}
+      </div>
+
+      {/* Important lines (stack traces, exceptions) */}
+      {hasImportantLines && (
+        <div
+          className="mt-2 pl-3 text-[11px] leading-relaxed space-y-0.5"
+          style={{
+            borderLeft: "2px solid var(--mocha-border-strong)",
+            color: "var(--mocha-text-secondary)",
+          }}
+        >
+          {importantLines.map((line, i) => {
+            const trimmed = line.trim();
+            const isException =
+              /^[\w.$]+Exception|^[\w.$]+Error|^Caused by:/.test(trimmed);
+            const isMoreLine = /^\.\.\. \d+ (more|common frames)/.test(trimmed);
+
+            return (
+              <div
+                key={i}
+                className="truncate"
+                style={{
+                  color: isException
+                    ? "var(--mocha-error)"
+                    : isMoreLine
+                      ? "var(--mocha-text-muted)"
+                      : "var(--mocha-text-secondary)",
+                  fontWeight: isException ? 600 : 400,
+                  fontStyle: isMoreLine ? "italic" : "normal",
+                }}
+                title={line}
+              >
+                {trimmed}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Hidden lines indicator */}
+      {hiddenCount > 0 && (
+        <button
+          onClick={onShowRaw}
+          className="mt-2 text-[10px] px-2 py-1 rounded-md transition-all hover:bg-[var(--mocha-surface-active)]"
+          style={{
+            color: "var(--mocha-text-muted)",
+            background: "var(--mocha-surface-hover)",
+          }}
+        >
+          ({hiddenCount} hidden)
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
  * Highlight search matches in tokens
  */
 function highlightSearchInTokens(
@@ -286,6 +552,7 @@ function LogLineComponent({
 }: LogLineProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showRaw, setShowRaw] = useState(false);
 
   const serviceName = getServiceName(log);
   const serviceAbbrev = getServiceAbbrev(serviceName);
@@ -298,10 +565,26 @@ function LogLineComponent({
   const additionalLineCount = contentLines.length - 3; // Lines beyond first 3
 
   const { tokens, detectedLevel } = tokenizeContent(firstLine);
+  const fullContentTokens = useMemo(
+    () => tokenizeContent(content).tokens,
+    [content],
+  );
 
   const effectiveLevel = log.parsed?.level || detectedLevel;
   const rowStyle = getRowStyle(effectiveLevel);
 
+  // Expansion is determined by: in story AND manually added
+  // No separate isExpanded state needed
+  const isExpanded = isInStory && isManuallyAdded;
+
+  // Reset showRaw when removed from story
+  useEffect(() => {
+    if (!isInStory) {
+      setShowRaw(false);
+    }
+  }, [isInStory]);
+
+  // Simple click handler - just toggles story membership
   const handleClick = useCallback(() => {
     if (log.hash) {
       onToggleStory(log);
@@ -421,89 +704,167 @@ function LogLineComponent({
 
       {/* Right column: log content */}
       <div
-        className={`flex-1 min-w-0 px-4 font-mono text-[12px] leading-relaxed flex items-start ${
+        className={`flex-1 min-w-0 px-4 font-mono text-[12px] leading-relaxed flex flex-col ${
           isContinuation ? "py-0.5" : "py-2"
         }`}
         style={{ color: "var(--mocha-text)" }}
       >
-        <Tooltip content={log.data} className="flex-1 min-w-0">
-          {/* First line */}
-          <div className="truncate">
-            <TokenizedContent
-              tokens={displayTokens}
-              isCurrentMatch={isCurrentMatch}
+        {isExpanded ? (
+          /* Expanded view with full content and JSON rendering */
+          <div className="flex-1">
+            {/* Header row with controls */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                {displayTimestamp && (
+                  <span
+                    className="text-[10px] tabular-nums font-mono"
+                    style={{ color: "var(--mocha-text-muted)" }}
+                  >
+                    {displayTimestamp}
+                  </span>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowRaw(!showRaw);
+                  }}
+                  className="text-[9px] px-2 py-0.5 rounded font-semibold uppercase tracking-wider cursor-pointer transition-all hover:scale-105"
+                  style={{
+                    background: showRaw
+                      ? "var(--mocha-info-muted)"
+                      : "var(--mocha-surface-active)",
+                    color: showRaw
+                      ? "var(--mocha-info)"
+                      : "var(--mocha-text-muted)",
+                  }}
+                >
+                  RAW
+                </button>
+              </div>
+              <div className="flex items-center gap-1">
+                {/* Bookmark indicator - shows this is in logbook */}
+                <Bookmark
+                  className="w-3.5 h-3.5"
+                  style={{ color: "var(--mocha-info)" }}
+                  fill="currentColor"
+                />
+                {/* Copy button */}
+                <button
+                  onClick={handleCopy}
+                  className="p-1.5 rounded-md transition-all hover:bg-[var(--mocha-surface-active)]"
+                  style={{
+                    color: copied
+                      ? "var(--mocha-success)"
+                      : "var(--mocha-text-muted)",
+                  }}
+                  title="Copy log line"
+                >
+                  {copied ? (
+                    <Check className="w-3.5 h-3.5" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+                {/* Collapse/Remove button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleStory(log);
+                  }}
+                  className="p-1.5 rounded-md transition-all hover:bg-[var(--mocha-surface-active)]"
+                  style={{ color: "var(--mocha-text-muted)" }}
+                  title="Collapse and remove from logbook"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Expanded content */}
+            <ExpandedContent
+              content={content}
+              tokens={fullContentTokens}
+              onShowRaw={() => setShowRaw(true)}
+              showRaw={showRaw}
             />
           </div>
+        ) : (
+          /* Collapsed view - original compact display */
+          <div className="flex items-start">
+            <Tooltip content={log.data} className="flex-1 min-w-0">
+              {/* First line */}
+              <div className="truncate">
+                <TokenizedContent
+                  tokens={displayTokens}
+                  isCurrentMatch={isCurrentMatch}
+                />
+              </div>
 
-          {/* Preview lines for multi-line content */}
-          {previewLines.length > 0 && (
-            <div
-              className="mt-1 pl-4 text-[10px] font-mono space-y-0.5"
-              style={{ color: "var(--mocha-text-muted)" }}
-            >
-              {previewLines.map((line, i) => (
-                <div key={i} className="truncate">
-                  {line || "\u00A0"}
-                </div>
-              ))}
-              {additionalLineCount > 0 && (
-                <span
-                  className="text-[9px] inline-block mt-0.5"
-                  style={{ color: "var(--mocha-text-muted)", opacity: 0.7 }}
+              {/* Preview lines for multi-line content */}
+              {previewLines.length > 0 && (
+                <div
+                  className="mt-1 pl-4 text-[10px] font-mono space-y-0.5"
+                  style={{ color: "var(--mocha-text-muted)" }}
                 >
-                  +{additionalLineCount} more
-                </span>
+                  {previewLines.map((line, i) => (
+                    <div key={i} className="truncate">
+                      {line || "\u00A0"}
+                    </div>
+                  ))}
+                  {additionalLineCount > 0 && (
+                    <span
+                      className="text-[9px] inline-block mt-0.5"
+                      style={{ color: "var(--mocha-text-muted)", opacity: 0.7 }}
+                    >
+                      +{additionalLineCount} more
+                    </span>
+                  )}
+                </div>
               )}
+            </Tooltip>
+
+            {/* Action buttons - appear on hover */}
+            <div
+              className={`flex items-center gap-1 ml-3 shrink-0 transition-opacity duration-150 ${
+                isHovered ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              {/* Copy button */}
+              <button
+                onClick={handleCopy}
+                className="p-1.5 rounded-md transition-all hover:bg-[var(--mocha-surface-active)]"
+                style={{
+                  color: copied
+                    ? "var(--mocha-success)"
+                    : "var(--mocha-text-muted)",
+                }}
+                title="Copy log line"
+              >
+                {copied ? (
+                  <Check className="w-3.5 h-3.5" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" />
+                )}
+              </button>
+
+              {/* Bookmark/Story button */}
+              <button
+                onClick={handleClick}
+                className="p-1.5 rounded-md transition-all hover:bg-[var(--mocha-surface-active)]"
+                style={{
+                  color: isInStory
+                    ? "var(--mocha-info)"
+                    : "var(--mocha-text-muted)",
+                }}
+                title={isInStory ? "Remove from logbook" : "Add to logbook"}
+              >
+                <Bookmark
+                  className="w-3.5 h-3.5"
+                  fill={isInStory ? "currentColor" : "none"}
+                />
+              </button>
             </div>
-          )}
-        </Tooltip>
 
-        {/* Action buttons - appear on hover */}
-        <div
-          className={`flex items-center gap-1 ml-3 shrink-0 transition-opacity duration-150 ${
-            isHovered ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          {/* Copy button */}
-          <button
-            onClick={handleCopy}
-            className="p-1.5 rounded-md transition-all hover:bg-[var(--mocha-surface-active)]"
-            style={{
-              color: copied
-                ? "var(--mocha-success)"
-                : "var(--mocha-text-muted)",
-            }}
-            title="Copy log line"
-          >
-            {copied ? (
-              <Check className="w-3.5 h-3.5" />
-            ) : (
-              <Copy className="w-3.5 h-3.5" />
-            )}
-          </button>
-
-          {/* Bookmark/Story button */}
-          <button
-            onClick={handleClick}
-            className="p-1.5 rounded-md transition-all hover:bg-[var(--mocha-surface-active)]"
-            style={{
-              color: isInStory
-                ? "var(--mocha-info)"
-                : "var(--mocha-text-muted)",
-            }}
-            title={isInStory ? "Remove from logbook" : "Add to logbook"}
-          >
-            <Bookmark
-              className="w-3.5 h-3.5"
-              fill={isInStory ? "currentColor" : "none"}
-            />
-          </button>
-        </div>
-
-        {/* Story indicator - always visible when in story */}
-        {isInStory && !isHovered && (
-          <div className="shrink-0 ml-3" style={{ color: "var(--mocha-info)" }}>
-            <Bookmark className="w-3.5 h-3.5" fill="currentColor" />
           </div>
         )}
       </div>
