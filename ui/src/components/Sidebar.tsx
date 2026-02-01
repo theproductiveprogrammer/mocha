@@ -980,7 +980,13 @@ export const Sidebar = memo(function Sidebar({
                         isHighlighted={file.path === highlightedFilePath}
                         onClick={() => {
                           if (openedFile) {
-                            onCloseFile(file.path);
+                            // If in logbook view, clicking an open file navigates back to logs
+                            // If in logs view, clicking an open file closes it
+                            if (mainViewMode === "logbook") {
+                              onSelectFile(file.path);
+                            } else {
+                              onCloseFile(file.path);
+                            }
                           } else {
                             onSelectFile(file.path);
                           }
