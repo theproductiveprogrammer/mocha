@@ -4,6 +4,7 @@ import { JsonView } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
 import type { LogEntry, LogToken, LogLevel } from "../types";
 import { tokenizeContent } from "../parser";
+import { deepParseJsonStrings } from "../utils/jsonParser";
 import { Tooltip } from "./Tooltip";
 
 // Infrastructure packages to filter out (framework/library code)
@@ -363,6 +364,7 @@ function ExpandedContent({
           if (token.type === "json") {
             try {
               const parsed = JSON.parse(token.text);
+              const deepParsed = deepParseJsonStrings(parsed);
               return (
                 <div
                   key={i}
@@ -374,7 +376,7 @@ function ExpandedContent({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <JsonView
-                    data={parsed}
+                    data={deepParsed}
                     shouldExpandNode={(level) => level < 2}
                     style={inlineJsonStyles}
                   />
@@ -404,6 +406,7 @@ function ExpandedContent({
           if (token.type === "json") {
             try {
               const parsed = JSON.parse(token.text);
+              const deepParsed = deepParseJsonStrings(parsed);
               return (
                 <div
                   key={i}
@@ -415,7 +418,7 @@ function ExpandedContent({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <JsonView
-                    data={parsed}
+                    data={deepParsed}
                     shouldExpandNode={(level) => level < 2}
                     style={inlineJsonStyles}
                   />
@@ -864,7 +867,6 @@ function LogLineComponent({
                 />
               </button>
             </div>
-
           </div>
         )}
       </div>
