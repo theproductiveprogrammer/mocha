@@ -12,6 +12,7 @@ import {
   addRecentFile,
   removeRecentFile as removeRecentFileApi,
   clearRecentFiles,
+  searchFileForLine,
 } from "./api";
 import { parseLogFile } from "./parser";
 import {
@@ -425,6 +426,7 @@ function App() {
   );
 
   // Jump to source from logbook - open file if needed, minimize logbook and scroll to the log
+  // If the log is outside the truncated view (older than 2000 lines), search and load that section
   const handleJumpToSource = useCallback(
     async (log: LogEntry) => {
       const hash = log.hash;
@@ -445,6 +447,9 @@ function App() {
         }
       }
 
+      // Check if the log already exists in currently loaded logs
+      const existsInLoadedLogs = mergedLogs.some((l) => l.hash === hash);
+
       // Check if the file is currently open
       const openedFile = filePath ? safeOpenedFiles.get(filePath) : null;
 
@@ -452,13 +457,32 @@ function App() {
         // File is not open - need to open it first
         await handleOpenFile(filePath);
 
-        // Wait for the file to be loaded and rendered, then scroll
-        setTimeout(() => {
-          setJumpToHash(hash);
+        // Wait for the file to be loaded and rendered, then check if we found it
+        setTimeout(async () => {
+          // Re-check if the log exists after opening the file
+          const currentLogs = Array.from(
+            useFileStore.getState().openedFiles.values(),
+          ).flatMap((f) => f.logs);
+          const foundAfterOpen = currentLogs.some((l) => l.hash === hash);
+
+          if (foundAfterOpen) {
+            setJumpToHash(hash);
+          } else if (filePath) {
+            // Log not in loaded section - search the file for it
+            await loadLogSectionFromFile(filePath, log);
+          }
         }, 300);
-      } else {
-        // File is already open - just scroll
+      } else if (existsInLoadedLogs) {
+        // File is already open and log exists - just scroll
         setJumpToHash(hash);
+      } else if (filePath) {
+        // File is open but log is outside truncated view - search and load that section
+        await loadLogSectionFromFile(filePath, log);
+      } else {
+        // No file path available
+        useToastStore
+          .getState()
+          .addToast("removed", "Cannot locate source file for this log");
       }
     },
     [
@@ -467,7 +491,66 @@ function App() {
       safeOpenedFiles,
       recentFiles,
       handleOpenFile,
+      mergedLogs,
     ],
+  );
+
+  // Helper: Search file for a log line and load that section
+  const loadLogSectionFromFile = useCallback(
+    async (filePath: string, log: LogEntry) => {
+      const hash = log.hash;
+      if (!hash) return;
+
+      // Search the file for the exact log line
+      const result = await searchFileForLine(filePath, log.data, 1000);
+
+      if (result.success && result.content) {
+        // Parse the section and update the file's logs
+        const fileName = filePath.split("/").pop() || "unknown";
+        const parsed = parseLogFile(result.content, fileName, filePath);
+
+        // Find the target log in the parsed section
+        const targetLog = parsed.logs.find((l) => l.data === log.data);
+
+        if (targetLog) {
+          // Update the file's logs with this section
+          const openedFile = safeOpenedFiles.get(filePath);
+          if (openedFile) {
+            const updatedFile: OpenedFileWithLogs = {
+              ...openedFile,
+              logs: parsed.logs,
+            };
+            openFile(updatedFile);
+
+            // Show info about what we loaded
+            useToastStore
+              .getState()
+              .addToast(
+                "added",
+                `Loaded section around line ${result.lineNumber?.toLocaleString()} of ${result.totalLines?.toLocaleString()}`,
+              );
+
+            // Wait for re-render then scroll
+            setTimeout(() => {
+              // The hash from the loaded section might be different, so use the new hash
+              setJumpToHash(targetLog.hash || hash);
+            }, 100);
+          }
+        } else {
+          useToastStore
+            .getState()
+            .addToast("removed", "Could not find the exact log line in file");
+        }
+      } else {
+        useToastStore
+          .getState()
+          .addToast(
+            "removed",
+            result.error || "Log line not found in source file",
+          );
+      }
+    },
+    [safeOpenedFiles, openFile],
   );
 
   // Clear jump hash after scroll completes

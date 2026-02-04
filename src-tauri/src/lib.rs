@@ -1,6 +1,6 @@
 mod commands;
 
-use commands::{read_file, get_recent_files, add_recent_file, remove_recent_file, clear_recent_files, export_file};
+use commands::{read_file, get_recent_files, add_recent_file, remove_recent_file, clear_recent_files, export_file, search_file_for_line};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -15,7 +15,8 @@ pub fn run() {
             add_recent_file,
             remove_recent_file,
             clear_recent_files,
-            export_file
+            export_file,
+            search_file_for_line
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

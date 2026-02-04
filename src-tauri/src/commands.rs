@@ -405,3 +405,81 @@ pub fn export_file(path: String, content: String) -> bool {
 
     fs::write(&path, content.as_bytes()).is_ok()
 }
+
+/// Result for search_file_for_line command
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchLineResult {
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line_number: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_lines: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+/// Search for a specific line in a file and return surrounding context
+/// Used for "jump to source" when the log is outside the truncated view
+#[tauri::command]
+pub fn search_file_for_line(path: String, search_line: String, context_lines: usize) -> SearchLineResult {
+    if path.is_empty() || search_line.is_empty() {
+        return SearchLineResult {
+            success: false,
+            content: None,
+            line_number: None,
+            total_lines: None,
+            error: Some("Invalid parameters".to_string()),
+        };
+    }
+
+    // Read the entire file
+    let content = match fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => {
+            return SearchLineResult {
+                success: false,
+                content: None,
+                line_number: None,
+                total_lines: None,
+                error: Some("Cannot read file".to_string()),
+            };
+        }
+    };
+
+    let lines: Vec<&str> = content.lines().collect();
+    let total_lines = lines.len();
+
+    // Search for the exact line
+    let found_index = lines.iter().position(|&line| line == search_line);
+
+    match found_index {
+        Some(idx) => {
+            // Calculate context window
+            let start = if idx > context_lines { idx - context_lines } else { 0 };
+            let end = std::cmp::min(idx + context_lines + 1, total_lines);
+
+            // Extract lines with context
+            let context_content: String = lines[start..end].join("\n");
+
+            SearchLineResult {
+                success: true,
+                content: Some(context_content),
+                line_number: Some(idx + 1), // 1-indexed
+                total_lines: Some(total_lines),
+                error: None,
+            }
+        }
+        None => {
+            SearchLineResult {
+                success: false,
+                content: None,
+                line_number: None,
+                total_lines: Some(total_lines),
+                error: Some("Line not found in file".to_string()),
+            }
+        }
+    }
+}

@@ -157,6 +157,18 @@ export interface FileResult {
   error?: string; // Error message if failed
 }
 
+/**
+ * Result from searchFileForLine Tauri command
+ * Used for "jump to source" when log is outside truncated view
+ */
+export interface SearchLineResult {
+  success: boolean;
+  content?: string; // Context lines around the found line
+  lineNumber?: number; // 1-indexed line number where match was found
+  totalLines?: number; // Total lines in the file
+  error?: string; // Error message if failed
+}
+
 // ============================================================================
 // Filter Types
 // ============================================================================

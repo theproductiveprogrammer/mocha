@@ -6,7 +6,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import type { FileResult, RecentFile } from './types';
+import type { FileResult, RecentFile, SearchLineResult } from './types';
 
 /**
  * Check if running in Tauri context
@@ -135,5 +135,38 @@ export async function exportFile(path: string, content: string): Promise<boolean
   } catch (err) {
     console.error('exportFile error:', err);
     return false;
+  }
+}
+
+/**
+ * Search for a specific line in a file and return surrounding context
+ * Used for "jump to source" when the log is outside the truncated view (2000 lines)
+ *
+ * @param path - Full path to the file to search
+ * @param searchLine - The exact line content to search for
+ * @param contextLines - Number of lines to include before and after the match (default: 500)
+ * @returns SearchLineResult with context content and line number if found
+ */
+export async function searchFileForLine(
+  path: string,
+  searchLine: string,
+  contextLines: number = 500
+): Promise<SearchLineResult> {
+  if (!isTauri()) {
+    return { success: false, error: 'Not running in Tauri context' };
+  }
+
+  try {
+    const result = await invoke<SearchLineResult>('search_file_for_line', {
+      path,
+      searchLine,
+      contextLines,
+    });
+    return result;
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
