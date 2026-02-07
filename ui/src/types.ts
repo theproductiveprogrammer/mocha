@@ -248,7 +248,8 @@ export interface Story {
   name: string;
   entries: LogEntry[]; // Full log entries (independent of source files)
   createdAt: number;
-  manuallyAddedHashes: string[]; // Hashes of logs added manually (not streamed)
+  manuallyAddedHashes: string[]; // Hashes of logs added manually (not via auto-capture)
+  patterns: ParsedFilter[]; // Auto-capture patterns (text + regex)
 }
 
 /**
@@ -264,17 +265,20 @@ export interface StoryState {
   stories: Story[];
   activeStoryId: string | null;
   mainViewMode: MainViewMode;
-  streamingToStoryId: string | null; // ID of story currently streaming new logs
 
   // Story management
-  createStory: (name?: string) => string;
+  createStory: (name?: string, patterns?: ParsedFilter[]) => string;
   deleteStory: (id: string) => void;
   renameStory: (id: string, name: string) => void;
   setActiveStory: (id: string | null) => void;
 
+  // Pattern management
+  setStoryPatterns: (id: string, patterns: ParsedFilter[]) => void;
+
   // Log management (operates on active story) - now takes full LogEntry
   addToStory: (log: LogEntry) => void;
-  addLogsToStory: (logs: LogEntry[], storyId: string) => void; // Batch add for streaming
+  addLogsToStory: (logs: LogEntry[], storyId: string) => void; // Batch add
+  addLogsToMatchingStories: (logs: LogEntry[]) => void; // Auto-capture to all matching stories
   removeFromStory: (hash: string) => void;
   moveEntryToStory: (hash: string, toStoryId: string) => void; // Move entry to different logbook
   toggleStory: (log: LogEntry) => void;
@@ -283,9 +287,6 @@ export interface StoryState {
 
   // UI state
   setMainViewMode: (mode: MainViewMode) => void;
-
-  // Streaming control
-  setStreamingStory: (id: string | null) => void;
 
   // Helper to get hashes from active story (for highlighting in log viewer)
   getActiveStoryHashes: () => string[];
@@ -338,14 +339,9 @@ export interface SidebarProps {
   activeStoryId: string | null;
   mainViewMode: MainViewMode;
   onSelectLogbook: (id: string) => void;
-  onCreateLogbook: (name?: string) => void;
+  onCreateLogbook: (name?: string, patterns?: ParsedFilter[]) => void;
   onDeleteLogbook: (id: string) => void;
   onRenameLogbook: (id: string, name: string) => void;
-
-  // Streaming control
-  streamingToStoryId: string | null;
-  streamingBufferCount: number;
-  onToggleStreaming: (id: string) => void;
 
   // Theme
   theme: ThemeName;

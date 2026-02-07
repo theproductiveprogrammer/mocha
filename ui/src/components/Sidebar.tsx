@@ -15,7 +15,6 @@ import {
   Moon,
   Sun,
   Monitor,
-  Radio,
 } from "lucide-react";
 import type {
   SidebarProps,
@@ -23,7 +22,9 @@ import type {
   OpenedFileWithLogs,
   Story,
   ThemeName,
+  ParsedFilter,
 } from "../types";
+import { PatternManager } from "./PatternManager";
 
 /**
  * Theme definitions for the selector
@@ -269,12 +270,9 @@ interface LogbookItemProps {
   story: Story;
   isActive: boolean;
   isSelected: boolean;
-  isStreaming: boolean;
-  streamingBufferCount: number;
   onClick: () => void;
   onDelete: () => void;
   onRename: (name: string) => void;
-  onToggleStreaming: () => void;
   index: number;
   isCollapsed: boolean;
 }
@@ -283,12 +281,9 @@ const LogbookItem = memo(function LogbookItem({
   story,
   isActive,
   isSelected,
-  isStreaming,
-  streamingBufferCount,
   onClick,
   onDelete,
   onRename,
-  onToggleStreaming,
   index,
   isCollapsed,
 }: LogbookItemProps) {
@@ -337,13 +332,7 @@ const LogbookItem = memo(function LogbookItem({
     [onDelete],
   );
 
-  const handleToggleStreaming = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onToggleStreaming();
-    },
-    [onToggleStreaming],
-  );
+  const hasPatterns = (story.patterns?.length ?? 0) > 0;
 
   // Collapsed view - just the icon
   // isSelected = viewing this logbook (striking highlight)
@@ -371,7 +360,7 @@ const LogbookItem = memo(function LogbookItem({
               : "1px solid var(--mocha-border)",
             opacity: isInactiveCollapsed ? 0.85 : 1,
           }}
-          title={`${story.name} (${story.entries.length} entries)`}
+          title={`${story.name} (${story.entries.length} entries)${!hasPatterns ? " • No patterns" : ""}`}
         >
           <BookOpen
             className="w-4 h-4"
@@ -383,8 +372,7 @@ const LogbookItem = memo(function LogbookItem({
                   : "var(--mocha-text-muted)",
             }}
           />
-          {(story.entries.length > 0 ||
-            (isStreaming && streamingBufferCount > 0)) && (
+          {story.entries.length > 0 && (
             <span
               className={`absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full text-[9px] font-bold flex items-center justify-center px-1 ${badgePulsing ? "animate-badge-pulse" : ""}`}
               style={{
@@ -394,18 +382,8 @@ const LogbookItem = memo(function LogbookItem({
                 color: "var(--mocha-bg)",
               }}
             >
-              {isStreaming ? streamingBufferCount : story.entries.length}
+              {story.entries.length}
             </span>
-          )}
-          {/* Streaming indicator - pulsing ring */}
-          {isStreaming && (
-            <div
-              className="absolute inset-0 rounded-lg animate-pulse pointer-events-none"
-              style={{
-                border: "2px solid var(--mocha-accent)",
-                opacity: 0.7,
-              }}
-            />
           )}
         </button>
       </div>
@@ -504,78 +482,39 @@ const LogbookItem = memo(function LogbookItem({
             </div>
           )}
           <div
-            className="text-xs mt-0.5"
+            className="text-xs mt-0.5 flex items-center gap-1.5"
             style={{ color: "var(--mocha-text-faint)" }}
           >
-            {isStreaming && streamingBufferCount > 0 ? (
-              <span style={{ color: "var(--mocha-accent)" }}>
-                {streamingBufferCount} gathering...
+            <span>
+              {story.entries.length}{" "}
+              {story.entries.length === 1 ? "entry" : "entries"}
+            </span>
+            {/* No-patterns marker */}
+            {!hasPatterns && (
+              <span
+                title="No auto-capture patterns"
+                style={{ color: "var(--mocha-text-muted)", opacity: 0.5 }}
+              >
+                ∅
               </span>
-            ) : (
-              <>
-                {story.entries.length}{" "}
-                {story.entries.length === 1 ? "entry" : "entries"}
-              </>
             )}
           </div>
         </div>
 
-        {/* Streaming toggle button */}
-        {!isEditing && (
-          <button
-            onClick={handleToggleStreaming}
-            className={`relative w-7 h-7 rounded-md flex items-center justify-center shrink-0 transition-all duration-200 ${
-              isStreaming || isHovered ? "opacity-100" : "opacity-0"
-            }`}
-            style={{
-              background: isStreaming
-                ? "var(--mocha-accent-muted)"
-                : "var(--mocha-surface-hover)",
-              color: isStreaming
-                ? "var(--mocha-accent)"
-                : "var(--mocha-text-muted)",
-            }}
-            title={
-              isStreaming
-                ? "Stop streaming logs"
-                : "Stream new logs to this logbook"
-            }
-          >
-            <Radio className="w-3.5 h-3.5" />
-            {/* Pulsing ring when streaming */}
-            {isStreaming && (
-              <div
-                className="absolute inset-0 rounded-md animate-ping pointer-events-none"
-                style={{
-                  background: "var(--mocha-accent)",
-                  opacity: 0.3,
-                }}
-              />
-            )}
-          </button>
-        )}
-
         {/* Entry count badge */}
-        {(story.entries.length > 0 ||
-          (isStreaming && streamingBufferCount > 0)) && (
+        {story.entries.length > 0 && (
           <span
             className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${badgePulsing ? "animate-badge-pulse" : ""}`}
             style={{
-              background:
-                isStreaming && streamingBufferCount > 0
-                  ? "var(--mocha-accent-muted)"
-                  : isActive
-                    ? "var(--mocha-accent-muted)"
-                    : "var(--mocha-surface-hover)",
-              color:
-                isStreaming && streamingBufferCount > 0
-                  ? "var(--mocha-accent)"
-                  : isActive
-                    ? "var(--mocha-accent)"
-                    : "var(--mocha-text-muted)",
+              background: isActive
+                ? "var(--mocha-accent-muted)"
+                : "var(--mocha-surface-hover)",
+              color: isActive
+                ? "var(--mocha-accent)"
+                : "var(--mocha-text-muted)",
             }}
           >
-            {isStreaming ? streamingBufferCount : story.entries.length}
+            {story.entries.length}
           </span>
         )}
 
@@ -621,6 +560,136 @@ const LogbookItem = memo(function LogbookItem({
 });
 
 /**
+ * Dialog for creating a new logbook with name and optional patterns
+ */
+function CreateLogbookDialog({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (name?: string, patterns?: ParsedFilter[]) => void;
+}) {
+  const [name, setName] = useState("");
+  const [patterns, setPatterns] = useState<ParsedFilter[]>([]);
+
+  const handleCreate = useCallback(() => {
+    onCreate(name.trim() || undefined, patterns.length > 0 ? patterns : undefined);
+    onClose();
+  }, [name, patterns, onCreate, onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
+      style={{ background: "rgba(0, 0, 0, 0.6)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="w-[380px] rounded-2xl p-5 animate-scale-in"
+        style={{
+          background: "var(--mocha-surface)",
+          border: "1px solid var(--mocha-border)",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+        }}
+      >
+        <h2
+          className="text-sm font-semibold mb-4 font-display"
+          style={{ color: "var(--mocha-text)" }}
+        >
+          New Logbook
+        </h2>
+
+        {/* Name input */}
+        <div className="mb-4">
+          <label
+            className="block text-[10px] font-semibold uppercase tracking-widest mb-1.5"
+            style={{ color: "var(--mocha-text-muted)" }}
+          >
+            Name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleCreate();
+              }
+              if (e.key === "Escape") onClose();
+            }}
+            placeholder="e.g. Payment Errors"
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-all duration-200"
+            style={{
+              background: "var(--mocha-surface-raised)",
+              border: "1px solid var(--mocha-border)",
+              color: "var(--mocha-text)",
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = "var(--mocha-accent)";
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = "var(--mocha-border)";
+            }}
+            autoFocus
+          />
+        </div>
+
+        {/* Patterns */}
+        <div className="mb-5">
+          <label
+            className="block text-[10px] font-semibold uppercase tracking-widest mb-1.5"
+            style={{ color: "var(--mocha-text-muted)" }}
+          >
+            Auto-capture patterns
+            <span className="normal-case tracking-normal font-normal ml-1" style={{ opacity: 0.6 }}>
+              (optional)
+            </span>
+          </label>
+
+          <PatternManager
+            patterns={patterns}
+            onPatternsChange={setPatterns}
+            compact
+          />
+          <p
+            className="text-[10px] mt-1.5"
+            style={{ color: "var(--mocha-text-muted)", opacity: 0.6 }}
+          >
+            New matching logs will be auto-captured into this logbook.
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg text-xs font-medium transition-all"
+            style={{
+              color: "var(--mocha-text-muted)",
+              background: "var(--mocha-surface-hover)",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCreate}
+            className="px-4 py-2 rounded-lg text-xs font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+            style={{
+              background: "var(--mocha-accent)",
+              color: "var(--mocha-bg)",
+            }}
+          >
+            Create
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Sidebar component - refined control panel with collapse support
  */
 export const Sidebar = memo(function Sidebar({
@@ -639,10 +708,6 @@ export const Sidebar = memo(function Sidebar({
   onCreateLogbook,
   onDeleteLogbook,
   onRenameLogbook,
-  // Streaming control
-  streamingToStoryId,
-  streamingBufferCount,
-  onToggleStreaming,
   // Theme
   theme,
   onThemeChange,
@@ -657,6 +722,9 @@ export const Sidebar = memo(function Sidebar({
   // Section collapse states
   const [logbooksExpanded, setLogbooksExpanded] = useState(true);
   const [filesExpanded, setFilesExpanded] = useState(true);
+
+  // Create logbook dialog
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   // Sort recent files alphabetically by name
   const sortedRecentFiles = useMemo(
@@ -821,7 +889,7 @@ export const Sidebar = memo(function Sidebar({
                 Logbooks
               </button>
               <button
-                onClick={() => onCreateLogbook()}
+                onClick={() => setShowCreateDialog(true)}
                 className="p-1.5 rounded-md transition-all duration-200"
                 style={{ color: "var(--mocha-text-muted)" }}
                 onMouseEnter={(e) => {
@@ -844,7 +912,7 @@ export const Sidebar = memo(function Sidebar({
           {isCollapsed && (
             <div className="px-2 pt-4 pb-2">
               <button
-                onClick={() => onCreateLogbook()}
+                onClick={() => setShowCreateDialog(true)}
                 className="w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 mx-auto"
                 style={{
                   background: "var(--mocha-surface-raised)",
@@ -883,14 +951,9 @@ export const Sidebar = memo(function Sidebar({
                   isSelected={
                     story.id === activeStoryId && mainViewMode === "logbook"
                   }
-                  isStreaming={streamingToStoryId === story.id}
-                  streamingBufferCount={
-                    streamingToStoryId === story.id ? streamingBufferCount : 0
-                  }
                   onClick={() => onSelectLogbook(story.id)}
                   onDelete={() => onDeleteLogbook(story.id)}
                   onRename={(name) => onRenameLogbook(story.id, name)}
-                  onToggleStreaming={() => onToggleStreaming(story.id)}
                   index={index}
                   isCollapsed={isCollapsed}
                 />
@@ -1137,6 +1200,15 @@ export const Sidebar = memo(function Sidebar({
           })()}
         </div>
       </div>
+      {/* Create logbook dialog */}
+      {showCreateDialog && (
+        <CreateLogbookDialog
+          onClose={() => setShowCreateDialog(false)}
+          onCreate={(name, patterns) => {
+            onCreateLogbook(name, patterns);
+          }}
+        />
+      )}
     </aside>
   );
 });

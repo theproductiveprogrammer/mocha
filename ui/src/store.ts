@@ -200,6 +200,20 @@ function generateStoryId(): string {
 }
 
 /**
+ * Get all currently loaded logs from the file store.
+ * Used to scan existing logs when patterns change.
+ * Lazily accesses useFileStore to avoid circular init issues.
+ */
+function getAllLoadedLogs(): LogEntry[] {
+  const fileState = useFileStore.getState();
+  const allLogs: LogEntry[] = [];
+  fileState.openedFiles.forEach((file) => {
+    allLogs.push(...file.logs);
+  });
+  return allLogs;
+}
+
+/**
  * Store for managing multiple stories (notebooks) of curated log lines.
  *
  * Features:
@@ -217,11 +231,10 @@ export const useStoryStore = create<StoryState>()(
       stories: [],
       activeStoryId: null,
       mainViewMode: "logs" as const,
-      streamingToStoryId: null,
 
       // Story management
 
-      createStory: (name?: string) => {
+      createStory: (name?: string, patterns?: ParsedFilter[]) => {
         const id = generateStoryId();
         const { stories } = get();
         // Find the next available number by checking existing "Logbook N" names
@@ -238,26 +251,36 @@ export const useStoryStore = create<StoryState>()(
         const newStory: Story = {
           id,
           name: name || `Logbook ${storyNumber}`,
-          entries: [], // Store full log entries
+          entries: [],
           createdAt: Date.now(),
-          manuallyAddedHashes: [], // Track manually added logs for differentiated highlighting
+          manuallyAddedHashes: [],
+          patterns: patterns || [],
         };
         set({
           stories: [...stories, newStory],
           activeStoryId: id,
         });
+
+        // If patterns were provided, scan already-loaded logs for matches
+        if (patterns && patterns.length > 0) {
+          setTimeout(() => {
+            const allLogs = getAllLoadedLogs();
+            if (allLogs.length > 0) {
+              get().addLogsToMatchingStories(allLogs);
+            }
+          }, 0);
+        }
+
         return id;
       },
 
       deleteStory: (id: string) => {
-        const { stories, activeStoryId, streamingToStoryId } = get();
+        const { stories, activeStoryId } = get();
         const newStories = stories.filter((s) => s.id !== id);
         set({
           stories: newStories,
           activeStoryId:
             activeStoryId === id ? newStories[0]?.id || null : activeStoryId,
-          // Stop streaming if the deleted story was being streamed
-          streamingToStoryId: streamingToStoryId === id ? null : streamingToStoryId,
         });
       },
 
@@ -269,14 +292,27 @@ export const useStoryStore = create<StoryState>()(
       },
 
       setActiveStory: (id: string | null) => {
-        // Stop streaming when switching to a different logbook (atomic update)
-        set((state) => ({
-          activeStoryId: id,
-          streamingToStoryId:
-            state.streamingToStoryId && state.streamingToStoryId !== id
-              ? null
-              : state.streamingToStoryId,
-        }));
+        set({ activeStoryId: id });
+      },
+
+      // Pattern management
+      setStoryPatterns: (id: string, patterns: ParsedFilter[]) => {
+        const { stories } = get();
+        set({
+          stories: stories.map((s) =>
+            s.id === id ? { ...s, patterns } : s,
+          ),
+        });
+
+        // Scan already-loaded logs for matches against updated patterns
+        if (patterns.length > 0) {
+          setTimeout(() => {
+            const allLogs = getAllLoadedLogs();
+            if (allLogs.length > 0) {
+              get().addLogsToMatchingStories(allLogs);
+            }
+          }, 0);
+        }
       },
 
       // Log management (operates on active story) - stores full LogEntry
@@ -308,8 +344,48 @@ export const useStoryStore = create<StoryState>()(
         });
       },
 
-      // Batch add logs to a specific story (for streaming)
-      // This is more efficient than calling addToStory repeatedly
+      // Auto-capture: check new logs against all stories' patterns
+      addLogsToMatchingStories: (logs: LogEntry[]) => {
+        if (logs.length === 0) return;
+        const { stories } = get();
+
+        let anyUpdated = false;
+        const updatedStories = stories.map((story) => {
+          // Skip if no patterns
+          if (!story.patterns || story.patterns.length === 0) return story;
+
+          const existingHashes = new Set(
+            story.entries.map((e) => e.hash).filter(Boolean),
+          );
+
+          // Only include text and regex patterns (no exclude)
+          const includePatterns = story.patterns.filter(
+            (p) => p.type === "text" || p.type === "regex",
+          );
+          if (includePatterns.length === 0) return story;
+
+          const matchingLogs = logs.filter((log) => {
+            if (!log.hash || existingHashes.has(log.hash)) return false;
+            return includePatterns.some((pattern) =>
+              matchesFilter(log, pattern),
+            );
+          });
+
+          if (matchingLogs.length === 0) return story;
+
+          anyUpdated = true;
+          return {
+            ...story,
+            entries: [...story.entries, ...matchingLogs],
+          };
+        });
+
+        if (anyUpdated) {
+          set({ stories: updatedStories });
+        }
+      },
+
+      // Batch add logs to a specific story
       addLogsToStory: (logs: LogEntry[], storyId: string) => {
         if (logs.length === 0) return;
         const { stories } = get();
@@ -454,11 +530,6 @@ export const useStoryStore = create<StoryState>()(
         set({ mainViewMode: mode });
       },
 
-      // Streaming control
-      setStreamingStory: (id: string | null) => {
-        set({ streamingToStoryId: id });
-      },
-
       // Helper to get hashes from active story (for highlighting in log viewer)
       getActiveStoryHashes: () => {
         const { stories, activeStoryId } = get();
@@ -473,19 +544,15 @@ export const useStoryStore = create<StoryState>()(
     {
       name: "mocha-stories",
       storage: createJSONStorage(() => localStorage),
-      // Don't persist mainViewMode or streamingToStoryId - always start fresh
+      // Don't persist mainViewMode - always start with 'logs'
       partialize: (state) => ({
         stories: state.stories,
         activeStoryId: state.activeStoryId,
-        // mainViewMode intentionally excluded - always start with 'logs'
-        // streamingToStoryId intentionally excluded - never persist streaming state
       }),
-      // Force mainViewMode to 'logs' and streamingToStoryId to null on hydration
       merge: (persistedState, currentState) => ({
         ...currentState,
         ...(persistedState as Partial<StoryState>),
         mainViewMode: "logs" as const,
-        streamingToStoryId: null,
       }),
     },
   ),

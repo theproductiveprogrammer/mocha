@@ -22,6 +22,8 @@ import type { LogEntry, LogToken, Story } from "../types";
 import { tokenizeContent } from "../parser";
 import { getServiceName } from "./LogLine";
 import { deepParseJsonStrings } from "../utils/jsonParser";
+import { PatternManager } from "./PatternManager";
+import { useStoryStore } from "../store";
 
 /**
  * Format a timestamp for display in time period dividers
@@ -1418,6 +1420,22 @@ export function LogbookView({
             <X className="w-4 h-4" />
           </button>
         </div>
+      </div>
+
+      {/* Pattern manager */}
+      <div
+        className="shrink-0 px-6 py-3"
+        style={{
+          background: "var(--mocha-surface)",
+          borderBottom: "1px solid var(--mocha-border-subtle)",
+        }}
+      >
+        <PatternManager
+          patterns={story.patterns || []}
+          onPatternsChange={(patterns) => {
+            useStoryStore.getState().setStoryPatterns(story.id, patterns);
+          }}
+        />
       </div>
 
       {/* Content */}

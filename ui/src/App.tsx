@@ -52,7 +52,6 @@ function App() {
     stories,
     activeStoryId,
     mainViewMode,
-    streamingToStoryId,
     createStory,
     deleteStory,
     renameStory,
@@ -61,14 +60,7 @@ function App() {
     removeFromStory,
     moveEntryToStory,
     setMainViewMode,
-    setStreamingStory,
-    addLogsToStory,
   } = useStoryStore();
-
-  // Buffer for streaming logs - we collect them here and add to story when streaming stops
-  // This prevents constant re-renders of the LogViewer during streaming
-  const streamingBufferRef = useRef<LogEntry[]>([]);
-  const [streamingBufferCount, setStreamingBufferCount] = useState(0);
 
   // Get active story
   const activeStory = useMemo(
@@ -372,6 +364,11 @@ function App() {
           };
           openFile(newFile);
 
+          // Scan loaded logs against logbook patterns (covers initial open + restore)
+          if (parsed.logs.length > 0) {
+            useStoryStore.getState().addLogsToMatchingStories(parsed.logs);
+          }
+
           // Show toast and highlight sidebar
           const lineCount = parsed.logs.length;
           useToastStore
@@ -590,6 +587,11 @@ function App() {
           };
           openFile(newFile);
 
+          // Scan loaded logs against logbook patterns
+          if (parsed.logs.length > 0) {
+            useStoryStore.getState().addLogsToMatchingStories(parsed.logs);
+          }
+
           setTimeout(() => {
             addRecentFileToStore({
               path: file.name,
@@ -699,42 +701,6 @@ function App() {
     [removeRecentFile, recentFiles],
   );
 
-  // Toggle streaming logs to a logbook
-  const handleToggleStreaming = useCallback(
-    (storyId: string) => {
-      const isCurrentlyStreaming = streamingToStoryId === storyId;
-      if (isCurrentlyStreaming) {
-        // Stop streaming - flush buffered logs to story
-        // Atomic swap: clear buffer immediately to prevent race with polling interval
-        const bufferedLogs = streamingBufferRef.current;
-        streamingBufferRef.current = [];
-        setStreamingBufferCount(0);
-        if (bufferedLogs.length > 0) {
-          addLogsToStory(bufferedLogs, storyId);
-        }
-        setStreamingStory(null);
-        const story = stories.find((s) => s.id === storyId);
-        const logCount = bufferedLogs.length;
-        useToastStore
-          .getState()
-          .addToast(
-            "removed",
-            `Stopped streaming to ${story?.name || "logbook"}${logCount > 0 ? ` (${logCount} logs added)` : ""}`,
-          );
-      } else {
-        // Start streaming - clear buffer
-        streamingBufferRef.current = [];
-        setStreamingBufferCount(0);
-        setStreamingStory(storyId);
-        const story = stories.find((s) => s.id === storyId);
-        useToastStore
-          .getState()
-          .addToast("added", `Streaming logs to ${story?.name || "logbook"}`);
-      }
-    },
-    [streamingToStoryId, setStreamingStory, stories, addLogsToStory],
-  );
-
   // Polling effect for open files
   // Note: We get fresh state inside the callback to avoid stale closure issues
   // that could cause lines to be skipped or duplicated
@@ -774,11 +740,9 @@ function App() {
                 mtime: result.mtime,
               });
             }
-            // Buffer new logs for streaming (will be added when streaming stops)
-            const streamingId = useStoryStore.getState().streamingToStoryId;
-            if (streamingId && newLines.logs.length > 0) {
-              streamingBufferRef.current.push(...newLines.logs);
-              setStreamingBufferCount(streamingBufferRef.current.length);
+            // Auto-capture to logbooks with matching patterns
+            if (newLines.logs.length > 0) {
+              useStoryStore.getState().addLogsToMatchingStories(newLines.logs);
             }
           } else if (result.content && newSize > file.lastModified) {
             // Normal append - file grew
@@ -787,11 +751,9 @@ function App() {
             useFileStore
               .getState()
               .appendFileLogs(file.path, newLines.logs, newSize);
-            // Buffer new logs for streaming (will be added when streaming stops)
-            const streamingId = useStoryStore.getState().streamingToStoryId;
-            if (streamingId && newLines.logs.length > 0) {
-              streamingBufferRef.current.push(...newLines.logs);
-              setStreamingBufferCount(streamingBufferRef.current.length);
+            // Auto-capture to logbooks with matching patterns
+            if (newLines.logs.length > 0) {
+              useStoryStore.getState().addLogsToMatchingStories(newLines.logs);
             }
           }
         } catch (err) {
@@ -838,10 +800,6 @@ function App() {
         onCreateLogbook={createStory}
         onDeleteLogbook={deleteStory}
         onRenameLogbook={renameStory}
-        // Streaming control
-        streamingToStoryId={streamingToStoryId}
-        streamingBufferCount={streamingBufferCount}
-        onToggleStreaming={handleToggleStreaming}
         // Theme
         theme={theme}
         onThemeChange={setTheme}
