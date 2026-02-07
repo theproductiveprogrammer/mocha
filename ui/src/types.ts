@@ -250,6 +250,7 @@ export interface Story {
   createdAt: number;
   manuallyAddedHashes: string[]; // Hashes of logs added manually (not via auto-capture)
   patterns: ParsedFilter[]; // Auto-capture patterns (text + regex)
+  minimizedHashes: string[]; // Hashes hidden by user (stay in entries to prevent re-capture, but hidden from view)
 }
 
 /**
@@ -280,6 +281,8 @@ export interface StoryState {
   addLogsToStory: (logs: LogEntry[], storyId: string) => void; // Batch add
   addLogsToMatchingStories: (logs: LogEntry[]) => void; // Auto-capture to all matching stories
   removeFromStory: (hash: string) => void;
+  minimizeInStory: (hash: string) => void; // Hide entry but keep in entries to prevent re-capture
+  restoreInStory: (hash: string) => void; // Un-minimize an entry
   moveEntryToStory: (hash: string, toStoryId: string) => void; // Move entry to different logbook
   toggleStory: (log: LogEntry) => void;
   clearStory: () => void;

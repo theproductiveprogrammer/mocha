@@ -13,6 +13,7 @@ import {
   Download,
   Clock,
   ArrowRightLeft,
+  ChevronDown,
 } from "lucide-react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { exportFile } from "../api";
@@ -273,7 +274,7 @@ interface LogbookViewProps {
   story: Story | null;
   allStories: Story[]; // All stories for "Move to" feature
   onClose: () => void;
-  onRemoveFromStory: (hash: string) => void;
+  onRemoveFromStory?: (hash: string) => void;
   onMoveToStory: (hash: string, toStoryId: string) => void;
   onDeleteStory: () => void;
   onRenameStory: (id: string, name: string) => void;
@@ -896,7 +897,6 @@ export function LogbookView({
   story,
   allStories,
   onClose,
-  onRemoveFromStory,
   onMoveToStory,
   onDeleteStory,
   onRenameStory,
@@ -924,38 +924,63 @@ export function LogbookView({
   const scrolledToInitialHash = useRef(false);
 
   // Sort logs by timestamp descending (newest first) to match the log stream view
+  // Filter out minimized entries
+  const minimizedSet = useMemo(
+    () => new Set(story?.minimizedHashes || []),
+    [story?.minimizedHashes],
+  );
+
   const storyLogs = useMemo(() => {
-    const entries = story?.entries || [];
+    const entries = (story?.entries || []).filter(
+      (e) => !e.hash || !minimizedSet.has(e.hash),
+    );
     return [...entries].sort((a, b) => {
       const timestampDiff = (b.timestamp ?? 0) - (a.timestamp ?? 0);
       if (timestampDiff !== 0) return timestampDiff;
       return (b.sortIndex ?? 0) - (a.sortIndex ?? 0);
     });
-  }, [story?.entries]);
+  }, [story?.entries, minimizedSet]);
+
+  const minimizedCount = minimizedSet.size;
+  const [showMinimized, setShowMinimized] = useState(false);
+
+  // Minimized entries (for restore view)
+  const minimizedLogs = useMemo(() => {
+    if (!showMinimized) return [];
+    const entries = (story?.entries || []).filter(
+      (e) => e.hash && minimizedSet.has(e.hash),
+    );
+    return [...entries].sort((a, b) => {
+      const timestampDiff = (b.timestamp ?? 0) - (a.timestamp ?? 0);
+      if (timestampDiff !== 0) return timestampDiff;
+      return (b.sortIndex ?? 0) - (a.sortIndex ?? 0);
+    });
+  }, [story?.entries, minimizedSet, showMinimized]);
 
   // Removing animation state
   const [removingHash, setRemovingHash] = useState<string | null>(null);
 
-  // Handle remove with scroll-then-remove animation
-  const handleRemove = useCallback(
+  // Handle minimize with animation
+  const handleMinimize = useCallback(
     (hash: string) => {
-      // First scroll to the card
       const card = cardRefs.current.get(hash);
       if (card) {
         card.scrollIntoView({ behavior: "smooth", block: "center" });
       }
 
-      // Set removing state for visual feedback
       setRemovingHash(hash);
 
-      // After delay, actually remove
       setTimeout(() => {
-        onRemoveFromStory(hash);
+        useStoryStore.getState().minimizeInStory(hash);
         setRemovingHash(null);
       }, 500);
     },
-    [onRemoveFromStory],
+    [],
   );
+
+  const handleRestore = useCallback((hash: string) => {
+    useStoryStore.getState().restoreInStory(hash);
+  }, []);
 
   // Update edit name when story changes
   useEffect(() => {
@@ -1500,7 +1525,7 @@ export function LogbookView({
                   <LogbookEvidenceCard
                     log={log}
                     index={index}
-                    onRemove={() => log.hash && handleRemove(log.hash)}
+                    onRemove={() => log.hash && handleMinimize(log.hash)}
                     onJumpToSource={
                       onJumpToSource && log.hash
                         ? () => onJumpToSource(log)
@@ -1526,6 +1551,69 @@ export function LogbookView({
                 </div>
               );
             })}
+
+            {/* Minimized entries indicator */}
+            {minimizedCount > 0 && (
+              <div className="mx-auto max-w-4xl mt-6 mb-2">
+                <button
+                  onClick={() => setShowMinimized(!showMinimized)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 hover:scale-[1.01]"
+                  style={{
+                    background: "var(--mocha-surface-hover)",
+                    border: "1px solid var(--mocha-border)",
+                    color: "var(--mocha-text-muted)",
+                  }}
+                >
+                  <span>{showMinimized ? "Hide" : "Show"} {minimizedCount} minimized {minimizedCount === 1 ? "entry" : "entries"}</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 transition-transform duration-200 ${showMinimized ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {showMinimized && (
+                  <div className="mt-3 space-y-2 opacity-60">
+                    {minimizedLogs.map((log, index) => (
+                      <div
+                        key={log.hash}
+                        className="relative mx-auto max-w-4xl rounded-xl overflow-hidden"
+                        style={{
+                          background: "var(--mocha-surface-hover)",
+                          border: "1px solid var(--mocha-border)",
+                        }}
+                      >
+                        <div className="flex items-center justify-between px-4 py-2.5">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span
+                              className="text-[10px] font-mono font-bold tabular-nums shrink-0"
+                              style={{ color: "var(--mocha-text-muted)" }}
+                            >
+                              {String(index + 1).padStart(2, "0")}
+                            </span>
+                            <span
+                              className="text-xs font-mono truncate"
+                              style={{ color: "var(--mocha-text-muted)" }}
+                            >
+                              {log.parsed?.content || log.data}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => log.hash && handleRestore(log.hash)}
+                            className="shrink-0 ml-3 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all hover:scale-105"
+                            style={{
+                              background: "var(--mocha-accent-muted)",
+                              color: "var(--mocha-accent)",
+                              border: "1px solid var(--mocha-accent)",
+                            }}
+                          >
+                            Restore
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

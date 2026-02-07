@@ -254,6 +254,7 @@ export const useStoryStore = create<StoryState>()(
           entries: [],
           createdAt: Date.now(),
           manuallyAddedHashes: [],
+          minimizedHashes: [],
           patterns: patterns || [],
         };
         set({
@@ -427,6 +428,43 @@ export const useStoryStore = create<StoryState>()(
                   manuallyAddedHashes: (s.manuallyAddedHashes || []).filter(
                     (h) => h !== hash,
                   ),
+                  minimizedHashes: (s.minimizedHashes || []).filter(
+                    (h) => h !== hash,
+                  ),
+                }
+              : s,
+          ),
+        });
+      },
+
+      minimizeInStory: (hash: string) => {
+        const { stories, activeStoryId } = get();
+        if (!activeStoryId) return;
+
+        set({
+          stories: stories.map((s) =>
+            s.id === activeStoryId
+              ? {
+                  ...s,
+                  minimizedHashes: [...(s.minimizedHashes || []), hash],
+                }
+              : s,
+          ),
+        });
+      },
+
+      restoreInStory: (hash: string) => {
+        const { stories, activeStoryId } = get();
+        if (!activeStoryId) return;
+
+        set({
+          stories: stories.map((s) =>
+            s.id === activeStoryId
+              ? {
+                  ...s,
+                  minimizedHashes: (s.minimizedHashes || []).filter(
+                    (h) => h !== hash,
+                  ),
                 }
               : s,
           ),
@@ -534,11 +572,11 @@ export const useStoryStore = create<StoryState>()(
       getActiveStoryHashes: () => {
         const { stories, activeStoryId } = get();
         const activeStory = stories.find((s) => s.id === activeStoryId);
-        return (
-          activeStory?.entries
-            .map((e) => e.hash)
-            .filter((h): h is string => !!h) || []
-        );
+        if (!activeStory) return [];
+        const minimized = new Set(activeStory.minimizedHashes || []);
+        return activeStory.entries
+          .map((e) => e.hash)
+          .filter((h): h is string => !!h && !minimized.has(h));
       },
     }),
     {
