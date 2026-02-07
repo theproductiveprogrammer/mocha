@@ -923,13 +923,13 @@ export function LogbookView({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const scrolledToInitialHash = useRef(false);
 
-  // Sort logs by timestamp ascending (chronological order, oldest first), then by sortIndex for stable ordering
+  // Sort logs by timestamp descending (newest first) to match the log stream view
   const storyLogs = useMemo(() => {
     const entries = story?.entries || [];
     return [...entries].sort((a, b) => {
-      const timestampDiff = (a.timestamp ?? 0) - (b.timestamp ?? 0);
+      const timestampDiff = (b.timestamp ?? 0) - (a.timestamp ?? 0);
       if (timestampDiff !== 0) return timestampDiff;
-      return (a.sortIndex ?? 0) - (b.sortIndex ?? 0);
+      return (b.sortIndex ?? 0) - (a.sortIndex ?? 0);
     });
   }, [story?.entries]);
 
