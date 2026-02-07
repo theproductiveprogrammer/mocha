@@ -496,6 +496,7 @@ export function LogViewer({
           data={displayedLogs}
           overscan={200}
           itemContent={itemContent}
+          computeItemKey={(index, log) => log.hash ?? `index-${index}`}
           onScroll={handleScroll}
           atTopStateChange={handleAtTopStateChange}
           style={{ flex: 1 }}
